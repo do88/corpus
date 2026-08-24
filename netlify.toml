@@ -1,0 +1,13 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Background functions are routed by their own `config.path` export. They live
+# under /jobs/* rather than /api/* so they can't collide with a Next route
+# handler of the same name.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

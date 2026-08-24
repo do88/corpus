@@ -1,3 +1,14 @@
+# pnpm blocks dependency build scripts by default. Approved here so a fresh
+# install works on a machine or CI runner without matching prebuilt binaries.
+# Both keys on purpose: pnpm 10 reads onlyBuiltDependencies, pnpm 11 renamed it
+# to allowBuilds. After changing this, run `pnpm install --force` once — pnpm
+# skips the build step on an install it considers up to date.
+onlyBuiltDependencies:
+  - sharp
+  - esbuild
+  - unrs-resolver
+
 allowBuilds:
-  sharp: false
-  unrs-resolver: false
+  sharp: true
+  esbuild: true
+  unrs-resolver: true
