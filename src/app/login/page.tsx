@@ -87,12 +87,12 @@ export default function Login() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
-            <CardTitle className="text-xl">Corpus</CardTitle>
-            <span aria-hidden className="flex items-center gap-[3px]">
-              <span className="size-1.5 rounded-full bg-mark-red" />
-              <span className="size-0 border-x-[3px] border-b-[5px] border-x-transparent border-b-mark-yellow" />
-              <span className="size-1.5 bg-mark-blue" />
-            </span>
+            <CardTitle className="text-2xl tracking-[-0.02em]">do.fit</CardTitle>
+            <span
+              aria-hidden
+              className="size-2 rounded-full"
+              style={{ background: "var(--accent-protein)" }}
+            />
           </div>
           <CardDescription>Photo, a sentence, macros.</CardDescription>
         </CardHeader>

@@ -80,15 +80,16 @@ export function TrendChart({
             <ReferenceLine
               key={r.label}
               y={r.value}
-              stroke={token("--bauhaus-red", "#b23")}
+              stroke={token("--ink-energy", "#a2670a")}
               strokeDasharray="3 3"
               label={{
                 value: r.label,
                 position: "insideTopRight",
                 fontSize: 10,
-                // The darkened token, not the vivid one: this is type on the
-                // page ground and has to clear 4.5:1.
-                fill: token("--bauhaus-red", "#b23"),
+                // The `ink` token, not the `accent` one: this is type on the
+                // card and has to clear 4.5:1, where the line itself only has
+                // to clear 3:1 as a graphic.
+                fill: token("--ink-energy", "#a2670a"),
               }}
             />
           ))}
@@ -99,9 +100,10 @@ export function TrendChart({
               dataKey={s.key}
               name={s.label}
               stroke={s.colour ?? "currentColor"}
-              strokeWidth={1.5}
+              strokeWidth={2}
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
           ))}
         </LineChart>
@@ -131,8 +133,7 @@ export function BarsChart({
           <XAxis dataKey={x} {...AXIS} minTickGap={16} />
           <YAxis {...AXIS} width={44} />
           <ChartTooltip unit={unit} />
-          {/* Square corners, deliberately — the whole page is square. */}
-          <Bar dataKey={y} fill="var(--foreground)" radius={0} />
+          <Bar dataKey={y} fill="var(--foreground)" radius={3} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -56,17 +56,30 @@ export function DayPicker({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" onClick={() => shift(-7)} aria-label="Previous week">
-          <ChevronLeft className="size-4" />
-        </Button>
+    // The chevrons flank the strip rather than sitting in a bar above it. The
+    // separate nav row duplicated what the discs already say, and two rows of
+    // date chrome above the day's actual figures is one row too many.
+    <div className="flex items-center gap-0.5">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => shift(-7)}
+        aria-label="Previous week"
+        className="tappable size-8 shrink-0 rounded-full text-muted-foreground"
+      >
+        <ChevronLeft className="size-4" />
+      </Button>
 
+      <div className="min-w-0 flex-1">
         <Popover>
           <PopoverTrigger
             render={
-              <Button variant="ghost" size="sm" className="gap-2 font-medium">
-                <CalendarDays className="size-4" aria-hidden />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mx-auto mb-0.5 flex h-6 gap-1.5 rounded-full px-2 text-xs font-medium text-muted-foreground"
+              >
+                <CalendarDays className="size-3.5" aria-hidden />
                 {formatHeading(day, today)}
               </Button>
             }
@@ -83,21 +96,19 @@ export function DayPicker({
           </PopoverContent>
         </Popover>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => shift(7)}
-          disabled={week[0] > today}
-          aria-label="Next week"
-        >
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
+      {/*
+        A day is a disc, not a cell — the shape iOS uses for dates, and it gives
+        the selected state somewhere solid to live. A logged day is filled in
+        its own tint; today is ringed rather than filled, so "where I am" and
+        "what I have done" never compete for the same visual.
+      */}
+        <div className="grid grid-cols-7 gap-0.5">
         {week.map((date) => {
           const selected = date === day;
           const future = date > today;
+          const isToday = date === today;
+          const hasLog = Boolean(logged[date]);
+
           return (
             <button
               key={date}
@@ -106,28 +117,42 @@ export function DayPicker({
               onClick={() => go(date)}
               aria-current={selected ? "date" : undefined}
               aria-label={longDate(date)}
-              className={`flex flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors disabled:opacity-30 ${
-                selected
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
+              className="tappable flex flex-col items-center gap-1 py-0.5 disabled:opacity-25"
             >
-              <span>{WEEKDAY.format(new Date(`${date}T12:00:00Z`)).charAt(0)}</span>
-              <span className="text-sm font-medium tabular-nums">{Number(date.slice(8))}</span>
+              <span className="text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                {WEEKDAY.format(new Date(`${date}T12:00:00Z`)).charAt(0)}
+              </span>
+
               <span
-                aria-hidden
-                className={`size-1 rounded-full ${
-                  logged[date]
-                    ? selected
-                      ? "bg-primary-foreground"
-                      : "bg-foreground"
-                    : "bg-transparent"
-                }`}
-              />
+                className="grid size-9 place-items-center rounded-full text-[0.9375rem] font-semibold tabular-nums transition-colors"
+                style={
+                  selected
+                    ? { background: "var(--ink-protein)", color: "oklch(0.99 0 0)" }
+                    : hasLog
+                      ? { background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)", color: "var(--ink-protein)" }
+                      : isToday
+                        ? { boxShadow: "inset 0 0 0 1.5px var(--rule)" }
+                        : undefined
+                }
+              >
+                {Number(date.slice(8))}
+              </span>
             </button>
           );
         })}
+        </div>
       </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => shift(7)}
+        disabled={week[0] > today}
+        aria-label="Next week"
+        className="tappable size-8 shrink-0 rounded-full text-muted-foreground"
+      >
+        <ChevronRight className="size-4" />
+      </Button>
     </div>
   );
 }

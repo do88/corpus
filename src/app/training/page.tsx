@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/page-header";
+import { AppHeader } from "@/components/app-header";
 import { getDashboardData } from "@/lib/training/dashboard";
 import { TrainingSections } from "@/components/training-sections";
 
@@ -26,10 +26,10 @@ export default async function Training() {
   const { headline } = data;
 
   return (
-    <main className="mx-auto w-full max-w-md px-5 pb-16 pt-8">
-      <PageHeader
-        current="training"
-        caption={`${headline.total_workouts} sessions · ${headline.first_date} to ${headline.last_date}`}
+    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-3">
+      <AppHeader
+        title="Training"
+        caption={`${headline.total_workouts} sessions since ${headline.first_date.slice(0, 4)}`}
       />
       <TrainingSections data={data} />
     </main>

@@ -23,9 +23,9 @@ import { MACROS, type Macro } from "@/lib/meal/schema";
 
 /** Confidence is the one thing colour is spent on. */
 const CONFIDENCE_MARK: Record<NonNullable<MealRow["confidence"]>, string> = {
-  low: "bg-mark-red",
-  medium: "bg-mark-yellow",
-  high: "bg-mark-blue",
+  low: "bg-destructive",
+  medium: "bg-accent-energy",
+  high: "bg-accent-protein",
 };
 
 export function MealEntry({
@@ -45,44 +45,73 @@ export function MealEntry({
     (meal.photo_path ? "Photo" : "Meal");
 
   return (
-    <li className="border-b last:border-b-0">
+    // Each meal is its own card. A divided list reads as a table; separate
+    // cards read as objects you can act on — which these are, since tapping one
+    // opens its numbers for correction.
+    <li className="surface overflow-hidden">
       <button
         type="button"
         onClick={() => setEditing((v) => !v)}
         disabled={meal.status === "pending"}
-        className="w-full rounded-md px-1 py-3 text-left transition-colors hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+        className="tappable w-full px-4 py-3.5 text-left disabled:opacity-100"
         aria-expanded={editing}
       >
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="text-sm leading-snug">{summary}</span>
-          <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 text-[0.9375rem] font-medium leading-snug">
+            {summary}
+          </span>
+          <span className="shrink-0 text-right">
             {meal.status === "analyzed" ? (
               <>
-                <span className="font-medium text-foreground">{meal.kcal}</span> ·{" "}
-                {meal.protein_g}g
+                <span className="text-[1.0625rem] font-bold tabular-nums tracking-[-0.02em]">
+                  {meal.kcal?.toLocaleString("en-GB")}
+                </span>
+                <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
               </>
             ) : meal.status === "failed" ? (
-              <Badge variant="destructive">failed</Badge>
+              <Badge variant="destructive" className="rounded-full">failed</Badge>
             ) : (
-              <span className="animate-pulse">analysing…</span>
+              <span className="text-xs text-muted-foreground animate-pulse">analysing…</span>
             )}
           </span>
         </div>
 
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+        {/*
+          Two lines, not one. Cramming the time, the protein, a badge and a
+          sentence of assumptions into a single flex row made the short items
+          wrap mid-word — "48g / protein" over two lines beside a truncated
+          sentence. The facts stay on the first line where they are scannable,
+          and the model's prose gets a line of its own to be cut off on.
+        */}
+        <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
           {meal.confidence && meal.status === "analyzed" && !meal.edited && (
             <span
               aria-label={`${meal.confidence} confidence`}
-              className={`size-2 shrink-0 rounded-full ${CONFIDENCE_MARK[meal.confidence]}`}
+              className={`size-1.5 shrink-0 rounded-full ${CONFIDENCE_MARK[meal.confidence]}`}
             />
           )}
-          <span>{formatTime(meal.logged_at)}</span>
-          {meal.edited && <Badge variant="secondary">corrected</Badge>}
-          {!meal.edited && meal.assumptions && (
-            <span className="truncate">{meal.assumptions}</span>
+          <span className="shrink-0 tabular-nums">{formatTime(meal.logged_at)}</span>
+          {meal.status === "analyzed" && meal.protein_g != null && (
+            <span
+              className="shrink-0 whitespace-nowrap font-medium tabular-nums"
+              style={{ color: "var(--ink-protein)" }}
+            >
+              {meal.protein_g}g protein
+            </span>
           )}
-          {meal.error && <span className="truncate text-destructive">{meal.error}</span>}
+          {meal.edited && (
+            <Badge variant="secondary" className="shrink-0 rounded-full">
+              corrected
+            </Badge>
+          )}
         </div>
+
+        {!meal.edited && meal.assumptions && meal.status === "analyzed" && (
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{meal.assumptions}</p>
+        )}
+        {meal.error && (
+          <p className="mt-1 line-clamp-2 text-xs text-destructive">{meal.error}</p>
+        )}
       </button>
 
       {editing && (

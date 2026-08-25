@@ -129,124 +129,141 @@
   }
 }
 /* ---------------------------------------------------------------------------
-   Swiss / Bauhaus overrides on shadcn's token contract.
+   do.fit — a native-feeling iOS surface.
 
-   Every component is shadcn/ui; this file is the whole of the theming. Nothing
-   is restyled per-component — change a value here and the entire app follows,
-   which is the point of using the library rather than hand-rolling.
+   The brief: sleek, tactile, close to a real iOS app. Where the previous
+   design was Swiss and deliberately flat — hairlines, no shadows, radius 0 —
+   this one is built on depth. Cards sit *above* the page rather than being
+   drawn onto it, and the whole hierarchy is carried by elevation and radius
+   instead of rules.
 
-   The design rules, in the order they matter:
+   The rules, in the order they matter:
 
-   1. The grid does the work. One column, flush left, quiet surfaces separated
-      by hairlines. A small radius rather than none: square corners fought the
-      library on every control, and the difference between 0 and 8px is the
-      difference between austere and simply calm.
-   2. One humanist typeface (Source Sans 3) at four sizes. Humanist rather than
-      grotesque because the open apertures stay legible at 11px, which is where
-      the labels live.
-   3. Near-black on warm paper, never pure black on pure white — #000 on #fff
-      vibrates on an OLED phone, which is the only screen this runs on.
-   4. Colour is information, not decoration. The three Bauhaus primaries carry
-      confidence: red low, yellow medium, blue high. Nothing else is coloured.
-      Every value here is checked by `pnpm design:contrast`, not eyeballed —
-      the poster yellow measured 1.8:1 as a dot on paper, which is invisible.
-   5. Numerals are tabular everywhere, so a changing figure doesn't reflow the
-      row it sits in.
-   6. Nothing is styled per-component. Every screen is shadcn/ui primitives,
-      and this file is the entire theme — the library handles focus rings,
-      disabled states and ARIA, which is exactly the sort of thing that is easy
-      to get subtly wrong by hand.
+   1. **Depth is the grid.** A soft, cool ground with white cards floating on
+      it. Two shadow layers per card: a tight contact shadow that grounds it,
+      and a wide ambient one that lifts it. One without the other reads as
+      either a sticker or a smudge.
+   2. **The system typeface.** `-apple-system` resolves to SF Pro on Apple
+      hardware, which is the single biggest thing that makes a web app stop
+      feeling like a web app. No webfont means no swap flash and no download.
+   3. **Generous radii.** 22px on cards, fully round on controls. iOS radii are
+      larger than web instincts suggest, and being timid here is what makes a
+      page read as a website with rounded corners.
+   4. **Colour is per metric, not decorative.** Each figure owns a hue and
+      keeps it everywhere it appears — ring, value, icon. Amber for energy,
+      blue for protein, cyan for water, indigo for weight.
+   5. **Numerals are tabular**, so a changing figure never reflows its row.
+
+   Contrast is still measured, not eyeballed — `pnpm design:contrast` checks
+   every token in both themes. The palette changed; the discipline did not.
    --------------------------------------------------------------------------- */
 
 @theme inline {
-  /* Two sets on purpose. WCAG asks 4.5:1 of text and only 3:1 of a graphic, so
-     the poster primaries survive as marks but have to be darkened to be read as
-     type. One token trying to do both ends up too dark to be Bauhaus and too
-     light to be legible. */
-  --color-bauhaus-red: var(--bauhaus-red);
-  --color-bauhaus-blue: var(--bauhaus-blue);
-  --color-bauhaus-yellow: var(--bauhaus-yellow);
-  --color-mark-red: var(--mark-red);
-  --color-mark-blue: var(--mark-blue);
-  --color-mark-yellow: var(--mark-yellow);
+  --color-accent-energy: var(--accent-energy);
+  --color-accent-protein: var(--accent-protein);
+  --color-accent-water: var(--accent-water);
+  --color-accent-weight: var(--accent-weight);
+  --color-ink-energy: var(--ink-energy);
+  --color-ink-protein: var(--ink-protein);
+  --color-ink-water: var(--ink-water);
+  --color-ink-weight: var(--ink-weight);
   --color-rule: var(--rule);
+  --color-elevated: var(--elevated);
 }
 
 :root {
-  /* shadcn derives every other radius from this. 0.5rem is enough to soften a
-     control without rounding it into a pill. */
-  --radius: 0.5rem;
+  /* iOS corner radii are larger than web instinct. 1.375rem = 22px on cards. */
+  --radius: 1.375rem;
 
-  --background: oklch(0.985 0.004 90);      /* warm paper */
-  --foreground: oklch(0.18 0.006 280);      /* near-black ink */
+  /* Cool grouped-table grey, the iOS settings ground. */
+  --background: oklch(0.968 0.003 265);
+  --foreground: oklch(0.19 0.012 265);
+
+  /* Cards are pure white against that grey — the contrast *is* the elevation. */
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
+  --elevated: oklch(1 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.18 0.006 280);
-  --primary-foreground: oklch(0.985 0.004 90);
-  --secondary: oklch(0.94 0.004 90);
+  --primary: oklch(0.19 0.012 265);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.004 265);
   --secondary-foreground: var(--foreground);
-  --muted: oklch(0.94 0.004 90);
-  --muted-foreground: oklch(0.46 0.005 280);   /* 6.83:1 — measured */
-  --accent: oklch(0.94 0.004 90);
+  --muted: oklch(0.945 0.004 265);
+  --muted-foreground: oklch(0.505 0.012 265);   /* 5.71:1 — measured */
+  --accent: oklch(0.94 0.004 265);
   --accent-foreground: var(--foreground);
 
-  --rule: oklch(0.82 0.005 90);
-  --border: var(--rule);   /* one hairline weight, not two */
-  --input: oklch(0.82 0.005 90);
-  --ring: oklch(0.18 0.006 280);
+  /* Hairlines survive, but as separators inside cards rather than the layout. */
+  --rule: oklch(0.836 0.006 265);
+  --border: var(--rule);
+  --input: oklch(0.836 0.006 265);
+  --ring: oklch(0.62 0.19 256);
 
-  /* Darkened from the poster primaries so each one clears 4.5:1 as text on
-     paper. The undarkened hues are too light to read at 11px. */
-  --bauhaus-red: oklch(0.52 0.19 27);
-  --bauhaus-blue: oklch(0.45 0.17 258);
-  --bauhaus-yellow: oklch(0.55 0.12 78);
+  /* Ring and fill hues — vivid, used as graphics (3:1). */
+  --accent-energy: oklch(0.64 0.16 62);
+  --accent-protein: oklch(0.62 0.19 256);
+  --accent-water: oklch(0.615 0.13 220);
+  --accent-weight: oklch(0.58 0.20 285);
 
-  /* The poster hues, held as vivid as 3:1 on paper allows. Yellow is the one
-     that can't be: a poster yellow measures 1.8:1 here, so the mark is an ochre
-     rather than a primary. Measured, not eyeballed — see the contrast check in
-     the README. */
-  --mark-red: oklch(0.58 0.22 29);
-  --mark-blue: oklch(0.51 0.20 259);
-  --mark-yellow: oklch(0.66 0.14 79);
+  /* The same hues darkened for use as type (4.5:1). Same lesson as before:
+     one token cannot be both a vivid fill and a legible 11px label. */
+  --ink-energy: oklch(0.548 0.15 62);
+  --ink-protein: oklch(0.53 0.20 256);
+  --ink-water: oklch(0.53 0.12 220);
+  --ink-weight: oklch(0.50 0.21 285);
 
-  --destructive: var(--bauhaus-red);
+  --destructive: oklch(0.55 0.21 27);
+
+  /* Two layers: a tight contact shadow to ground the card, a wide ambient one
+     to lift it. Either alone reads as a sticker or a smudge. */
+  --shadow-card: 0 1px 2px oklch(0.19 0.012 265 / 0.05), 0 8px 24px -6px oklch(0.19 0.012 265 / 0.08);
+  --shadow-raised: 0 2px 6px oklch(0.19 0.012 265 / 0.07), 0 16px 40px -12px oklch(0.19 0.012 265 / 0.14);
+  --shadow-pressed: inset 0 1px 3px oklch(0.19 0.012 265 / 0.10);
 }
 
 .dark {
-  --background: oklch(0.16 0.005 280);
-  --foreground: oklch(0.94 0.004 90);
-  --card: oklch(0.20 0.005 280);
+  --background: oklch(0.155 0.008 265);
+  --foreground: oklch(0.96 0.003 265);
+
+  /* Dark mode inverts the trick: cards are *lighter* than the ground, since a
+     shadow cannot be seen against near-black. Elevation becomes luminance. */
+  --card: oklch(0.215 0.009 265);
   --card-foreground: var(--foreground);
-  --popover: oklch(0.23 0.005 280);
+  --elevated: oklch(0.245 0.010 265);
+  --popover: oklch(0.245 0.010 265);
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.94 0.004 90);
-  --primary-foreground: oklch(0.16 0.005 280);
-  --secondary: oklch(0.24 0.005 280);
+  --primary: oklch(0.96 0.003 265);
+  --primary-foreground: oklch(0.155 0.008 265);
+  --secondary: oklch(0.27 0.010 265);
   --secondary-foreground: var(--foreground);
-  --muted: oklch(0.24 0.005 280);
-  --muted-foreground: oklch(0.72 0.005 280);   /* 7.82:1 — measured */
-  --accent: oklch(0.24 0.005 280);
+  --muted: oklch(0.27 0.010 265);
+  --muted-foreground: oklch(0.72 0.012 265);   /* 7.24:1 — measured */
+  --accent: oklch(0.27 0.010 265);
   --accent-foreground: var(--foreground);
 
-  --rule: oklch(0.34 0.005 280);
+  --rule: oklch(0.32 0.010 265);
   --border: var(--rule);
-  --input: oklch(0.34 0.005 280);
-  --ring: oklch(0.94 0.004 90);
+  --input: oklch(0.34 0.010 265);
+  --ring: oklch(0.70 0.16 256);
 
-  /* Lightened rather than darkened — the same hues, re-tuned for a dark ground. */
-  --bauhaus-red: oklch(0.68 0.17 27);
-  --bauhaus-blue: oklch(0.70 0.14 254);
-  --bauhaus-yellow: oklch(0.82 0.14 85);
+  --accent-energy: oklch(0.76 0.16 62);
+  --accent-protein: oklch(0.70 0.16 256);
+  --accent-water: oklch(0.74 0.12 220);
+  --accent-weight: oklch(0.68 0.18 285);
 
-  --mark-red: oklch(0.62 0.21 29);
-  --mark-blue: oklch(0.60 0.19 258);
-  --mark-yellow: oklch(0.82 0.16 85);
+  --ink-energy: oklch(0.82 0.14 62);
+  --ink-protein: oklch(0.78 0.14 256);
+  --ink-water: oklch(0.80 0.10 220);
+  --ink-weight: oklch(0.76 0.15 285);
 
-  --destructive: var(--bauhaus-red);
+  --destructive: oklch(0.68 0.19 27);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.30), 0 8px 24px -6px oklch(0 0 0 / 0.40);
+  --shadow-raised: 0 2px 6px oklch(0 0 0 / 0.35), 0 16px 40px -12px oklch(0 0 0 / 0.50);
+  --shadow-pressed: inset 0 1px 3px oklch(0 0 0 / 0.35);
 }
 
 @layer base {
@@ -254,10 +271,81 @@
     /* Tabular figures everywhere: a number that changes must not move the
        text beside it. */
     font-feature-settings: "tnum" 1, "cv05" 1;
+    /* iOS bounces the whole document; this keeps the tab bar planted. */
+    overscroll-behavior-y: none;
   }
   body {
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* The grey is the app, not a strip behind it — matters when the PWA runs
+     standalone and the safe areas would otherwise show white. */
+  html, body {
+    background: var(--background);
   }
 }
 
+@layer components {
+  /**
+   * The card surface, used everywhere something floats.
+   *
+   * A near-invisible top-edge highlight rides above the shadow: it is what a
+   * physical surface catching the light does, and it is most of the difference
+   * between "rounded rectangle" and "object".
+   */
+  .surface {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+  .surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding-top: 1px;
+    background: linear-gradient(to bottom, oklch(1 0 0 / 0.9), transparent 40%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .dark .surface::before {
+    background: linear-gradient(to bottom, oklch(1 0 0 / 0.14), transparent 40%);
+  }
 
+  /**
+   * Frosted bars — the tab bar over scrolling content.
+   *
+   * 92% rather than the 78% this started at. The blur alone was not enough:
+   * text scrolling underneath stayed legible through the bar, which reads as a
+   * rendering fault rather than as translucency. iOS bars are much more opaque
+   * than they look — the blur is what sells the material, the opacity is what
+   * makes the bar a surface.
+   *
+   * `@supports` because without backdrop-filter the same 92% would show a
+   * moving smear of content; those browsers get a solid bar instead.
+   */
+  .frosted {
+    background: var(--background);
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .frosted {
+      background: color-mix(in oklch, var(--background) 92%, transparent);
+      backdrop-filter: saturate(180%) blur(24px);
+      -webkit-backdrop-filter: saturate(180%) blur(24px);
+    }
+  }
+
+  /** Anything tappable gets the iOS press response: quick, slight, physical. */
+  .tappable {
+    transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tappable:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+  }
+}

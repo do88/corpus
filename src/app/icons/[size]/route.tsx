@@ -8,8 +8,8 @@ import { ImageResponse } from "next/og";
  * points at `/icons/192` and `/icons/512`, and there is no binary in the repo
  * that can drift from the design.
  *
- * The mark is the same circle, triangle and square the header carries, on the
- * ink ground so it reads on any launcher wallpaper.
+ * The mark is the wordmark itself, with the dot of "do.fit" picked out in the
+ * app's blue, on an ink ground so it reads against any launcher wallpaper.
  */
 export const dynamic = "force-static";
 
@@ -20,7 +20,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
   if (!ALLOWED.has(size)) return new Response("Not found", { status: 404 });
 
   const px = Number(size);
-  const unit = px * 0.18;
 
   return new ImageResponse(
     (
@@ -31,23 +30,35 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: unit * 0.4,
-          background: "#26262b",
+          // The app's own blue on near-black, so the icon reads at 48px on a
+          // launcher without depending on the wallpaper behind it.
+          background: "#17181c",
         }}
       >
-        <div
-          style={{ width: unit, height: unit, borderRadius: "50%", background: "#d94a3d" }}
-        />
+        {/* The wordmark reduced to its one distinctive mark: the dot in
+            "do.fit". A glyph survives being 48px across; three shapes did not. */}
         <div
           style={{
-            width: 0,
-            height: 0,
-            borderLeft: `${unit / 2}px solid transparent`,
-            borderRight: `${unit / 2}px solid transparent`,
-            borderBottom: `${unit * 0.88}px solid #e8b23a`,
+            display: "flex",
+            alignItems: "baseline",
+            fontSize: px * 0.34,
+            fontWeight: 700,
+            letterSpacing: `${-px * 0.012}px`,
+            color: "#f2f3f7",
           }}
-        />
-        <div style={{ width: unit, height: unit, background: "#4a6fd4" }} />
+        >
+          do
+          <div
+            style={{
+              width: px * 0.07,
+              height: px * 0.07,
+              borderRadius: "50%",
+              background: "#4d8dfa",
+              margin: `0 ${px * 0.018}px`,
+            }}
+          />
+          fit
+        </div>
       </div>
     ),
     { width: px, height: px },

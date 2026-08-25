@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { CloudUpload } from "lucide-react";
+import { CloudUpload, Flame, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { MetricCard } from "@/components/metric-card";
 import { createClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/meal/format";
 import { DAILY_TARGET } from "@/lib/meals/targets";
@@ -157,6 +156,17 @@ export function Today({
   );
 }
 
+/**
+ * The day at a glance: two rings, and a line about what is still in flight.
+ *
+ * A grid rather than a stack, because two figures side by side are one glance
+ * and two stacked are two.
+ *
+ * Only two rings, though the reference design runs four cards. Rings are for
+ * figures with a target, and this app has exactly two of those. Carbs and fat
+ * are measured but untargeted so they read as plain numbers below; water and
+ * weight are not measured at all, so they are absent rather than mocked up.
+ */
 function Totals({
   totals,
   queued,
@@ -164,67 +174,71 @@ function Totals({
   totals: ReturnType<typeof totalsForDay>;
   queued: number;
 }) {
+  const inFlight = queued > 0 || totals.pending > 0 || totals.failed > 0;
+
   return (
-    <Card>
-      <CardContent className="space-y-5">
-        <Figure value={totals.kcal} target={DAILY_TARGET.kcal} label="kcal" large />
-        <Figure
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard
+          label="Calories"
+          icon={<Flame className="size-4" />}
+          value={totals.kcal}
+          target={DAILY_TARGET.kcal}
+          unit="kcal"
+          metric="energy"
+        />
+        <MetricCard
+          label="Protein"
+          icon={<Utensils className="size-4" />}
           value={totals.protein_g}
           target={DAILY_TARGET.protein_g}
-          label="protein"
-          suffix=" g"
+          unit="g"
+          metric="protein"
         />
-
-        {(queued > 0 || totals.pending > 0 || totals.failed > 0) && (
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {queued > 0 && (
-              <Badge variant="secondary">
-                <CloudUpload className="size-3" aria-hidden /> {queued} to send
-              </Badge>
-            )}
-            {totals.pending > 0 && <Badge variant="secondary">{totals.pending} analysing</Badge>}
-            {totals.failed > 0 && <Badge variant="destructive">{totals.failed} failed</Badge>}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/** A figure against its target. Over target is shown, not silently clamped. */
-function Figure({
-  value,
-  target,
-  label,
-  large = false,
-  suffix = "",
-}: {
-  value: number;
-  target: number;
-  label: string;
-  large?: boolean;
-  suffix?: string;
-}) {
-  const percent = target === 0 ? 0 : (value / target) * 100;
-  const over = percent > 100;
-
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4">
-        <span
-          className={`font-semibold tabular-nums ${large ? "text-4xl tracking-tight" : "text-2xl"}`}
-        >
-          {value.toLocaleString("en-GB")}
-          {suffix}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {label} of {target.toLocaleString("en-GB")}
-        </span>
       </div>
-      <Progress
-        value={Math.min(100, percent)}
-        className={`mt-2 h-1.5 ${over ? "[&>div]:bg-destructive" : ""}`}
-      />
+
+      {/*
+        Carbs and fat are measured but untargeted, so they get figures rather
+        than rings. A ring implies a goal, and drawing one against a number
+        nobody set would be decoration dressed as data — the same reason there
+        is no water or weight card here, however good four would look.
+      */}
+      <div className="surface flex items-center justify-around px-3.5 py-3">
+        {[
+          { label: "Carbs", value: totals.carbs_g },
+          { label: "Fat", value: totals.fat_g },
+        ].map((macro) => (
+          <div key={macro.label} className="text-center">
+            <div className="text-[1.0625rem] font-semibold tabular-nums">
+              {macro.value.toLocaleString("en-GB")}
+              <span className="ml-0.5 text-xs font-medium text-muted-foreground">g</span>
+            </div>
+            <div className="mt-0.5 text-[0.6875rem] uppercase tracking-[0.06em] text-muted-foreground">
+              {macro.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {inFlight && (
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          {queued > 0 && (
+            <Badge variant="secondary" className="rounded-full">
+              <CloudUpload className="size-3" aria-hidden /> {queued} to send
+            </Badge>
+          )}
+          {totals.pending > 0 && (
+            <Badge variant="secondary" className="rounded-full">
+              {totals.pending} analysing
+            </Badge>
+          )}
+          {totals.failed > 0 && (
+            <Badge variant="destructive" className="rounded-full">
+              {totals.failed} failed
+            </Badge>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -242,21 +256,24 @@ function MealList({
 }) {
   if (meals.length === 0 && queued.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
-        Nothing logged.
-      </p>
+      <div className="surface px-6 py-10 text-center">
+        <p className="text-[0.9375rem] font-medium">Nothing logged yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Say what you ate, or add a photo.
+        </p>
+      </div>
     );
   }
 
   return (
-    <ul>
+    <ul className="space-y-2.5">
       {queued.map((meal) => (
-        <li key={meal.clientId} className="border-b px-1 py-3">
+        <li key={meal.clientId} className="surface px-4 py-3.5">
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm leading-snug">
+            <span className="text-[0.9375rem] font-medium leading-snug">
               {meal.note || (meal.photo ? "Photo" : "Meal")}
             </span>
-            <Badge variant="secondary" className="shrink-0">
+            <Badge variant="secondary" className="shrink-0 rounded-full">
               <CloudUpload className="size-3" aria-hidden /> waiting
             </Badge>
           </div>

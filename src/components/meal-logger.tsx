@@ -135,7 +135,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
             width={72}
             height={72}
             unoptimized
-            className="size-18 rounded-md border object-cover"
+            className="size-18 rounded-2xl object-cover shadow-[var(--shadow-card)]"
           />
           <Button
             size="icon"
@@ -149,14 +149,19 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
         </div>
       )}
 
-      <div className="flex items-end gap-2">
+      {/*
+        One pill, iMessage-shaped: the field and its actions share a single
+        rounded container rather than sitting as separate controls in a row.
+        That is what makes it read as a composer instead of a form.
+      */}
+      <div className="surface flex items-end gap-1 p-1.5" style={{ borderRadius: 999 }}>
         <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="What did you eat?"
+          placeholder="e.g. 2 eggs and a slice of toast…"
           rows={1}
           aria-label="What did you eat?"
-          className="max-h-32 min-h-11 flex-1 resize-none py-2.5"
+          className="max-h-32 min-h-10 flex-1 resize-none border-0 bg-transparent px-3 py-2 shadow-none focus-visible:ring-0"
           onKeyDown={(e) => {
             // Enter sends, Shift+Enter makes a new line — the convention every
             // messaging app already taught everyone.
@@ -172,7 +177,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           variant="ghost"
           onClick={() => fileInput.current?.click()}
           aria-label="Add a photo"
-          className="size-11 shrink-0"
+          className="tappable size-10 shrink-0 rounded-full"
         >
           <Camera className="size-5" />
         </Button>
@@ -184,7 +189,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
             onClick={toggleDictation}
             aria-pressed={listening}
             aria-label={listening ? "Stop dictating" : "Dictate"}
-            className="size-11 shrink-0"
+            className="tappable size-10 shrink-0 rounded-full"
           >
             {listening ? <Square className="size-4" /> : <Mic className="size-5" />}
           </Button>
@@ -195,7 +200,8 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           onClick={save}
           disabled={busy || empty}
           aria-label="Log it"
-          className="size-11 shrink-0"
+          className="tappable size-10 shrink-0 rounded-full"
+          style={empty ? undefined : { background: "var(--ink-protein)" }}
         >
           <Send className="size-4" />
         </Button>

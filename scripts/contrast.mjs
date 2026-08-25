@@ -3,10 +3,15 @@
  *
  *     pnpm design:contrast
  *
- * This exists because the same bug has now happened twice: a colour picked for
- * how it looks as a poster primary, then used as a small mark or as type, where
- * it measures far below the threshold. The medium-confidence dot was 1.81:1 on
- * paper — visible on the designer's screen, invisible on a phone in daylight.
+ * This exists because the same bug has happened repeatedly: a colour picked for
+ * how it looks as a large fill, then used as a small mark or as type, where it
+ * measures far below the threshold. A medium-confidence dot once came in at
+ * 1.81:1 — visible on the designer's screen, invisible on a phone in daylight.
+ *
+ * The palette has since changed completely, from Bauhaus primaries to the
+ * per-metric hues do.fit uses. The check survived the redesign unchanged in
+ * spirit: every hue still exists twice, once vivid enough to read as a ring and
+ * once dark enough to read as a number.
  *
  * Text needs 4.5:1 and a meaningful graphic needs 3:1 — both from WCAG. Which
  * one applies is a property of how the token is *used*, so it is declared here
@@ -26,12 +31,16 @@ const CSS = path.join(import.meta.dirname, "..", "src", "app", "globals.css");
 const REQUIRED = {
   "--foreground": 4.5,
   "--muted-foreground": 4.5,
-  "--bauhaus-red": 4.5,
-  "--bauhaus-blue": 4.5,
-  "--bauhaus-yellow": 4.5,
-  "--mark-red": 3,
-  "--mark-blue": 3,
-  "--mark-yellow": 3,
+  // The per-metric hues, as *type* — a figure or a label.
+  "--ink-energy": 4.5,
+  "--ink-protein": 4.5,
+  "--ink-water": 4.5,
+  "--ink-weight": 4.5,
+  // The same hues as *graphics* — a ring, a fill, a dot. WCAG asks 3:1.
+  "--accent-energy": 3,
+  "--accent-protein": 3,
+  "--accent-water": 3,
+  "--accent-weight": 3,
   "--rule": 1.5,
   "--border": 1.5,
   "--input": 1.5,

@@ -107,7 +107,14 @@ function Strength({ data }: { data: DashboardData }) {
         series={strength.definitions.map((lift, index) => ({
           key: lift.key,
           label: lift.short,
-          colour: ["var(--foreground)", "var(--mark-red)", "var(--mark-blue)", "var(--mark-yellow)"][index],
+          // One hue per lift, from the metric palette. These are lines on a
+          // card, so the vivid `accent` set is right — 3:1 as graphics.
+          colour: [
+            "var(--accent-protein)",
+            "var(--accent-energy)",
+            "var(--accent-weight)",
+            "var(--accent-water)",
+          ][index],
         }))}
       />
       <ul className="mt-4">

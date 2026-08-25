@@ -1,8 +1,14 @@
-# Corpus
+# do.fit
 
 Food logging by photo and a sentence. Point the phone at a plate, say what it
-is, and get kcal and macros back. Android PWA, Supabase behind it, Claude Opus 5
-doing the estimating.
+is, and get kcal and macros back. Installable PWA, Supabase behind it, Claude
+Opus 5 doing the estimating.
+
+The name is user-facing only. The IndexedDB outbox, the Background Sync tag and
+the local Supabase `project_id` are all still `corpus-*`: renaming the database
+would orphan any meal queued on a phone, renaming the sync tag would leave a
+registered sync nobody answers, and renaming the project would spin up an empty
+Docker stack beside the ported one.
 
 The plan is in [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md).
 
@@ -11,6 +17,10 @@ src/
   app/
     api/meals/analyze/   synchronous estimate — the boundary for the browser
   components/
+    app-header.tsx       the oversized iOS title
+    tab-bar.tsx          bottom navigation, safe-area padded
+    metric-card.tsx      a figure, its ring, and its target
+    ui/ring.tsx          the SVG progress ring
     charts-lazy.tsx      recharts, behind next/dynamic
     today.tsx            the day's log, sent and still queued
     meal-logger.tsx      say what you ate; photo optional
@@ -131,45 +141,50 @@ transaction and rolls back, so a clean run leaves the database untouched.
 
 ## The look
 
-Swiss, with Bauhaus marks. The rules, in the order they matter:
+Native iOS, or as close as a web app gets. The rules, in the order they matter:
 
-1. **The grid does the work.** One column, flush left, separated by hairline
-   rules rather than boxes. Radius is `0` globally, so every shadcn primitive
-   inherits it. No shadows.
-2. **One humanist typeface at four sizes.** Source Sans 3 rather than a
-   grotesque: Helvetica is the reflex for Swiss work, but its closed apertures
-   collapse at the 11px the labels use on a phone.
-3. **Near-black on warm paper**, never `#000` on `#fff` — pure black on pure
-   white vibrates on the OLED screen this actually runs on.
-4. **Colour is information.** The three primaries carry confidence and nothing
-   else: red low, yellow medium, blue high.
-5. **Tabular numerals everywhere**, so a figure that changes doesn't shove the
-   text beside it.
+1. **Depth is the grid.** A cool grey ground with white cards floating on it,
+   and hierarchy carried by elevation and radius rather than rules. Every card
+   gets two shadows — a tight contact shadow that grounds it and a wide ambient
+   one that lifts it. Either alone reads as a sticker or a smudge.
+2. **The system typeface.** `-apple-system` resolves to SF Pro on Apple
+   hardware, which is the single biggest thing that stops a web app feeling like
+   a web page: the type is literally the system's. No webfont means no download
+   and no swap flash.
+3. **Generous radii.** 22px on cards, fully round on controls. iOS radii are
+   larger than web instinct suggests, and being timid is what makes a page read
+   as a website with rounded corners.
+4. **Colour is per metric.** Each figure owns a hue and keeps it everywhere it
+   appears — ring, value, icon. Amber for energy, blue for protein.
+5. **Tabular numerals**, so a changing figure never reflows its row.
 
-Dark mode follows the phone's own setting via `next-themes`. There is no toggle
-— the header has one accent mark and a switch beside it would be the second
-thing competing for the eye.
+Navigation is a bottom tab bar, padded for the home indicator with
+`env(safe-area-inset-bottom)` — the detail people notice without being able to
+name it. The title is oversized and scrolls away, iOS-style, rather than sitting
+in a fixed bar.
 
-### Two sets of primaries, because AA demands it
+This replaced a Swiss/Bauhaus design that was deliberately flat: hairlines, no
+shadows, radius `0`, Bauhaus primaries. That was a coherent thing and this is a
+different coherent thing; the discipline that carried over is the measuring.
 
-`pnpm design:contrast` checks every token in both themes. It exists because this
-mistake has now happened twice in this project: a colour chosen as a poster
-primary, then used as a small mark, measuring far below threshold.
+### Two sets of hues, because AA demands it
 
-The medium-confidence dot started at **1.81:1** on paper — fine on a desktop
-monitor, invisible on a phone in daylight. So there are two sets:
-`--bauhaus-*` darkened until they clear 4.5:1 as type, and `--mark-*` held as
-vivid as 3:1 allows for fills. Yellow is the one that can't have both, so its
-mark is an ochre rather than a primary.
+`pnpm design:contrast` checks every token in both themes, and it survived the
+redesign unchanged in spirit. Every hue exists twice: an `--accent-*` vivid
+enough to read as a ring, and an `--ink-*` dark enough to read as an 11px
+label. WCAG asks 4.5:1 of text and only 3:1 of a graphic, and one token trying
+to be both ends up too dark to be vivid and too light to be legible.
+
+The redesign put six tokens below threshold on its first run — including the
+hairlines, which needed darkening once the ground went from warm paper to cool
+grey. Every one was tuned until it passed, and none was eyeballed.
 
 ```
 light                          dark
-  --foreground      18.02:1      --foreground      16.28:1
-  --muted-foreground 6.83:1      --muted-foreground 7.82:1
-  --mark-yellow      3.04:1      --mark-yellow     11.01:1
+  --foreground      16.84:1      --foreground      17.40:1
+  --muted-foreground 5.35:1      --muted-foreground 7.88:1
+  --accent-energy    3.21:1      --accent-energy    8.76:1
 ```
-
-Every value measured, none eyeballed.
 
 ---
 
