@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- The do.fit mark. Kept in step with src/components/brand.tsx by hand: a
+       favicon cannot import a React component, and duplicating four numbers is
+       cheaper than a build step that generates one file. -->
+  <rect width="32" height="32" rx="7" fill="#17181c"/>
+  <circle cx="16" cy="16" r="11" fill="none" stroke="#f2f3f7" stroke-width="3.6"
+          stroke-linecap="round" stroke-dasharray="56.06 69.12"
+          transform="rotate(-90 16 16)"/>
+  <circle cx="5.80" cy="11.88" r="3.4" fill="#4d8dfa"/>
+</svg>

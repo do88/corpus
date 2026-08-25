@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Wordmark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 import { RETURN_TO } from "@/lib/auth/return-to";
 import { DEV_AUTH_ENABLED, DEV_EMAIL, DEV_PASSWORD } from "@/lib/auth/dev";
@@ -86,14 +87,9 @@ export default function Login() {
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-10">
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2.5">
-            <CardTitle className="text-2xl tracking-[-0.02em]">do.fit</CardTitle>
-            <span
-              aria-hidden
-              className="size-2 rounded-full"
-              style={{ background: "var(--accent-protein)" }}
-            />
-          </div>
+          <CardTitle>
+            <Wordmark size={30} />
+          </CardTitle>
           <CardDescription>Photo, a sentence, macros.</CardDescription>
         </CardHeader>
 

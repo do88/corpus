@@ -8,8 +8,8 @@ import { ImageResponse } from "next/og";
  * points at `/icons/192` and `/icons/512`, and there is no binary in the repo
  * that can drift from the design.
  *
- * The mark is the wordmark itself, with the dot of "do.fit" picked out in the
- * app's blue, on an ink ground so it reads against any launcher wallpaper.
+ * The mark is the open ring around a dot — see `components/brand.tsx` for what
+ * it means — on an ink ground so it reads against any launcher wallpaper.
  */
 export const dynamic = "force-static";
 
@@ -21,6 +21,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
 
   const px = Number(size);
 
+  // The same geometry as `components/brand.tsx` and `app/icon.svg`. Satori
+  // renders inline SVG, so the mark is drawn rather than approximated with
+  // divs and borders. 0.62 leaves the padding a launcher icon needs before
+  // Android's maskable crop takes a bite out of it.
   return new ImageResponse(
     (
       <div
@@ -30,35 +34,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          // The app's own blue on near-black, so the icon reads at 48px on a
-          // launcher without depending on the wallpaper behind it.
+          // Ink rather than the app's grey: a launcher icon has to hold its own
+          // against an arbitrary wallpaper, and the maskable variant gets
+          // cropped to a circle by Android — a pale ground would lose its edge.
           background: "#17181c",
         }}
       >
-        {/* The wordmark reduced to its one distinctive mark: the dot in
-            "do.fit". A glyph survives being 48px across; three shapes did not. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            fontSize: px * 0.34,
-            fontWeight: 700,
-            letterSpacing: `${-px * 0.012}px`,
-            color: "#f2f3f7",
-          }}
-        >
-          do
-          <div
-            style={{
-              width: px * 0.07,
-              height: px * 0.07,
-              borderRadius: "50%",
-              background: "#4d8dfa",
-              margin: `0 ${px * 0.018}px`,
-            }}
+        <svg width={px * 0.62} height={px * 0.62} viewBox="0 0 32 32" fill="none">
+          <circle
+            cx="16"
+            cy="16"
+            r="11"
+            stroke="#f2f3f7"
+            strokeWidth="3.6"
+            strokeLinecap="round"
+            strokeDasharray="56.06 69.12"
+            transform="rotate(-90 16 16)"
           />
-          fit
-        </div>
+          <circle cx="5.80" cy="11.88" r="3.4" fill="#4d8dfa" />
+        </svg>
       </div>
     ),
     { width: px, height: px },

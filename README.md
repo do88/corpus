@@ -163,6 +163,25 @@ Navigation is a bottom tab bar, padded for the home indicator with
 name it. The title is oversized and scrolls away, iOS-style, rather than sitting
 in a fixed bar.
 
+### The mark
+
+An arc with its head broken off as a dot. It is the **"o"** and the **"."** of
+do.fit, it is a **progress ring** — already the app's whole visual language —
+and it is **open**, because a closed circle says finished and a tracker never
+is.
+
+The dot sits at the arc's head rather than in the middle, and that is the
+design rather than a flourish. Centred, it was a **power button**: an open ring
+around a dot is one of the most worn symbols there is, and at 29px the mark lost
+to it outright. Moving the dot out leaves an asymmetric silhouette with nothing
+in the centre, which reads as a progress head and as nothing else.
+
+Decided by drawing four candidates and looking at them at 88, 44, 29 and 18px
+and again in greyscale, which is where a logo is actually settled — one of the
+rejects was a fingerprint, another a loading spinner. `components/brand.tsx`
+exports `Logomark` and `Wordmark`; `app/icon.svg` is the favicon and
+`app/icons/[size]` renders the PWA icons from the same geometry.
+
 ### The depth, specifically
 
 Four things carry it, and they are cheap:

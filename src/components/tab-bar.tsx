@@ -24,6 +24,11 @@ const TABS = [
 export function TabBar() {
   const pathname = usePathname();
 
+  // Nothing to navigate to before you are signed in, and a tab bar over a
+  // login screen advertises two destinations that would both bounce straight
+  // back here. It lives in the root layout, so hiding it is its own job.
+  if (pathname.startsWith("/login") || pathname.startsWith("/auth")) return null;
+
   return (
     <nav
       className="frosted fixed inset-x-0 bottom-0 z-50 border-t border-[var(--rule)]"
