@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MealRow } from "./repository";
+import { requestEstimate } from "./enqueue";
+import { MAX_ATTEMPTS, type MealRow } from "./repository";
 
 /**
  * Re-ask the worker for anything still pending when the app opens.
@@ -14,11 +15,15 @@ import type { MealRow } from "./repository";
  * older than the time a normal estimate takes.
  */
 
-/** Long enough that a worker mid-flight is left alone. */
+/**
+ * Long enough that a worker mid-flight is left alone.
+ *
+ * Deliberately much shorter than the reconciler's five minutes. This runs when
+ * someone is looking at the screen, so it trades a small chance of a duplicate
+ * request — which `processMeal` makes harmless, since it returns early on an
+ * already-analysed row — for an answer in seconds.
+ */
 const STALE_AFTER_MS = 90_000;
-
-/** After three goes it is a real failure and the UI should say so. */
-const MAX_ATTEMPTS = 3;
 
 export async function retryStalePending(
   supabase: SupabaseClient,
@@ -38,18 +43,7 @@ export async function retryStalePending(
   if (error || !data?.length) return 0;
 
   await Promise.all(
-    (data as Pick<MealRow, "id">[]).map((meal) =>
-      fetch("/jobs/estimate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ mealId: meal.id }),
-      }).catch(() => {
-        // The hourly sweep still has it. Nothing is lost by failing here.
-      }),
-    ),
+    (data as Pick<MealRow, "id">[]).map((meal) => requestEstimate(meal.id, accessToken)),
   );
 
   return data.length;

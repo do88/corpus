@@ -10,6 +10,17 @@ import type { MealEstimate } from "@/lib/meal/schema";
  * has no opinion and no credentials of its own.
  */
 
+/**
+ * After this many goes it is a real failure, not a blip, and the UI says so.
+ *
+ * One constant because three things have to agree on it: `recordFailure` below
+ * flips the row to `failed` at this count, and both sweepers — the client-side
+ * retry and the scheduled reconciler — refuse to pick a row up once it is
+ * reached. They were three separate literals; a change to one would either have
+ * retried a dead meal forever or given up on a live one early.
+ */
+export const MAX_ATTEMPTS = 3;
+
 export type MealRow = {
   id: string;
   logged_at: string;
@@ -41,28 +52,6 @@ export type MealRow = {
 export function localDay(at: Date = new Date()): string {
   const shifted = new Date(at.getTime() - 4 * 60 * 60 * 1000);
   return shifted.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-}
-
-/** Insert the row that makes a meal visible immediately, before any analysis. */
-export async function createPendingMeal(
-  supabase: SupabaseClient,
-  input: { note?: string; photoPath?: string; loggedAt?: Date },
-): Promise<MealRow> {
-  const loggedAt = input.loggedAt ?? new Date();
-  const { data, error } = await supabase
-    .from("meal_log")
-    .insert({
-      logged_at: loggedAt.toISOString(),
-      local_date: localDay(loggedAt),
-      status: "pending",
-      note: input.note?.trim() || null,
-      photo_path: input.photoPath ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(`Could not save the meal: ${error.message}`);
-  return data as MealRow;
 }
 
 /**
@@ -111,20 +100,6 @@ export function weekOf(day: string): string[] {
   });
 }
 
-export async function listMealsForDay(
-  supabase: SupabaseClient,
-  day: string = localDay(),
-): Promise<MealRow[]> {
-  const { data, error } = await supabase
-    .from("meal_log")
-    .select("*")
-    .eq("local_date", day)
-    .order("logged_at", { ascending: true });
-
-  if (error) throw new Error(`Could not load the day: ${error.message}`);
-  return (data ?? []) as MealRow[];
-}
-
 /** What the worker writes back once Claude has answered. */
 export async function saveEstimate(
   supabase: SupabaseClient,
@@ -168,7 +143,7 @@ export async function recordFailure(
   await supabase
     .from("meal_log")
     .update({
-      status: attempts >= 3 ? "failed" : "pending",
+      status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
       attempts,
       error: message,
     })

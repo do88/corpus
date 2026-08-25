@@ -8,21 +8,17 @@
  * the lever. Same `processMeal` the worker and the sweep use, so it cannot
  * drift from them.
  */
-import { createClient } from "@supabase/supabase-js";
 import { processMeal } from "@/lib/meals/process";
-import type { MealRow } from "@/lib/meals/repository";
+import { MAX_ATTEMPTS, type MealRow } from "@/lib/meals/repository";
+import { createWorkerClient } from "@/lib/supabase/worker";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
-  { auth: { persistSession: false } },
-);
+const supabase = createWorkerClient();
 
 const { data, error } = await supabase
   .from("meal_log")
   .select("*")
   .eq("status", "pending")
-  .lt("attempts", 3)
+  .lt("attempts", MAX_ATTEMPTS)
   .order("logged_at", { ascending: true });
 
 if (error) {

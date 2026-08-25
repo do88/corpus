@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/client";
+import { formatTime } from "@/lib/meal/format";
 import { DAILY_TARGET } from "@/lib/meals/targets";
 import { totalsForDay, type MealRow } from "@/lib/meals/repository";
 import {
@@ -218,12 +219,6 @@ function Figure({
   );
 }
 
-const TIME = new Intl.DateTimeFormat("en-GB", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Europe/London",
-});
-
 function MealList({
   meals,
   queued,
@@ -256,7 +251,7 @@ function MealList({
             </Badge>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {TIME.format(new Date(meal.loggedAt))}
+            {formatTime(meal.loggedAt)}
             {meal.lastError && ` · ${meal.lastError}`}
           </div>
         </li>

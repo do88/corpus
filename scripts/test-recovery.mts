@@ -15,8 +15,8 @@
  * Costs one real Claude call (~$0.013), so it is a manual check rather than
  * part of any watch loop.
  */
-import { createClient } from "@supabase/supabase-js";
 import { processMeal } from "@/lib/meals/process";
+import { createWorkerClient } from "@/lib/supabase/worker";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 if (!/^http:\/\/(127\.0\.0\.1|localhost):54321/.test(url)) {
@@ -28,9 +28,8 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):54321/.test(url)) {
   process.exit(1);
 }
 
-const supabase = createClient(url, process.env.SUPABASE_SECRET_KEY!, {
-  auth: { persistSession: false },
-});
+// Built only after the guard above has confirmed the URL is the local stack.
+const supabase = createWorkerClient();
 
 const TEST_DATE = "2020-01-01";
 

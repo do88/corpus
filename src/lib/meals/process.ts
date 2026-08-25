@@ -63,11 +63,3 @@ export async function processMeal(
     return { ok: false, reason: message };
   }
 }
-
-/** The one client both callers need: no session, so the secret key. */
-export function workerEnv() {
-  return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    key: process.env.SUPABASE_SECRET_KEY!,
-  };
-}

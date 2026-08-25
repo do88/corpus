@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { correctMacros, deleteMeal, type MealRow } from "@/lib/meals/repository";
+import { MACRO_LABELS, formatTime } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
 
 /**
@@ -20,25 +21,12 @@ import { MACROS, type Macro } from "@/lib/meal/schema";
  * pretending the model got it right.
  */
 
-const LABELS: Record<Macro, string> = {
-  kcal: "kcal",
-  protein_g: "protein",
-  carbs_g: "carbs",
-  fat_g: "fat",
-};
-
 /** Confidence is the one thing colour is spent on. */
 const CONFIDENCE_MARK: Record<NonNullable<MealRow["confidence"]>, string> = {
   low: "bg-mark-red",
   medium: "bg-mark-yellow",
   high: "bg-mark-blue",
 };
-
-const TIME = new Intl.DateTimeFormat("en-GB", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Europe/London",
-});
 
 export function MealEntry({
   meal,
@@ -88,7 +76,7 @@ export function MealEntry({
               className={`size-2 shrink-0 rounded-full ${CONFIDENCE_MARK[meal.confidence]}`}
             />
           )}
-          <span>{TIME.format(new Date(meal.logged_at))}</span>
+          <span>{formatTime(meal.logged_at)}</span>
           {meal.edited && <Badge variant="secondary">corrected</Badge>}
           {!meal.edited && meal.assumptions && (
             <span className="truncate">{meal.assumptions}</span>
@@ -166,7 +154,7 @@ function Editor({
         {MACROS.map((macro) => (
           <div key={macro} className="space-y-1">
             <Label htmlFor={`${meal.id}-${macro}`} className="text-xs text-muted-foreground">
-              {LABELS[macro]}
+              {MACRO_LABELS[macro]}
             </Label>
             <Input
               id={`${meal.id}-${macro}`}

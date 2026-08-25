@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
-import { createClient } from "@supabase/supabase-js";
 import { verifyOwner } from "../../src/lib/auth/verify";
-import { processMeal, workerEnv } from "../../src/lib/meals/process";
+import { processMeal } from "../../src/lib/meals/process";
+import { createWorkerClient } from "../../src/lib/supabase/worker";
 
 /**
  * Turns a pending `meal_log` row into macros, immediately after it is logged.
@@ -28,12 +28,7 @@ export default async (req: Request) => {
   const { mealId } = await req.json();
   if (!mealId) return new Response("No mealId", { status: 400 });
 
-  const { url, key } = workerEnv();
-  const supabase = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const result = await processMeal(supabase, mealId);
+  const result = await processMeal(createWorkerClient(), mealId);
 
   // Nothing reads this — a background function returned 202 long ago — but it
   // is what appears in the Netlify logs, and the row already carries the error

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { requestEstimate } from "@/lib/meals/enqueue";
 import { localDay, type MealRow } from "@/lib/meals/repository";
 import { markFailed, pending, remove, type OutboxMeal } from "./store";
 
@@ -92,25 +93,4 @@ async function send(meal: OutboxMeal, accessToken: string, userId: string) {
   }
 
   await requestEstimate((data as MealRow).id, accessToken);
-}
-
-/**
- * Ask the worker to estimate. A failure here is not a failure of the meal —
- * the row exists, and the reconciler sweeps anything left pending — so it is
- * swallowed rather than sending the meal back to the outbox, which would
- * duplicate the row on the next flush.
- */
-async function requestEstimate(mealId: string, accessToken: string) {
-  try {
-    await fetch("/jobs/estimate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ mealId }),
-    });
-  } catch {
-    // Left for the reconciler.
-  }
 }

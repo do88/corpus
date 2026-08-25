@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
-import { createClient } from "@supabase/supabase-js";
-import { processMeal, workerEnv } from "../../src/lib/meals/process";
-import type { MealRow } from "../../src/lib/meals/repository";
+import { processMeal } from "../../src/lib/meals/process";
+import { MAX_ATTEMPTS, type MealRow } from "../../src/lib/meals/repository";
+import { createWorkerClient } from "../../src/lib/supabase/worker";
 
 /**
  * Sweeps up meals whose estimate never landed.
@@ -27,15 +27,9 @@ const BUDGET_MS = 22_000;
 /** Below this age a row is probably still being worked on by the worker. */
 const STALE_AFTER_MINUTES = 5;
 
-/** After three goes it is a real failure, not a blip, and the UI should say so. */
-const MAX_ATTEMPTS = 3;
-
 export default async () => {
   const startedAt = Date.now();
-  const { url, key } = workerEnv();
-  const supabase = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = createWorkerClient();
 
   const staleBefore = new Date(Date.now() - STALE_AFTER_MINUTES * 60_000).toISOString();
 

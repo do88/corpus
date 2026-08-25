@@ -17,9 +17,3 @@ export async function compressForEstimate(file: File): Promise<File> {
     fileType: "image/jpeg",
   });
 }
-
-/** Strips the `data:image/jpeg;base64,` prefix the API doesn't want. */
-export async function toBase64(file: File): Promise<string> {
-  const dataUrl = await imageCompression.getDataUrlFromFile(file);
-  return dataUrl.slice(dataUrl.indexOf(",") + 1);
-}
