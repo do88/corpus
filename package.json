@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:local": "./scripts/dev-local.sh",
+    "dev:user": "tsx --env-file=.env.local scripts/dev-user.mts",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -13,13 +13,14 @@
     "db:up": "supabase migration up --local",
     "db:verify": "./scripts/verify-migrations.sh",
     "db:port": "node --disable-warning=ExperimentalWarning scripts/port-sqlite.mjs",
-    "db:gate": "tsx scripts/verify-port.mts",
+    "db:gate": "tsx --env-file=.env.local scripts/verify-port.mts",
     "design:contrast": "node scripts/contrast.mjs",
-    "test:recovery": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 ANTHROPIC_API_KEY=$(grep '^ANTHROPIC_API_KEY' .env.local | cut -d= -f2-) SUPABASE_SECRET_KEY=$(supabase status --output json | python3 -c \"import sys,json;print(json.load(sys.stdin)['SERVICE_ROLE_KEY'])\") tsx scripts/test-recovery.mts",
+    "test:recovery": "tsx --env-file=.env.local scripts/test-recovery.mts",
     "test": "vitest run",
-    "check:dashboard": "tsx scripts/check-dashboard.mts",
-    "check:access": "node scripts/check-access.mjs",
-    "reconcile:now": "NEXT_PUBLIC_SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' .env.local | cut -d= -f2-) SUPABASE_SECRET_KEY=$(grep '^SUPABASE_SECRET_KEY=' .env.local | cut -d= -f2-) ANTHROPIC_API_KEY=$(grep '^ANTHROPIC_API_KEY' .env.local | cut -d= -f2-) tsx scripts/reconcile-now.mts"
+    "check:dashboard": "tsx --env-file=.env.local scripts/check-dashboard.mts",
+    "check:access": "node --env-file=.env.local scripts/check-access.mjs",
+    "check:access:hosted": "node --env-file=.env.hosted scripts/check-access.mjs",
+    "reconcile:now": "tsx --env-file=.env.local --env-file=.env.hosted scripts/reconcile-now.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

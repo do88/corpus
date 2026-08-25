@@ -49,11 +49,11 @@ scripts/
 
 ```bash
 pnpm install
-pnpm dev                 # http://localhost:3000 — against the HOSTED project
-pnpm dev:local           # http://localhost:3000 — against local Supabase, no login
+pnpm db:start            # local Supabase (Docker) — start this first
+pnpm dev:user            # the local sign-in user; once, and after a db reset
+pnpm dev                 # http://localhost:3000 — local, no login screen
 netlify dev --offline    # http://localhost:8888 — app + functions + blobs
 
-pnpm db:start            # local Supabase (Docker)
 pnpm db:up               # apply pending migrations
 pnpm db:verify           # prove they replay cleanly from nothing
 pnpm db:port             # load Alpha 1's SQLite data into Postgres
@@ -62,14 +62,8 @@ pnpm design:contrast     # every colour token against WCAG AA, both themes
 pnpm test:recovery       # a stuck meal, recovered — local database only
 pnpm test                # the 49 metrics tests, carried over from Alpha 1
 pnpm check:dashboard     # the training view model against real rows
-pnpm check:access        # what the signed-in role can actually do
-```
-
-`check:access` runs against whatever `DATABASE_URL` points at, so run it against
-the hosted project too:
-
-```bash
-DATABASE_URL=<hosted> pnpm check:access
+pnpm check:access        # what the signed-in role can actually do — local
+pnpm check:access:hosted # the same assertions against the hosted project
 ```
 
 `pnpm build` runs `next build --webpack`. Serwist, which compiles the service
@@ -88,32 +82,48 @@ development anyway.
 Needs `ANTHROPIC_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
 
-### `pnpm dev` and `pnpm dev:local` are not the same app
+### Local development is isolated from the hosted project
 
-`.env.local` holds the **hosted** Supabase coordinates, so plain `pnpm dev`
-develops against production data and signs in through Google. That is also why
-`test:recovery` has to override `NEXT_PUBLIC_SUPABASE_URL` before it will write
-anything.
+`.env.local` holds the **local** Supabase coordinates, so `pnpm dev`, the tests
+and every `check:` command work against the Docker stack. Nothing in the ordinary
+loop can reach the real food log.
 
-`pnpm dev:local` points the same dev server at the Docker stack — local
-database, local auth, local storage — and skips the login screen entirely.
-Nothing it does can reach the real food log.
+The hosted coordinates live in `.env.hosted`, which Next does not load. Only the
+two commands that mean to touch production name it, and they name it explicitly:
 
-The login screen is skipped by **signing in**, not by waving the proxy through,
-and the difference matters. RLS is the real boundary and it matches on the email
-in the JWT, so a bypass would render an app where every query returns nothing,
-every upload fails and the outbox has no token to send the worker — you would be
-debugging the workaround. Instead the script ensures a local password user
-carrying the owner's email exists, and the login page signs in with it on mount.
-Everything downstream behaves exactly as in production.
+```bash
+pnpm reconcile:now        # the stuck-meal lever — hosted
+pnpm check:access:hosted  # grants and RLS as actually deployed
+```
 
-Two things keep it out of production. `NEXT_PUBLIC_DEV_AUTH` is set by the
-script rather than living in `.env.local`, and it is only honoured when
-`NODE_ENV === "development"` — which `next build` never is. That makes the flag
-a compile-time `false` in any real build, so the bundler drops the sign-in path
-as dead code. Verified by building with the flag forced on and grepping the
-output: the password, the button label and the error string appear in zero
-files.
+Both pass `--env-file=.env.local --env-file=.env.hosted`, in that order. The
+order is load-bearing: Node lets the **last** file win, so hosted overrides
+local while `ANTHROPIC_API_KEY` is still picked up from the first. Reversed, the
+production lever would quietly operate on the local database.
+
+It used to be the other way round — `.env.local` was the hosted project — which
+is why `test:recovery` had to override `NEXT_PUBLIC_SUPABASE_URL` before it
+would write anything, and why ordinary development signed in through Google
+against production data.
+
+### No login screen locally
+
+`pnpm dev:user` creates a password user in the local stack carrying the owner's
+email, and `NEXT_PUBLIC_DEV_AUTH=true` in `.env.local` makes the login page sign
+in with it on mount. Run it once, and again after a database reset.
+
+The screen is skipped by **signing in**, not by bypassing the proxy, and the
+difference matters. RLS is the real boundary and it matches on the email in the
+JWT — so a bypass would render an app where every query returns nothing, every
+upload is refused and the outbox has no token for the worker. You would be
+debugging the workaround. A real session means every path behaves exactly as it
+does in production; only the identity provider changes.
+
+Two things keep it out of production: the flag is only honoured when
+`NODE_ENV === "development"`, which `next build` never is, so it is a
+compile-time `false` and the bundler drops the sign-in path as dead code.
+Verified by building with the flag forced on — the password, the button label
+and the error string appear in zero files.
 
 `pnpm db:verify` exists because `supabase db reset` drops the database to prove
 the same thing. This replays each migration into a throwaway schema inside one
