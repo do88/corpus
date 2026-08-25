@@ -484,6 +484,28 @@ raise. RLS simply makes no row visible to update, so the statement succeeds
 having done nothing, and an error-only check passes happily while the feature
 is broken.
 
+### The service worker could delete a sign-in in progress
+
+Giving the worker cookie *reads* fixed Background Sync. Giving it cookie
+*writes* — which came in the same change — could break sign-in, and that is a
+much worse trade than it looks.
+
+`getSession()` does more than read. If it finds a session in storage that is
+expired or malformed it calls `_removeSession()`, and that runs
+`removeAllPKCEVerifiers()`, wiping every `…-code-verifier` cookie. The worker
+flushes the outbox on a Background Sync event, which can fire at any moment —
+including the thirty seconds spent on Google's consent screen. Come back, and
+the verifier the sign-in was about to exchange has been deleted by your own
+service worker. Supabase's error even says the storage was cleared; it just
+cannot say who cleared it.
+
+The worker now reads cookies and never writes them: `setAll` is a no-op, and
+`set` is left off the `CookieStore` type so it is unavailable rather than merely
+discouraged. A token it refreshes is not persisted, costing one refresh next
+time the page opens. In exchange, a background process cannot sign you out or
+invalidate a sign-in in flight — and nothing running with nobody watching should
+be able to do either.
+
 ### The proxy ate the PKCE verifier
 
 Google sign-in failed with *"PKCE code verifier not found in storage"*, which

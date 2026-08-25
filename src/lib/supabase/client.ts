@@ -14,19 +14,14 @@ import { createBrowserClient } from "@supabase/ssr";
 /**
  * The Cookie Store API, which service workers have and `document.cookie` is not.
  *
- * Typed here rather than imported: `lib.webworker` does not declare it, and the
- * two properties actually used are the whole surface needed.
+ * Typed here rather than imported: `lib.webworker` does not declare it, and
+ * `getAll` is the whole surface used. `set` is deliberately absent — the worker
+ * reads cookies and never writes them, for the reason spelled out below, and
+ * leaving the method off the type makes that unavailable rather than merely
+ * discouraged.
  */
 type CookieStore = {
   getAll: () => Promise<{ name: string; value: string }[]>;
-  set: (options: {
-    name: string;
-    value: string;
-    path?: string;
-    domain?: string;
-    expires?: number;
-    sameSite?: "strict" | "lax" | "none";
-  }) => Promise<void>;
 };
 
 function cookieStore(): CookieStore | undefined {
@@ -94,39 +89,29 @@ export function createClient() {
       isSingleton: false,
       cookies: {
         getAll: async () => (store ? await store.getAll() : []),
-        setAll: async (cookies) => {
-          if (!store) return;
-          // A refreshed token is written back so the next sync does not have to
-          // refresh again.
-          for (const { name, value, options } of cookies) {
-            // Mapped field by field rather than spread: the two APIs disagree
-            // on how an expiry is spelled. `cookie`'s options carry a `Date`
-            // (or a relative `maxAge`); `cookieStore` wants epoch milliseconds.
-            // Spreading compiles to `expires: Date`, which the Cookie Store
-            // silently treats as invalid — a session that appears to save and
-            // is gone by the next sync.
-            await store.set({
-              name,
-              value,
-              // `/` to match what the page writes, or the worker would create a
-              // second cookie at a different path and the two would diverge.
-              path: options?.path ?? "/",
-              domain: options?.domain,
-              expires: options?.expires
-                ? options.expires.getTime()
-                : options?.maxAge
-                  ? Date.now() + options.maxAge * 1000
-                  : undefined,
-              // `cookie` allows a boolean here; the Cookie Store does not.
-              sameSite:
-                options?.sameSite === true
-                  ? "strict"
-                  : options?.sameSite === false
-                    ? "none"
-                    : options?.sameSite,
-            });
-          }
-        },
+        /**
+         * Deliberately does nothing, and this is the important half.
+         *
+         * Giving the worker cookie *reads* fixed Background Sync. Giving it
+         * cookie *writes* broke sign-in, which is a worse trade than it looks.
+         *
+         * `getSession()` does more than read. If it finds a session in storage
+         * that is expired or malformed it calls `_removeSession()`, and that
+         * runs `removeAllPKCEVerifiers()` — wiping every
+         * `…-code-verifier` cookie. The worker flushes the outbox on a
+         * Background Sync event, which can fire at any moment, including the
+         * thirty seconds you spend on Google's consent screen. Come back, and
+         * the verifier your sign-in was about to exchange has been deleted by
+         * your own service worker. The error even tells you the storage was
+         * cleared; it just cannot say who cleared it.
+         *
+         * So the worker reads and never writes. A token it refreshes is not
+         * persisted, which costs one refresh next time the page opens, and in
+         * exchange a background process can no longer sign you out or
+         * invalidate a sign-in that is in flight. Nothing running with nobody
+         * watching should be able to do either.
+         */
+        setAll: async () => {},
       },
     });
   }
