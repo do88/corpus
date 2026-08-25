@@ -1,16 +1,21 @@
-"use client";
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { BarsChart, TrendChart } from "./charts";
+import { BarsChart, TrendChart } from "./charts-lazy";
 import type { DashboardData } from "@/lib/training/dashboard";
 
 /**
  * The training dashboard, one section per thing worth knowing.
  *
- * A client component only because the charts need the browser — every number
- * on it was decided server-side in `dashboard.ts`. Nothing here computes
- * anything; it lays out what it was handed.
+ * A **server** component. Every number on it was decided in `dashboard.ts` and
+ * nothing here computes anything, so there was never any behaviour to ship —
+ * it lays out what it was handed.
+ *
+ * It used to carry `"use client"` for one reason: it imported the charts, and
+ * those need the browser. That pulled all seven sections into the client bundle
+ * to satisfy four of them, and forced the whole view model across the wire as
+ * serialised props. The charts are behind `charts-lazy` now, which is the only
+ * client boundary left, so the markup renders as HTML and only the chart data
+ * crosses.
  */
 export function TrainingSections({ data }: { data: DashboardData }) {
   return (

@@ -22,10 +22,6 @@ export const ffmi = (fatFreeMassKg: number, heightCm: number) =>
 export const bmi = (weightKg: number, heightCm: number) =>
   weightKg / (heightCm / 100) ** 2;
 
-/** Weight at a given BMI — the inverse, for drawing threshold lines. */
-export const weightAtBmi = (targetBmi: number, heightCm: number) =>
-  targetBmi * (heightCm / 100) ** 2;
-
 /** WHO BMI thresholds. Included because they are the conventional reference. */
 export const BMI_THRESHOLDS = { overweight: 25, obese: 30 } as const;
 
@@ -158,8 +154,3 @@ export const REFERENCE = {
   bodyWater: { max: 70, caption: "Normal range 50–65%. Reads low when dehydrated." },
 } as const;
 
-/**
- * Weekly energy from training, used to keep the deficit framing honest: two gym
- * sessions plus an occasional run is worth far less than most people assume.
- */
-export const WEEKLY_TRAINING_KCAL = { low: 1200, high: 1500 } as const;

@@ -1,7 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { fmtPace, longDate, longQuarter, shortDay, weekOf } from "./format";
 import {
-  BMI_THRESHOLDS,
   REFERENCE,
   bmi,
   compositionTargets,
@@ -13,7 +12,6 @@ import {
   judgeVisceralFat,
   weeksToTarget,
 } from "./metrics";
-import { planDay, proteinDensityBudget } from "./nutrition";
 import {
   MAIN_LIFTS,
   getBodyReadings,
@@ -91,13 +89,6 @@ export async function buildDashboardData() {
   }));
 
   return {
-    profile: {
-      name: profile.name ?? "Training",
-      heightCm,
-      age,
-      readingDate: latest.date,
-    },
-
     headline,
 
     body: {
@@ -201,31 +192,9 @@ export async function buildDashboardData() {
       ],
     },
 
-    bmi: {
-      series: weightHistory.map((w) => ({
-        date: w.date,
-        bmi: round1(bmi(w.weight_kg, heightCm)),
-        fullLabel: longDate(w.date),
-        detail: `${w.weight_kg} kg`,
-      })),
-      thresholds: [
-        { value: BMI_THRESHOLDS.overweight, label: "overweight", tone: "warning" as const },
-        { value: BMI_THRESHOLDS.obese, label: "obese", tone: "serious" as const },
-      ],
-      current: round1(bmi(latest.weight_kg, heightCm)),
-      atTarget: round1(bmi(target.weightNear, heightCm)),
-      atGoal: round1(bmi(target.weightLong, heightCm)),
-    },
-
-    nutrition: (() => {
-      const kcal = energy.light - 500;
-      const protein = proteinTarget(latest.fat_free_mass_kg).target;
-      return {
-        targets: { kcal, protein },
-        plan: planDay(kcal, protein),
-        budget: proteinDensityBudget(kcal, protein),
-      };
-    })(),
+    // Only `current` — the Body section quotes it in its note. The series,
+    // thresholds and projected values fed a BMI chart that no section renders.
+    bmi: { current: round1(bmi(latest.weight_kg, heightCm)) },
 
     running: {
       // A count, not the array. `check:dashboard` wants to report how many runs

@@ -1,11 +1,24 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { weekOf } from "@/lib/meals/repository";
+
+/**
+ * The month grid, loaded when it is opened rather than with the page.
+ *
+ * react-day-picker and its date-fns dependencies were landing on the logging
+ * screen — the one that has to be fast, on a phone, possibly on no signal — to
+ * serve a popover that most sessions never open. The week strip below needs
+ * none of it.
+ */
+const Calendar = dynamic(() => import("@/components/ui/calendar").then((m) => m.Calendar), {
+  ssr: false,
+  loading: () => <div className="h-72 w-64 animate-pulse bg-muted/40" />,
+});
 
 /**
  * Move between days.
