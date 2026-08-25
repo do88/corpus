@@ -40,10 +40,12 @@ const PRICING: Record<string, { in: number; out: number }> = {
   "claude-opus-5": { in: 5, out: 25 },
   "claude-sonnet-5": { in: 2, out: 10 },
   "claude-haiku-4-5": { in: 1, out: 5 },
-  // Gemini is billed per million tokens too; these are list prices for the
-  // free-tier-eligible flash models. Verify before trusting the cost column.
+  // Gemini is billed per million tokens too. Only rates that have been checked
+  // go here — a model with no entry prints "—" rather than a confident $0.00000,
+  // because a made-up cost is worse than an absent one in a table whose whole
+  // job is deciding on cost.
   "gemini-3.1-flash-lite": { in: 0.1, out: 0.4 },
-  "gemini-2.5-flash": { in: 0.3, out: 2.5 },
+  "gemini-flash-lite-latest": { in: 0.1, out: 0.4 },
 };
 
 type Result = {
@@ -144,7 +146,21 @@ async function runGemini(model: string, note: string): Promise<Result> {
   );
   const latencyMs = Date.now() - startedAt;
 
-  if (!response.ok) throw new Error(`${response.status} ${(await response.text()).slice(0, 120)}`);
+  if (!response.ok) {
+    const body = await response.text();
+    // A 404 here means the model is not callable by this key, which is not the
+    // same as not existing: `GET /v1beta/models` lists models the key cannot
+    // actually invoke (`gemini-2.5-flash` is listed and 404s). Say so, rather
+    // than repeating a wall of JSON four times.
+    if (response.status === 404) {
+      throw new Error(
+        `404 — "${model}" is not callable by this key. ` +
+          `List what is: curl -H "X-goog-api-key: $GEMINI_API_KEY" ` +
+          `https://generativelanguage.googleapis.com/v1beta/models`,
+      );
+    }
+    throw new Error(`${response.status} ${body.replace(/\s+/g, " ").slice(0, 110)}`);
+  }
   const body = await response.json();
 
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -171,8 +187,12 @@ const CANDIDATES: { model: string; run: (m: string, n: string) => Promise<Result
   { model: "claude-opus-5", run: runClaude },
   { model: "claude-sonnet-5", run: runClaude },
   { model: "claude-haiku-4-5", run: runClaude },
+  // Verified callable with the key this was built against. `gemini-2.5-flash`
+  // is listed by the models endpoint and 404s on generateContent, so it is not
+  // here — the list is broader than what a given key may actually invoke.
   { model: "gemini-3.1-flash-lite", run: runGemini },
-  { model: "gemini-2.5-flash", run: runGemini },
+  { model: "gemini-flash-lite-latest", run: runGemini },
+  { model: "gemini-flash-latest", run: runGemini },
 ];
 
 const pct = (got: number, want: number) => ((got - want) / want) * 100;
@@ -231,7 +251,8 @@ for (const { model, run } of selected) {
     console.log(
       `  ${"—".repeat(38)} mean |error| ${(kcalErr / ok).toFixed(1)}% kcal, ` +
         `${(proteinErr / ok).toFixed(1)}% protein · ` +
-        `$${(cost / ok).toFixed(5)}/meal · ${Math.round(latency / ok)}ms`,
+        `${PRICING[model] ? `$${(cost / ok).toFixed(5)}` : "cost —"}/meal · ` +
+        `${Math.round(latency / ok)}ms`,
     );
   }
 }

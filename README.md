@@ -733,25 +733,36 @@ comparing the prompting, not the models. Add a filter to run a subset
 Measured August 2026, text-only:
 
 ```
-                    kcal err   protein err   $/meal    latency
-claude-opus-5          4.5%          9.7%   $0.0116     4.5 s
-claude-sonnet-5        4.2%         14.6%   $0.0040     4.0 s
-claude-haiku-4-5      14.6%          8.5%   $0.0015     3.0 s
+                        kcal err   protein err    $/meal    latency
+claude-opus-5              4.5%          9.7%   $0.01160     4.5 s
+claude-sonnet-5            4.2%         14.6%   $0.00402     4.0 s
+claude-haiku-4-5          14.6%          8.5%   $0.00154     3.0 s
+gemini-3.1-flash-lite      4.8%         12.4%   $0.00011     5.1 s
 ```
 
-Opus stays. Sonnet matches it on calories at a third of the price but is half
-again as wrong on protein, and protein is the number this app exists to hit —
-the calorie target is a ceiling you approach, the protein target is a floor you
-clear. Haiku is cheapest and reads a tin of mackerel 30% low.
+Within the Claude tiers, Opus stays. Sonnet matches it on calories at a third of
+the price but is half again as wrong on protein, and protein is the number this
+app exists to hit — the calorie target is a ceiling you approach, the protein
+target is a floor you clear. Haiku is cheapest and reads a tin of mackerel 30%
+low.
 
-The spread is £2.10 a month against £0.28. That is not enough to buy a worse
-estimate of the one figure that matters.
+**Gemini Flash Lite is the awkward result.** It lands between Opus and Sonnet on
+both measures at **a hundredth of Opus's cost** — £0.02 a month against £2.10 —
+which is not a rounding difference, it is a different order of magnitude for a
+few tenths of a percent of accuracy.
+
+Four meals is too small a sample to separate 4.5% from 4.8%, though. Before
+moving anything on the strength of this table, widen `REFERENCE` — twenty meals
+with known labels would make the protein column mean something, and protein is
+the column that decides.
 
 One thing the run itself taught: `output_config.effort` is rejected by Haiku
 4.5, so its first four attempts were `invalid_request_error` and no numbers at
 all. The comparison keeps `effort: "low"` wherever the model accepts it, because
 that is what the app sends — dropping it everywhere would measure something the
-app does not do.
+app does not do. Similarly, `GET /v1beta/models` lists Gemini models a given key
+cannot actually invoke: `gemini-2.5-flash` appears in the list and 404s on
+`generateContent`.
 
 ### Why the model isn't asked for totals
 
