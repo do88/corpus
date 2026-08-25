@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { CloudUpload, Flame, Utensils } from "lucide-react";
+import { CloudUpload, Droplet, Flame, Utensils, Wheat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/metric-card";
 import { createClient } from "@/lib/supabase/client";
@@ -162,10 +162,15 @@ export function Today({
  * A grid rather than a stack, because two figures side by side are one glance
  * and two stacked are two.
  *
- * Only two rings, though the reference design runs four cards. Rings are for
- * figures with a target, and this app has exactly two of those. Carbs and fat
- * are measured but untargeted so they read as plain numbers below; water and
- * weight are not measured at all, so they are absent rather than mocked up.
+ * Four rings, one per macro. Carbs and fat started as plain numbers because
+ * they had no target and a ring against a number nobody set is decoration
+ * pretending to be data — so they got targets rather than a ring drawn over
+ * nothing. Both are *derived* in `targets.ts`: protein is fixed by lean mass,
+ * energy by the deficit, and what remains splits between the other two, so all
+ * four always sum back to the calorie target.
+ *
+ * Still no water or weight card, however well six would fill the grid. Those
+ * are not measured, and there is nothing to draw.
  */
 function Totals({
   totals,
@@ -197,27 +202,23 @@ function Totals({
         />
       </div>
 
-      {/*
-        Carbs and fat are measured but untargeted, so they get figures rather
-        than rings. A ring implies a goal, and drawing one against a number
-        nobody set would be decoration dressed as data — the same reason there
-        is no water or weight card here, however good four would look.
-      */}
-      <div className="surface flex items-center justify-around px-3.5 py-3">
-        {[
-          { label: "Carbs", value: totals.carbs_g },
-          { label: "Fat", value: totals.fat_g },
-        ].map((macro) => (
-          <div key={macro.label} className="text-center">
-            <div className="text-[1.0625rem] font-semibold tabular-nums">
-              {macro.value.toLocaleString("en-GB")}
-              <span className="ml-0.5 text-xs font-medium text-muted-foreground">g</span>
-            </div>
-            <div className="mt-0.5 text-[0.6875rem] uppercase tracking-[0.06em] text-muted-foreground">
-              {macro.label}
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard
+          label="Carbs"
+          icon={<Wheat className="size-4" />}
+          value={totals.carbs_g}
+          target={DAILY_TARGET.carbs_g}
+          unit="g"
+          metric="water"
+        />
+        <MetricCard
+          label="Fat"
+          icon={<Droplet className="size-4" />}
+          value={totals.fat_g}
+          target={DAILY_TARGET.fat_g}
+          unit="g"
+          metric="weight"
+        />
       </div>
 
       {inFlight && (

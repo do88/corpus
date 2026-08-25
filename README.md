@@ -326,10 +326,20 @@ re-apportioning it across four foods.
 
 ### Voice
 
-Chrome's own speech recognition, on the device. The audio never leaves the phone
-and never reaches Claude; the model receives text. Cheaper, faster, and a better
-prompt than audio. Where the browser can't do it the button isn't rendered —
-there is no fallback to build, because typing already is the fallback.
+The browser's own `SpeechRecognition` — the Web Speech API — not a model of
+ours. No Anthropic call, no audio anywhere near Claude: the model only ever
+receives the text that comes back. Cheaper, faster, and a better prompt than
+audio would be. Where the browser can't do it the button isn't rendered; typing
+is already the fallback.
+
+**It is not on-device, though this said so for a while.** Chrome's implementation
+streams the audio to Google's speech servers — the same recognition behind
+everything else Chrome dictates into. Android *can* recognise locally, but it is
+not guaranteed and this code does not ask for it. So the honest statement is that
+your voice goes to Google and not to us, which is a different promise from the
+one originally written here and worth stating correctly: it is the difference
+between "nobody hears this" and "the same company that already runs the browser
+hears this".
 
 ### Recovery is ours, not the platform's
 
