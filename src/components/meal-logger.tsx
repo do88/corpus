@@ -1,196 +1,200 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
+import { Camera, Mic, Send, Square, X } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { compressForEstimate, toBase64 } from "@/lib/meal/compress";
-import { costOf, macroRow } from "@/lib/meal/format";
-import type { MealEstimate } from "@/lib/meal/schema";
+import { compressForEstimate } from "@/lib/meal/compress";
+import { localDay } from "@/lib/meals/repository";
+import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
+import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
 
-type Result = {
-  estimate: MealEstimate;
-  model: string;
-  latencyMs: number;
-  usage: { input: number; output: number };
-};
-
-export function MealLogger() {
+/**
+ * Log a meal: say what you ate, optionally attach a photo.
+ *
+ * Words first, photo second. The earlier version led with a large camera
+ * target, which put the slowest and least reliable input in front of the
+ * fastest — most meals are quicker to describe than to photograph well, and a
+ * description is a better prompt than a picture of a wrapper. The camera is
+ * still one tap away, and a photo alone still works.
+ *
+ * The meal goes into the phone's own storage before the network is touched, so
+ * nothing here can fail in a way that loses it. The worst case is a meal saved
+ * and not yet sent, which is visible and self-healing.
+ */
+export function MealLogger({ onQueued }: { onQueued: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const dictation = useRef<Dictation | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [compressed, setCompressed] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<Blob | null>(null);
   const [note, setNote] = useState("");
+  const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Whether the browser can transcribe never changes, so subscribe does
+  // nothing. The server snapshot is false: it has no idea what the browser
+  // supports, and rendering the button then removing it is a visible flicker.
+  const canDictate = useSyncExternalStore(() => () => {}, isDictationAvailable, () => false);
+
+  useEffect(() => () => dictation.current?.stop(), []);
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setError(null);
+    // Before anything else: a full-size photo is roughly ten times the image
+    // tokens of a resized one, and a few of them fill the storage quota.
     const small = await compressForEstimate(file);
-    setCompressed(small);
+    setPhoto(small);
     setPreview(URL.createObjectURL(small));
   }
 
-  async function analyse() {
+  function clearPhoto() {
+    setPreview(null);
+    setPhoto(null);
+    if (fileInput.current) fileInput.current.value = "";
+  }
+
+  function toggleDictation() {
+    if (listening) {
+      dictation.current?.stop();
+      return;
+    }
+    setError(null);
+    setListening(true);
+    dictation.current = startDictation(
+      (text) => setNote(text),
+      (failure) => {
+        setListening(false);
+        if (failure) setError(`Dictation stopped: ${failure}`);
+      },
+    );
+  }
+
+  async function save() {
     setBusy(true);
     setError(null);
-    setResult(null);
     try {
-      const response = await fetch("/api/meals/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageBase64: compressed ? await toBase64(compressed) : undefined,
-          imageMediaType: "image/jpeg",
-          note,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Request failed");
-      setResult(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      const loggedAt = new Date();
+      const meal: OutboxMeal = {
+        // Minted here so the meal keeps one identity through the queue, a
+        // retry, and the app being closed in between.
+        clientId: crypto.randomUUID(),
+        loggedAt: loggedAt.toISOString(),
+        // The day it counts toward is decided by when it was eaten, not by
+        // which day happens to be on screen.
+        localDate: localDay(loggedAt),
+        note,
+        photo: photo ?? undefined,
+        attempts: 0,
+      };
+      await enqueue(meal);
+      setNote("");
+      clearPhoto();
+      onQueued();
+    } catch (thrown) {
+      setError(thrown instanceof Error ? thrown.message : "Could not save the meal");
     } finally {
       setBusy(false);
     }
   }
 
-  function reset() {
-    setPreview(null);
-    setCompressed(null);
-    setNote("");
-    setResult(null);
-    setError(null);
-    if (fileInput.current) fileInput.current.value = "";
-  }
-
-  const cost = result ? costOf(result.usage) : 0;
+  const empty = !photo && !note.trim();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <input
         ref={fileInput}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={onPick}
-        className="hidden"
+        className="sr-only"
       />
 
-      {preview ? (
-        <button
-          type="button"
-          onClick={() => fileInput.current?.click()}
-          className="relative block h-56 w-full overflow-hidden rounded-xl border"
-        >
-          <Image src={preview} alt="Meal" fill className="object-cover" unoptimized />
-        </button>
-      ) : (
-        <Button
-          variant="outline"
-          className="h-56 w-full border-dashed"
-          onClick={() => fileInput.current?.click()}
-        >
-          Take a photo
-        </Button>
+      {preview && (
+        <div className="relative inline-block">
+          <Image
+            src={preview}
+            alt="Attached photo"
+            width={72}
+            height={72}
+            unoptimized
+            className="size-18 rounded-md border object-cover"
+          />
+          <Button
+            size="icon"
+            variant="secondary"
+            onClick={clearPhoto}
+            aria-label="Remove photo"
+            className="absolute -right-2 -top-2 size-6 rounded-full shadow-sm"
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
       )}
 
-      {compressed && (
-        <p className="text-xs text-muted-foreground">
-          Resized to {(compressed.size / 1024).toFixed(0)} KB
-        </p>
-      )}
+      <div className="flex items-end gap-2">
+        <Textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="What did you eat?"
+          rows={1}
+          aria-label="What did you eat?"
+          className="max-h-32 min-h-11 flex-1 resize-none py-2.5"
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter makes a new line — the convention every
+            // messaging app already taught everyone.
+            if (e.key === "Enter" && !e.shiftKey && !empty) {
+              e.preventDefault();
+              void save();
+            }
+          }}
+        />
 
-      <Textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Tin of mackerel and two slices of white toast"
-        rows={2}
-      />
-
-      <div className="flex gap-2">
         <Button
-          onClick={analyse}
-          disabled={busy || (!compressed && !note.trim())}
-          className="flex-1"
+          size="icon"
+          variant="ghost"
+          onClick={() => fileInput.current?.click()}
+          aria-label="Add a photo"
+          className="size-11 shrink-0"
         >
-          {busy ? "Estimating…" : "Estimate"}
+          <Camera className="size-5" />
         </Button>
-        {(result || preview) && (
-          <Button variant="ghost" onClick={reset}>
-            Clear
+
+        {canDictate && (
+          <Button
+            size="icon"
+            variant={listening ? "destructive" : "ghost"}
+            onClick={toggleDictation}
+            aria-pressed={listening}
+            aria-label={listening ? "Stop dictating" : "Dictate"}
+            className="size-11 shrink-0"
+          >
+            {listening ? <Square className="size-4" /> : <Mic className="size-5" />}
           </Button>
         )}
+
+        <Button
+          size="icon"
+          onClick={save}
+          disabled={busy || empty}
+          aria-label="Log it"
+          className="size-11 shrink-0"
+        >
+          <Send className="size-4" />
+        </Button>
       </div>
 
       {error && (
-        <Card className="border-destructive">
-          <CardContent className="text-sm text-destructive">{error}</CardContent>
-        </Card>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-
-      {busy && (
-        <Card>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-          </CardContent>
-        </Card>
-      )}
-
-      {result && <Estimate result={result} cost={cost} />}
     </div>
   );
 }
 
-function Estimate({ result, cost }: { result: Result; cost: number }) {
-  const { estimate } = result;
-  const macros = macroRow(estimate);
-
-  return (
-    <Card>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-4 gap-2">
-          {macros.map((m) => (
-            <div key={m.macro}>
-              <div className="text-xs text-muted-foreground">{m.label}</div>
-              <div className="text-lg font-semibold tabular-nums">{m.value}</div>
-            </div>
-          ))}
-        </div>
-
-        <ul className="space-y-1 border-t pt-3">
-          {estimate.items.map((item) => (
-            <li key={item.name} className="flex justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">
-                {item.name} <span className="text-xs">· {item.qty}</span>
-              </span>
-              <span className="shrink-0 tabular-nums">
-                {item.kcal} · {item.protein_g}g
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        {/* The assumption is how a wrong portion gets spotted without redoing
-            the maths — it is the most useful line on the card. */}
-        <p className="border-t pt-3 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="mr-2">
-            {estimate.confidence}
-          </Badge>
-          {estimate.assumptions}
-        </p>
-
-        <p className="text-xs text-muted-foreground tabular-nums">
-          {(result.latencyMs / 1000).toFixed(1)}s · {result.usage.input}+
-          {result.usage.output} tokens · ${cost.toFixed(4)}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}

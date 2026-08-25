@@ -1,3 +1,11 @@
+// A synchronous estimate, kept deliberately.
+//
+// The logging loop does not use this — it writes a row and lets the background
+// worker fill it in. This stays because it is the shortest path to checking
+// whether the model is still giving sane answers, without a photo, a row or a
+// worker in the way. Behind the proxy like everything else, so it is not an
+// anonymous way to spend credits.
+//
 // `server-only` sits here, not in lib/meal/estimate.ts, because that module is
 // shared with the Netlify background function. The marker package throws on
 // import outside Next's `react-server` condition, so it can only live at a

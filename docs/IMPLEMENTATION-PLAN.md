@@ -63,13 +63,31 @@ Netlify covers everything we'd have reached for Inngest to do:
 - **15 minute limit** — a 3–8 second vision call is nowhere near it
 - **Immediate 202, no result returned to the caller** — already our design: the
   worker writes to Postgres and Realtime pushes the row to the phone
-- **Automatic retries** at 1 min and 2 min after a failed invocation
+- ~~**Automatic retries** at 1 min and 2 min after a failed invocation~~
+  **This turned out not to be true.** Measured on the deployed site: a
+  background function that threw was still at `attempts=1` after 220 s, well
+  past both documented windows. Netlify's docs still describe the retries and
+  its support forum defers to AWS Lambda's async behaviour, but nothing fired.
+  Do not design around it.
 - **Free tier**
 
 Background work is a Netlify Function (`config.background = true`) rather than a
 Next.js route handler — the worker sits beside the app, not inside it. The
-`meal_log` row remains the job record, and a scheduled reconciler sweeps anything
-that fell through all the retries.
+`meal_log` row remains the job record.
+
+**The reconciler is now the primary recovery path, not a backstop.** With
+platform retries unproven, `attempts` has to be driven by our own code, and a
+sweep of `status='pending'` is the only thing standing between a failed estimate
+and a meal that silently never appears. That is arguably the better design
+regardless: it behaves identically in local dev, where retries certainly never
+fire, and it is needed anyway for rows whose enqueue never happened at all —
+phone offline, bad deploy — which no queue can retry because it never saw them.
+
+The remaining three reasons still hold, so this does not flip the decision to
+Inngest at six jobs a day. Inngest stays the escape hatch if retries with
+backoff, concurrency control or per-job observability become a real need; the
+cost is a second service holding job state, which is exactly the scattering this
+project set out to avoid.
 
 ---
 
