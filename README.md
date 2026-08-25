@@ -721,6 +721,38 @@ than a function error. Either way, the conclusion for the design is the same:
 recovery path, `attempts` is driven by our own code, and both behave the same
 locally and in production.
 
+### Choosing the model, measured
+
+`pnpm compare:models` runs the Phase 0 reference meals — the ones whose values
+were measured by hand — through every candidate on the *same* system prompt and
+the *same* schema, and prints error against those labels beside the measured
+cost. Same prompt matters: give each model its own tuned prompt and you are
+comparing the prompting, not the models. Add a filter to run a subset
+(`pnpm compare:models claude`); every row is real API calls against real money.
+
+Measured August 2026, text-only:
+
+```
+                    kcal err   protein err   $/meal    latency
+claude-opus-5          4.5%          9.7%   $0.0116     4.5 s
+claude-sonnet-5        4.2%         14.6%   $0.0040     4.0 s
+claude-haiku-4-5      14.6%          8.5%   $0.0015     3.0 s
+```
+
+Opus stays. Sonnet matches it on calories at a third of the price but is half
+again as wrong on protein, and protein is the number this app exists to hit —
+the calorie target is a ceiling you approach, the protein target is a floor you
+clear. Haiku is cheapest and reads a tin of mackerel 30% low.
+
+The spread is £2.10 a month against £0.28. That is not enough to buy a worse
+estimate of the one figure that matters.
+
+One thing the run itself taught: `output_config.effort` is rejected by Haiku
+4.5, so its first four attempts were `invalid_request_error` and no numbers at
+all. The comparison keeps `effort: "low"` wherever the model accepts it, because
+that is what the app sends — dropping it everywhere would measure something the
+app does not do.
+
 ### Why the model isn't asked for totals
 
 It returns line items only; `totalsFor` sums them. Asking for both invites a
