@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 /**
  * The same header on both screens: name, navigation, the Bauhaus mark.
  *
- * Navigation is two shadcn Buttons rather than a Tabs bar — Tabs implies
- * panels swapping inside one page, and these are two routes.
+ * Navigation is two links wearing shadcn's button styles, rather than a Tabs
+ * bar — Tabs implies panels swapping inside one page, and these are two
+ * routes. Links rather than Buttons for the same reason: they navigate.
  */
 export function PageHeader({
   current,
@@ -35,20 +36,34 @@ export function PageHeader({
 
         <nav className="flex items-center gap-1">
           {items.map((item) => (
-            // Base UI composes with `render`, not shadcn's older `asChild`.
-            <Button
+            /*
+             * A link wearing the button's styles, rather than Base UI's Button
+             * rendering a link.
+             *
+             * The Button primitive is a button all the way down: given a
+             * `render` that is not a native `<button>` it warned on every page
+             * load, and setting `nativeButton={false}` to quiet it made things
+             * worse — that prop tells Base UI to *simulate* button semantics on
+             * the element, so these came out as `button "Today"` with no href
+             * at all. Silencing the warning cost the thing the warning was
+             * about.
+             *
+             * These are two routes. A link is what they are: real href, real
+             * `link` role, middle-click and open-in-new-tab intact, and no
+             * button behaviour bolted onto an anchor. `buttonVariants` is
+             * exported for exactly this, so the styling stays identical.
+             */
+            <Link
               key={item.key}
-              size="sm"
-              variant={current === item.key ? "secondary" : "ghost"}
-              render={
-                <Link
-                  href={item.href}
-                  aria-current={current === item.key ? "page" : undefined}
-                />
-              }
+              href={item.href}
+              aria-current={current === item.key ? "page" : undefined}
+              className={buttonVariants({
+                size: "sm",
+                variant: current === item.key ? "secondary" : "ghost",
+              })}
             >
               {item.label}
-            </Button>
+            </Link>
           ))}
         </nav>
       </div>

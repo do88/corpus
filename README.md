@@ -333,6 +333,21 @@ sits on the query layer rather than the route: route-segment `revalidate` makes
 Next prerender at build time, where there is no database to reach, and the build
 hangs until it gives up. `revalidateTag("training")` drops it after a re-port.
 
+One page view is **17 statements**, down from 33. `getLiftSummary` asked three
+questions per lift, one lift at a time — twelve round trips answered now by a
+single `distinct on`; `getRecentSessions` asked for each session's exercises
+separately, which is one query over `workout_id = any(...)`. Parallelising them
+had not helped: on a pooled connection `prepare` is off, so every parameterised
+query holds its connection until it returns and the rest queue behind it.
+
+Collapsing the first one surfaced a tie nobody had noticed. A 140kg × 6 deadlift
+appears on 2026-07-13 and on 2022-12-17, identical e1RM, so "the best set" was
+decided by whichever row the plan reached first. Changing the query changed the
+plan and the peak date jumped back four years. The old answer was never chosen,
+only observed — `date desc` now states the intended reading and makes it
+plan-independent. Same shape as the `string_agg` ordering below, caught the same
+way.
+
 `pnpm check:dashboard` proves the data layer end to end without a browser — and
 calls the *uncached* builder, because a smoke check answered from cache proves
 nothing about the database:

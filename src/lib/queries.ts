@@ -136,42 +136,105 @@ export async function getStrengthByQuarter() {
   });
 }
 
+/**
+ * One query for all four lifts, where it used to be twelve.
+ *
+ * Three facts are wanted per lift — best e1RM ever, best in the last 120 days,
+ * and the heaviest single set — and the old shape asked for each of them one
+ * lift at a time. Parallelising the twelve helped locally and not at all in
+ * production: on a pooled connection `prepare` is off, so every parameterised
+ * query blocks its connection until it completes, and twelve of them queue.
+ *
+ * `distinct on (exercise)` is Postgres's answer to "top row per group" and does
+ * the same work in a single pass.
+ *
+ * Each branch orders by `date desc` last, which the per-lift version did not,
+ * and that turned out to matter. A 140kg × 6 deadlift appears on 2026-07-13 and
+ * again on 2022-12-17 — the same e1RM to the last decimal — so "the best set"
+ * was a genuine tie that `limit 1` resolved by whichever row the plan happened
+ * to reach first. Rewriting the query changed the plan and with it the answer:
+ * the peak date jumped back four years while the peak itself stayed at 168.
+ *
+ * The old behaviour was never chosen, only observed. `date desc` states the
+ * intended reading — the most recent date you hit your best — and makes the
+ * answer independent of the plan. Same class of bug as the `string_agg`
+ * ordering in the README, found the same way: the gate.
+ *
+ * Anchored on the lift list so a lift with no sets still comes back, as a row
+ * of nulls, exactly as `[undefined]` did before.
+ */
 export async function getLiftSummary() {
-  return Promise.all(
-    MAIN_LIFTS.map(async (lift) => {
-      // Three independent lookups per lift, in parallel. Sequentially this was
-      // twelve round trips for four lifts.
-      const [[peak], [current], [best]] = await Promise.all([
-        sql<{ e1rm: number; date: string }[]>`
-        select round(e1rm_kg::numeric, 1) as e1rm, date from v_sets
-        where exercise = ${lift.name} and e1rm_kg is not null
-        order by e1rm_kg desc limit 1
-      `,
-        sql<{ e1rm: number; date: string }[]>`
-        select round(e1rm_kg::numeric, 1) as e1rm, date from v_sets
-        where exercise = ${lift.name} and e1rm_kg is not null
-          and date > ${since("120 days")}
-        order by e1rm_kg desc limit 1
-      `,
-        sql<{ weight_kg: number; reps: number; date: string }[]>`
-        select weight_kg, reps, date from v_sets
-        where exercise = ${lift.name} and weight_kg is not null
-        order by weight_kg desc, reps desc limit 1
-      `,
-      ]);
+  const names = MAIN_LIFTS.map((lift) => lift.name);
 
-      return {
-        key: lift.key,
-        short: lift.short,
-        peak: peak?.e1rm ?? null,
-        peakDate: peak?.date ?? null,
-        current: current?.e1rm ?? null,
-        currentDate: current?.date ?? null,
-        bestSet: best ? `${best.weight_kg}kg × ${best.reps}` : null,
-        pctOfPeak: peak && current ? Math.round((current.e1rm / peak.e1rm) * 100) : null,
-      };
-    }),
-  );
+  const rows = await sql<
+    {
+      exercise: string;
+      peak_e1rm: number | null;
+      peak_date: string | null;
+      current_e1rm: number | null;
+      current_date: string | null;
+      best_weight: number | null;
+      best_reps: number | null;
+    }[]
+  >`
+    with target as (
+      select unnest(${names}::text[]) as exercise
+    ),
+    peak as (
+      select distinct on (exercise)
+             exercise, round(e1rm_kg::numeric, 1) as e1rm, date
+      from v_sets
+      where exercise = any(${names}::text[]) and e1rm_kg is not null
+      order by exercise, e1rm_kg desc, date desc
+    ),
+    recent as (
+      select distinct on (exercise)
+             exercise, round(e1rm_kg::numeric, 1) as e1rm, date
+      from v_sets
+      where exercise = any(${names}::text[]) and e1rm_kg is not null
+        and date > ${since("120 days")}
+      order by exercise, e1rm_kg desc, date desc
+    ),
+    heaviest as (
+      select distinct on (exercise)
+             exercise, weight_kg, reps
+      from v_sets
+      where exercise = any(${names}::text[]) and weight_kg is not null
+      order by exercise, weight_kg desc, reps desc, date desc
+    )
+    select t.exercise,
+           p.e1rm      as peak_e1rm,
+           p.date      as peak_date,
+           r.e1rm      as current_e1rm,
+           r.date      as current_date,
+           h.weight_kg as best_weight,
+           h.reps      as best_reps
+    from target t
+    left join peak     p on p.exercise = t.exercise
+    left join recent   r on r.exercise = t.exercise
+    left join heaviest h on h.exercise = t.exercise
+  `;
+
+  // Mapped over MAIN_LIFTS rather than over the rows, so the order the
+  // dashboard renders in stays the order declared here rather than whatever
+  // the join returns.
+  return MAIN_LIFTS.map((lift) => {
+    const row = rows.find((r) => r.exercise === lift.name);
+    const peak = row?.peak_e1rm ?? null;
+    const current = row?.current_e1rm ?? null;
+
+    return {
+      key: lift.key,
+      short: lift.short,
+      peak,
+      peakDate: row?.peak_date ?? null,
+      current,
+      currentDate: row?.current_date ?? null,
+      bestSet:
+        row?.best_weight != null ? `${row.best_weight}kg × ${row.best_reps}` : null,
+      pctOfPeak: peak && current ? Math.round((current / peak) * 100) : null,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ load */
@@ -294,18 +357,39 @@ export async function getRecentSessions(limit = 8) {
     group by w.id order by w.date desc limit ${limit}
   `;
 
-  return Promise.all(
-    sessions.map(async (s) => ({
-      ...s,
-      exercises: await sql<{ exercise: string; detail: string }[]>`
-        select exercise,
-               string_agg(
-                 case when weight_kg > 0 then weight_kg::int::text || '×' || reps
-                      when reps > 0      then reps::text
-                      else '—' end, '  ' order by set_index) as detail
-        from v_sets where workout_id = ${s.id}
-        group by exercise_index, exercise order by exercise_index
-      `,
-    })),
-  );
+  if (sessions.length === 0) return [];
+
+  /**
+   * Every session's exercises in one query, where it used to be one per
+   * session — eight more round trips at the default limit, each blocking its
+   * connection on a pooled endpoint.
+   *
+   * `workout_id = any(...)` over the ids just fetched. Grouping by
+   * `workout_id` as well as the exercise keeps the rows separable afterwards,
+   * and the `order by` carries the per-workout exercise order out with them so
+   * the split below does not have to re-sort.
+   */
+  const rows = await sql<
+    { workout_id: string; exercise: string; detail: string }[]
+  >`
+    select workout_id, exercise,
+           string_agg(
+             case when weight_kg > 0 then weight_kg::int::text || '×' || reps
+                  when reps > 0      then reps::text
+                  else '—' end, '  ' order by set_index) as detail
+    from v_sets
+    where workout_id = any(${sessions.map((s) => s.id)}::text[])
+    group by workout_id, exercise_index, exercise
+    order by workout_id, exercise_index
+  `;
+
+  const byWorkout = new Map<string, { exercise: string; detail: string }[]>();
+  for (const { workout_id, exercise, detail } of rows) {
+    // Appended in the order the query returned, which is exercise_index.
+    const list = byWorkout.get(workout_id);
+    if (list) list.push({ exercise, detail });
+    else byWorkout.set(workout_id, [{ exercise, detail }]);
+  }
+
+  return sessions.map((s) => ({ ...s, exercises: byWorkout.get(s.id) ?? [] }));
 }
