@@ -1,4 +1,5 @@
-import { fmtPace, longDate, longMonth, longQuarter, shortDay, shortMonth, weekOf } from "./format";
+import { unstable_cache } from "next/cache";
+import { fmtPace, longDate, longQuarter, shortDay, weekOf } from "./format";
 import {
   BMI_THRESHOLDS,
   REFERENCE,
@@ -23,7 +24,6 @@ import {
   getProfile,
   getRecentSessions,
   getRuns,
-  getSessionsByMonth,
   getStrengthByQuarter,
   getWeightHistory,
 } from "../queries";
@@ -36,8 +36,14 @@ import {
  * Postgres is over a socket where SQLite was a file. The arithmetic below is
  * untouched, which is the point — `metrics.ts` and its 49 tests came across
  * unmodified, so the numbers on this dashboard are the same numbers.
+ *
+ * Exported uncached as well as wrapped, because `unstable_cache` throws
+ * outside a Next request — it needs an incremental cache that only exists
+ * there. `check:dashboard` and `time-dashboard` run under tsx with no Next
+ * around them, and they want the real queries anyway: a smoke check answered
+ * from cache proves nothing about the database.
  */
-export async function getDashboardData() {
+export async function buildDashboardData() {
   // Every query below is independent, so they all go at once. Awaited one at a
   // time this took 1.9 s warm — fifteen sequential round trips to the database,
   // which is a page that feels broken rather than slow. Nothing here reads
@@ -48,7 +54,6 @@ export async function getDashboardData() {
     headline,
     lifts,
     runs,
-    months,
     knee,
     muscles,
     weightHistory,
@@ -60,7 +65,6 @@ export async function getDashboardData() {
     getHeadline(),
     getLiftSummary(),
     getRuns(),
-    getSessionsByMonth(24),
     getKneeLoadByWeek(26),
     getMuscleBalance(12),
     getWeightHistory(),
@@ -178,21 +182,6 @@ export async function getDashboardData() {
       };
     })(),
 
-    load: {
-      sessions: months.map((m) => ({
-        month: shortMonth(m.month),
-        sessions: m.sessions,
-        fullLabel: longMonth(m.month),
-        detail: `${m.volume_t} t moved`,
-      })),
-      volume: months.map((m) => ({
-        month: shortMonth(m.month),
-        volume: m.volume_t,
-        fullLabel: longMonth(m.month),
-        detail: `${m.sessions} session${m.sessions === 1 ? "" : "s"}`,
-      })),
-    },
-
     muscles: {
       rows: muscles.slice(0, 10),
       max: muscles[0]?.sets ?? 1,
@@ -239,7 +228,10 @@ export async function getDashboardData() {
     })(),
 
     running: {
-      all: runs,
+      // A count, not the array. `check:dashboard` wants to report how many runs
+      // are logged; the page only renders the last twelve. Returning every run
+      // meant serialising all of them into the RSC payload for a number.
+      total: runs.length,
       recent: runs.slice(-12).map((r) => ({
         date: r.date,
         km: r.distance_km,
@@ -253,5 +245,27 @@ export async function getDashboardData() {
     sessions: recentSessions,
   };
 }
+
+/**
+ * Cached for an hour.
+ *
+ * The training tables are loaded by hand — `scripts/port-sqlite.mjs`, run once
+ * against the hosted database — so these numbers change when someone
+ * deliberately changes them, never while anyone is looking. Recomputing a
+ * dozen multi-CTE queries per view to redraw figures that have not moved since
+ * August is work for nothing, and on a pooled connection it is the slowest
+ * thing either screen does.
+ *
+ * Cached at the data layer rather than with route-segment `revalidate`, which
+ * would prerender the page at build time — where there is no database to
+ * reach. This keeps the build independent of it.
+ *
+ * Tagged so a re-port can drop the cache immediately with
+ * `revalidateTag("training")` rather than waiting the hour out.
+ */
+export const getDashboardData = unstable_cache(buildDashboardData, ["training-dashboard"], {
+  tags: ["training"],
+  revalidate: 3600,
+});
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;

@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { NetworkOnly, Serwist } from "serwist";
+import { NetworkFirst, NetworkOnly, Serwist } from "serwist";
 import { flushOutbox } from "@/lib/outbox/sync";
 import { OUTBOX_TAG } from "@/lib/outbox/tag";
 
@@ -42,6 +42,49 @@ const serwist = new Serwist({
         url.pathname.startsWith("/login") ||
         url.searchParams.has("code"),
       handler: new NetworkOnly(),
+    },
+    {
+      /*
+       * Supabase's data and storage APIs, never cached.
+       *
+       * `defaultCache` ends with a catch-all cross-origin NetworkFirst holding
+       * responses for an hour, which quietly included every PostgREST read.
+       * That is wrong twice over. `retryStalePending` asks which meals are
+       * still pending; answered from an hour-old cache it re-fires estimates
+       * for meals that have long since finished. And a stale read of the day's
+       * meals shows numbers that have already changed.
+       *
+       * Placed before the spread because the first matching entry wins — the
+       * same mechanism the auth rule above relies on.
+       */
+      matcher: ({ url }) =>
+        url.pathname.startsWith("/rest/v1/") || url.pathname.startsWith("/storage/v1/"),
+      handler: new NetworkOnly(),
+    },
+    {
+      /*
+       * Navigations and their RSC payloads, with a timeout.
+       *
+       * `defaultCache`'s page entries are NetworkFirst with no
+       * `networkTimeoutSeconds` — only its API and cross-origin entries set
+       * one. Without it, "network first" means waiting out the browser's own
+       * connection timeout before falling back to a shell that is already on
+       * disk, which is tens of seconds of blank screen on a phone that has
+       * signal but no throughput.
+       *
+       * That is the exact failure `navigationPreload: false` was turned off to
+       * avoid, so leaving it unbounded undid the reasoning below. Three seconds
+       * is longer than a working connection needs and far shorter than a broken
+       * one takes to admit it.
+       */
+      matcher: ({ request, url, sameOrigin }) =>
+        sameOrigin &&
+        (request.mode === "navigate" || url.searchParams.has("_rsc")) &&
+        !url.pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: "pages",
+        networkTimeoutSeconds: 3,
+      }),
     },
     ...defaultCache,
   ],

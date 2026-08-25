@@ -89,11 +89,21 @@ export function Today({
     // `refresh` and `sync` both await before touching the store, so nothing is
     // set synchronously here.
     void refresh().then(sync);
+
+    // Only when the app becomes visible. `visibilitychange` fires on the way
+    // out too, so an unguarded handler ran a full flush, a session read and a
+    // stale-pending sweep every time the phone was locked or the app switched
+    // away from — doubling the network cost of the trigger for work nobody was
+    // waiting on.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void sync();
+    };
+
     window.addEventListener("online", sync);
-    document.addEventListener("visibilitychange", sync);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.removeEventListener("online", sync);
-      document.removeEventListener("visibilitychange", sync);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [sync]);
 

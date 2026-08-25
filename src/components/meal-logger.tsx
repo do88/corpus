@@ -49,11 +49,23 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
     // tokens of a resized one, and a few of them fill the storage quota.
     const small = await compressForEstimate(file);
     setPhoto(small);
-    setPreview(URL.createObjectURL(small));
+    // Replacing a photo without picking up the previous URL would strand the
+    // old Blob for the life of the document.
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(small);
+    });
   }
 
   function clearPhoto() {
-    setPreview(null);
+    // An object URL pins its Blob until it is revoked — 150–300 KB per photo,
+    // held for as long as the page is open. Nothing else releases it: this is
+    // the only path that clears the preview, on both the remove button and a
+    // successful save.
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
     setPhoto(null);
     if (fileInput.current) fileInput.current.value = "";
   }

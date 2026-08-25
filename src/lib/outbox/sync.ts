@@ -63,34 +63,59 @@ async function run(): Promise<FlushResult> {
 async function send(meal: OutboxMeal, accessToken: string, userId: string) {
   const supabase = createClient();
 
-  let photoPath: string | undefined;
-  if (meal.photo) {
-    // Named from the client id, so a retry overwrites its own earlier upload
-    // instead of littering the bucket with orphans.
-    photoPath = `${userId}/${meal.clientId}.jpg`;
-    const { error } = await supabase.storage
-      .from("meal-photos")
-      .upload(photoPath, meal.photo, { contentType: "image/jpeg", upsert: true });
-    if (error) throw new Error(`Photo upload failed: ${error.message}`);
+  // Named from the client id, so a retry overwrites its own earlier upload
+  // instead of littering the bucket with orphans. Known before the upload
+  // starts, which is what lets the two run together below.
+  const photoPath = meal.photo ? `${userId}/${meal.clientId}.jpg` : null;
+
+  // The upload and the insert go at once rather than one after the other.
+  //
+  // The insert does not depend on the upload's result — only on the path, which
+  // is derived, not returned — and the upload is much the slower of the two on
+  // a phone's uplink. Sequencing them put the slowest step in front of the one
+  // that makes the meal safe, which inverts the ordering the whole design rests
+  // on: the row is the job, and it should exist as early as possible.
+  //
+  // A row that briefly names a photo not yet uploaded is already handled:
+  // `processMeal` reports "Photo missing" and `recordFailure` leaves the row
+  // pending for the reconciler, which is the same path as any other transient
+  // failure.
+  const [upload, insert] = await Promise.all([
+    photoPath
+      ? supabase.storage
+          .from("meal-photos")
+          .upload(photoPath, meal.photo!, { contentType: "image/jpeg", upsert: true })
+      : Promise.resolve(null),
+    supabase
+      .from("meal_log")
+      .insert({
+        client_id: meal.clientId,
+        logged_at: meal.loggedAt,
+        local_date: meal.localDate || localDay(new Date(meal.loggedAt)),
+        status: "pending",
+        note: meal.note.trim() || null,
+        photo_path: photoPath,
+      })
+      .select()
+      .single(),
+  ]);
+
+  // The upload is checked *first*, and this order is load-bearing.
+  //
+  // Checking the insert first looks natural and is wrong: a failed upload
+  // alongside a successful insert would leave a row naming a photo that does
+  // not exist, and the retry would then hit the duplicate check, return
+  // "already sent", and never upload it. The photo would be lost permanently
+  // while everything reported success.
+  //
+  // Throwing on the upload first means the retry runs both again — the upload
+  // for real, the insert into a conflict it treats as success.
+  if (upload?.error) throw new Error(`Photo upload failed: ${upload.error.message}`);
+
+  if (insert.error) {
+    if (insert.error.code === ALREADY_SENT) return; // landed on an earlier attempt
+    throw new Error(insert.error.message);
   }
 
-  const { data, error } = await supabase
-    .from("meal_log")
-    .insert({
-      client_id: meal.clientId,
-      logged_at: meal.loggedAt,
-      local_date: meal.localDate || localDay(new Date(meal.loggedAt)),
-      status: "pending",
-      note: meal.note.trim() || null,
-      photo_path: photoPath ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === ALREADY_SENT) return; // landed on an earlier attempt
-    throw new Error(error.message);
-  }
-
-  await requestEstimate((data as MealRow).id, accessToken);
+  await requestEstimate((insert.data as MealRow).id, accessToken);
 }

@@ -79,7 +79,11 @@ export async function getWeightHistory() {
 /* --------------------------------------------------------------- headline */
 
 export async function getHeadline() {
-  const [row] = await sql<
+  // Two statements, run together. Neither reads the other's result, and on a
+  // pooled connection a sequential pair is two full round trips rather than
+  // one — the same mistake `getDashboardData` fixed at the level above.
+  const [[row], [cadence]] = await Promise.all([
+    sql<
     {
       total_workouts: number;
       first_date: string;
@@ -94,14 +98,14 @@ export async function getHeadline() {
            (select count(*)::int from sets)           as total_sets,
            round(sum(duration_min)::numeric / 60.0)   as total_hours
     from workouts
-  `;
-
-  const [cadence] = await sql<{ last_28: number; prev_28: number }[]>`
+  `,
+    sql<{ last_28: number; prev_28: number }[]>`
     select
       (select count(*)::int from workouts where date > ${since("28 days")}) as last_28,
       (select count(*)::int from workouts where date > ${since("56 days")}
          and date <= ${since("28 days")})                                   as prev_28
-  `;
+  `,
+  ]);
 
   return { ...row, ...cadence };
 }
