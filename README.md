@@ -163,9 +163,37 @@ Navigation is a bottom tab bar, padded for the home indicator with
 name it. The title is oversized and scrolls away, iOS-style, rather than sitting
 in a fixed bar.
 
-This replaced a Swiss/Bauhaus design that was deliberately flat: hairlines, no
-shadows, radius `0`, Bauhaus primaries. That was a coherent thing and this is a
-different coherent thing; the discipline that carried over is the measuring.
+### The depth, specifically
+
+Four things carry it, and they are cheap:
+
+- **A hairline ring** on every card, drawn as the first layer of the shadow.
+  Shadow alone leaves the top edge undefined, which is exactly where the eye
+  looks for an object's boundary — a pale card on a pale ground dissolves
+  without it.
+- **A specular top edge**: a bright hairline fading out by the shoulder, masked
+  so it follows the radius round the corners. A real surface lit from above is
+  brightest precisely there. This is the single detail doing the most work.
+- **Gradients rather than fills.** Two percent of lightness across a card is
+  invisible as colour and unmistakable as a lit surface. Rings get the same
+  treatment along the arc, plus a drop shadow in their own hue so they lift off
+  the track without a grey haze.
+- **Presses that sink.** Tapping scales to 0.965 *and* collapses the shadow, so
+  it reads as pushed toward the page rather than merely shrunk. Scaling alone
+  looks like a zoom; losing the shadow is the part the hand believes.
+
+Recessed things get the inverse — the composer field and the ring tracks take a
+shadow falling inward from their top edge, so they sit *into* the surface rather
+than on it.
+
+Dark mode inverts the whole trick: cards go **lighter** than the ground, because
+a shadow is invisible against near-black. Elevation becomes luminance, and the
+ring does the work the shadow does in daylight.
+
+The theme follows the phone by default, with a toggle in the header cycling
+system → light → dark. Three states rather than a switch, because "follow the
+device" is a real preference — dropping it would mean telling the app to go dark
+twice a day.
 
 ### Two sets of hues, because AA demands it
 
@@ -175,9 +203,9 @@ enough to read as a ring, and an `--ink-*` dark enough to read as an 11px
 label. WCAG asks 4.5:1 of text and only 3:1 of a graphic, and one token trying
 to be both ends up too dark to be vivid and too light to be legible.
 
-The redesign put six tokens below threshold on its first run — including the
-hairlines, which needed darkening once the ground went from warm paper to cool
-grey. Every one was tuned until it passed, and none was eyeballed.
+Six tokens came in below threshold on the palette's first run, the separators
+among them. Every one was tuned until it passed, and none was eyeballed — which
+is the entire point of having the script rather than an opinion.
 
 ```
 light                          dark

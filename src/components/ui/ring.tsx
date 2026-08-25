@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 /**
  * A progress ring.
  *
@@ -31,6 +33,10 @@ export function Ring({
   const circumference = 2 * Math.PI * radius;
   const over = target > 0 && value > target;
 
+  // Unique per instance: two rings on one screen sharing a gradient id would
+  // both resolve to whichever was defined last.
+  const gradientId = `ring-${useId()}`;
+
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg
@@ -41,6 +47,21 @@ export function Ring({
         className="-rotate-90"
         aria-hidden
       >
+        <defs>
+          {/*
+            The arc is a gradient, not a flat stroke — brighter where it starts
+            and deeper where it ends, so the ring has a light source like
+            everything else on the card. Two stops of the same hue at different
+            alpha, which keeps it unmistakably one colour.
+          */}
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={colour} stopOpacity={1} />
+            <stop offset="100%" stopColor={colour} stopOpacity={0.72} />
+          </linearGradient>
+        </defs>
+
+        {/* The track is the same hue at low alpha rather than a grey, so the
+            ring reads as one object with a dim half instead of two rings. */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -48,21 +69,25 @@ export function Ring({
           fill="none"
           stroke={colour}
           strokeWidth={width}
-          // The track is the same hue at low alpha rather than a grey, so the
-          // ring reads as one object with a dim half instead of two rings.
-          opacity={0.14}
+          opacity={0.13}
         />
+
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={colour}
+          stroke={`url(#${gradientId})`}
           strokeWidth={width}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={circumference - (pct / 100) * circumference}
-          style={{ transition: "stroke-dashoffset 700ms cubic-bezier(0.2, 0, 0, 1)" }}
+          style={{
+            transition: "stroke-dashoffset 700ms cubic-bezier(0.2, 0, 0, 1)",
+            // A shadow in the arc's own colour, which lifts it off the track
+            // without the grey haze a neutral shadow would leave.
+            filter: `drop-shadow(0 1px 3px color-mix(in oklch, ${colour} 45%, transparent))`,
+          }}
         />
       </svg>
 

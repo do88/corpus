@@ -48,12 +48,12 @@ export function MealEntry({
     // Each meal is its own card. A divided list reads as a table; separate
     // cards read as objects you can act on — which these are, since tapping one
     // opens its numbers for correction.
-    <li className="surface overflow-hidden">
+    <li className="surface tappable overflow-hidden">
       <button
         type="button"
         onClick={() => setEditing((v) => !v)}
         disabled={meal.status === "pending"}
-        className="tappable w-full px-4 py-3.5 text-left disabled:opacity-100"
+        className="w-full px-4 py-3.5 text-left disabled:opacity-100"
         aria-expanded={editing}
       >
         <div className="flex items-center justify-between gap-3">

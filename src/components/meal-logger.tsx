@@ -161,7 +161,8 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           placeholder="e.g. 2 eggs and a slice of toast…"
           rows={1}
           aria-label="What did you eat?"
-          className="max-h-32 min-h-10 flex-1 resize-none border-0 bg-transparent px-3 py-2 shadow-none focus-visible:ring-0"
+          className="recessed max-h-32 min-h-10 flex-1 resize-none border-0 px-3.5 py-2 focus-visible:ring-0"
+          style={{ borderRadius: 999 }}
           onKeyDown={(e) => {
             // Enter sends, Shift+Enter makes a new line — the convention every
             // messaging app already taught everyone.
@@ -201,7 +202,18 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           disabled={busy || empty}
           aria-label="Log it"
           className="tappable size-10 shrink-0 rounded-full"
-          style={empty ? undefined : { background: "var(--ink-protein)" }}
+          style={
+            empty
+              ? undefined
+              : {
+                  // A lit button: brighter at the top, with its own coloured
+                  // shadow so it sits above the pill rather than in it.
+                  background:
+                    "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
+                  boxShadow:
+                    "0 1px 2px color-mix(in oklch, var(--ink-protein) 45%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+                }
+          }
         >
           <Send className="size-4" />
         </Button>

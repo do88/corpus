@@ -216,11 +216,28 @@
 
   --destructive: oklch(0.55 0.21 27);
 
-  /* Two layers: a tight contact shadow to ground the card, a wide ambient one
-     to lift it. Either alone reads as a sticker or a smudge. */
-  --shadow-card: 0 1px 2px oklch(0.19 0.012 265 / 0.05), 0 8px 24px -6px oklch(0.19 0.012 265 / 0.08);
-  --shadow-raised: 0 2px 6px oklch(0.19 0.012 265 / 0.07), 0 16px 40px -12px oklch(0.19 0.012 265 / 0.14);
-  --shadow-pressed: inset 0 1px 3px oklch(0.19 0.012 265 / 0.10);
+  /* Three layers now, not two. A hairline ring that reads as the card's own
+     edge, a tight contact shadow that grounds it, and a wide ambient one that
+     lifts it. The ring is what stops a pale card dissolving into a pale ground
+     — shadow alone leaves the top edge undefined, which is exactly where the
+     eye looks for an object's boundary. */
+  --shadow-card:
+    0 0 0 0.5px oklch(0.19 0.012 265 / 0.04),
+    0 1px 2px oklch(0.19 0.012 265 / 0.06),
+    0 6px 16px -4px oklch(0.19 0.012 265 / 0.10),
+    0 16px 32px -12px oklch(0.19 0.012 265 / 0.10);
+  --shadow-raised:
+    0 0 0 0.5px oklch(0.19 0.012 265 / 0.05),
+    0 2px 6px oklch(0.19 0.012 265 / 0.09),
+    0 18px 44px -12px oklch(0.19 0.012 265 / 0.18);
+  /* Recessed things — the composer field, a ring's track — get the inverse:
+     a shadow falling *inward* from the top edge. */
+  --shadow-inset: inset 0 1px 2px oklch(0.19 0.012 265 / 0.09), inset 0 0 0 0.5px oklch(0.19 0.012 265 / 0.04);
+  --shadow-pressed: inset 0 2px 6px oklch(0.19 0.012 265 / 0.14);
+
+  /* Cards are a gradient, not a flat fill. Two percent of lightness across the
+     card is invisible as colour and unmistakable as a lit surface. */
+  --surface-gradient: linear-gradient(to bottom, oklch(1 0 0), oklch(0.988 0.002 265));
 }
 
 .dark {
@@ -261,9 +278,20 @@
 
   --destructive: oklch(0.68 0.19 27);
 
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.30), 0 8px 24px -6px oklch(0 0 0 / 0.40);
-  --shadow-raised: 0 2px 6px oklch(0 0 0 / 0.35), 0 16px 40px -12px oklch(0 0 0 / 0.50);
-  --shadow-pressed: inset 0 1px 3px oklch(0 0 0 / 0.35);
+  /* Dark mode leans on the ring rather than the shadow: black on near-black is
+     invisible, so the card's edge does the work its shadow does in daylight. */
+  --shadow-card:
+    0 0 0 0.5px oklch(1 0 0 / 0.06),
+    0 1px 2px oklch(0 0 0 / 0.40),
+    0 8px 24px -6px oklch(0 0 0 / 0.45);
+  --shadow-raised:
+    0 0 0 0.5px oklch(1 0 0 / 0.09),
+    0 2px 6px oklch(0 0 0 / 0.45),
+    0 18px 44px -12px oklch(0 0 0 / 0.60);
+  --shadow-inset: inset 0 1px 2px oklch(0 0 0 / 0.45), inset 0 0 0 0.5px oklch(1 0 0 / 0.04);
+  --shadow-pressed: inset 0 2px 6px oklch(0 0 0 / 0.55);
+
+  --surface-gradient: linear-gradient(to bottom, oklch(0.228 0.010 265), oklch(0.208 0.009 265));
 }
 
 @layer base {
@@ -294,26 +322,52 @@
    * between "rounded rectangle" and "object".
    */
   .surface {
-    background: var(--card);
+    background: var(--surface-gradient);
     border-radius: var(--radius);
     box-shadow: var(--shadow-card);
     position: relative;
+    isolation: isolate;
   }
+  /**
+   * The specular edge: a bright hairline along the top of the card, fading out
+   * by the shoulder.
+   *
+   * This is the single detail that does the most work. A surface catching light
+   * from above is brightest exactly at its top edge, and reproducing that is
+   * most of the difference between a rounded rectangle and an object you feel
+   * you could pick up. Drawn as a masked border so it follows the radius round
+   * the corners rather than stopping abruptly at them.
+   */
   .surface::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    padding-top: 1px;
-    background: linear-gradient(to bottom, oklch(1 0 0 / 0.9), transparent 40%);
+    padding: 1px 1px 0;
+    background: linear-gradient(
+      to bottom,
+      oklch(1 0 0 / 0.95),
+      oklch(1 0 0 / 0.25) 30%,
+      transparent 55%
+    );
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
-    opacity: 0.7;
   }
   .dark .surface::before {
-    background: linear-gradient(to bottom, oklch(1 0 0 / 0.14), transparent 40%);
+    background: linear-gradient(
+      to bottom,
+      oklch(1 0 0 / 0.20),
+      oklch(1 0 0 / 0.05) 30%,
+      transparent 55%
+    );
+  }
+
+  /** The inverse: something set *into* the surface rather than on top of it. */
+  .recessed {
+    background: var(--muted);
+    box-shadow: var(--shadow-inset);
   }
 
   /**
@@ -341,11 +395,21 @@
 
   /** Anything tappable gets the iOS press response: quick, slight, physical. */
   .tappable {
-    transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease;
+    transition:
+      transform 140ms cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 140ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 140ms ease;
     -webkit-tap-highlight-color: transparent;
   }
+  /* Presses shrink *and* sink: the shadow collapses as the element scales down,
+     so it reads as being pushed toward the page rather than just getting
+     smaller. Scaling alone looks like a zoom; losing the shadow is the part the
+     hand believes. */
   .tappable:active {
-    transform: scale(0.96);
-    opacity: 0.9;
+    transform: scale(0.965);
+    opacity: 0.92;
+  }
+  .surface.tappable:active {
+    box-shadow: var(--shadow-pressed);
   }
 }

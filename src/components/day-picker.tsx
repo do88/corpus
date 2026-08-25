@@ -127,7 +127,13 @@ export function DayPicker({
                 className="grid size-9 place-items-center rounded-full text-[0.9375rem] font-semibold tabular-nums transition-colors"
                 style={
                   selected
-                    ? { background: "var(--ink-protein)", color: "oklch(0.99 0 0)" }
+                    ? {
+                        background:
+                          "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
+                        color: "oklch(0.99 0 0)",
+                        boxShadow:
+                          "0 2px 6px color-mix(in oklch, var(--ink-protein) 40%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
+                      }
                     : hasLog
                       ? { background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)", color: "var(--ink-protein)" }
                       : isToday

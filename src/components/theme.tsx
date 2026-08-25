@@ -3,14 +3,16 @@
 import { ThemeProvider } from "next-themes";
 
 /**
- * Follows the phone's own light/dark setting.
+ * Follows the phone's own light/dark setting, unless told otherwise.
  *
- * There is no toggle, deliberately — the design has one accent mark in the
- * header and a switch beside it would be the second thing competing for the
- * eye. next-themes rather than a `prefers-color-scheme` block because the dark
- * tokens are already written against `.dark`; a media query would mean keeping
- * two copies of the palette in step. It also leaves an explicit choice one prop
- * away if it ever earns its place.
+ * `ThemeToggle` in the header cycles system → light → dark, and `system` stays
+ * the default: on a phone that switches at sunset, inheriting is the setting
+ * most people want and the one they never have to think about.
+ *
+ * next-themes rather than a bare `prefers-color-scheme` block because the dark
+ * tokens are written against `.dark` — a media query would mean keeping two
+ * copies of the palette in step — and because a manual override needs somewhere
+ * to persist.
  */
 export function Theme({ children }: { children: React.ReactNode }) {
   return (

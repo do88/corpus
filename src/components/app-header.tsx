@@ -1,4 +1,5 @@
 import { Flame } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * The large title, iOS style.
@@ -27,16 +28,19 @@ export function AppHeader({
         )}
       </div>
 
-      {streak !== undefined && streak > 0 && (
-        <div
-          className="surface flex shrink-0 items-center gap-1 px-2.5 py-1.5"
-          style={{ borderRadius: 999 }}
-          aria-label={`${streak} day streak`}
-        >
-          <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
-          <span className="text-sm font-semibold tabular-nums">{streak}</span>
-        </div>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {streak !== undefined && streak > 0 && (
+          <div
+            className="surface flex h-9 shrink-0 items-center gap-1 px-3"
+            style={{ borderRadius: 999 }}
+            aria-label={`${streak} day streak`}
+          >
+            <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
+            <span className="text-sm font-semibold tabular-nums">{streak}</span>
+          </div>
+        )}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
