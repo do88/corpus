@@ -11,6 +11,7 @@ src/
   app/
     api/meals/analyze/   synchronous estimate — the boundary for the browser
   components/
+    charts-lazy.tsx      recharts, behind next/dynamic
     today.tsx            the day's log, sent and still queued
     meal-logger.tsx      say what you ate; photo optional
     meal-entry.tsx       one meal, and the ability to overrule it
@@ -169,6 +170,34 @@ reliable alone — Background Sync doesn't fire in every state and is Chromium
 only — and the other two are a few lines each. Three cheap triggers beat one
 clever one.
 
+#### The third one silently did nothing for months
+
+Worth recording, because the redundancy above is exactly what hid it.
+`@supabase/ssr` chooses how to reach cookies with an `isBrowser()` check that
+requires both `window` and `window.document`. A service worker has neither, so
+it took the non-browser branch — where `getAll` is hardcoded to return `[]`.
+
+No cookies meant no session, and `flushOutbox` returns at its session guard
+before sending anything. Background Sync fired, found nothing it could
+authenticate as, and reported success having sent zero meals.
+
+Nothing ever surfaced it. Open the app and it flushes immediately, so by the
+time anyone looked the queue was always empty — the two triggers that work were
+covering for the one that didn't, which is the failure mode redundancy is
+supposed to prevent and instead disguised.
+
+The fix passes cookie accessors backed by the **Cookie Store API**, which
+service workers do have. The SDK stays in charge of the chunked cookie format
+and of refreshing a token that expired while the phone was in a pocket — the
+two parts genuinely worth not reimplementing. `cookieStore` is Chromium-only,
+which is precisely where Background Sync exists, so it covers the whole of
+where the feature is real.
+
+One trap in it: `cookie` spells an expiry as a `Date`, `cookieStore` wants epoch
+milliseconds, and spreading one into the other type-checks while producing a
+session that quietly vanishes by the next sync. The fields are mapped
+individually.
+
 Duplicates are the database's job, not the code's: every meal carries a
 `client_id` minted on the phone, with a unique index. A meal that was written
 but whose response was lost comes back as a conflict on the next flush, which
@@ -206,6 +235,13 @@ and simply never fired, so the safety net was never armed. The gap that leaves
 is covered from the client, which retries anything stale whenever the app is
 opened, which is also the moment you would notice.
 
+Nothing guards it, and nothing needs to. Netlify refuses HTTP invocation of a
+scheduled function — measured against the deployed site, not assumed: GET, POST
+and PUT to `/.netlify/functions/reconcile` all return **403**. `/jobs/estimate`
+does answer 202 to an unauthenticated caller, but that is a background function
+acknowledging before its handler runs; `verifyOwner` refuses inside it, and
+nothing reaches Anthropic.
+
 It is also the only thing that can recover a meal whose worker was never invoked
 at all: signal lost between writing the row and firing the request, or a deploy
 mid-flight. No queue can retry a job it never saw; a sweep finds it because the
@@ -227,11 +263,23 @@ being true.
 ## The training dashboard
 
 Alpha 1's dashboard, ported mobile-first at `/training`. `metrics.ts`,
-`format.ts`, `glossary.ts`, `nutrition.ts` and all **49 tests** came across
-untouched — they were always pure domain rules with no SQL and no JSX, which is
-exactly what made the port a copy rather than a rewrite. `dashboard.ts` needed
-one change: the queries are awaited now, because Postgres is a socket where
-SQLite was a file.
+`format.ts` and all **49 tests** came across untouched — they were always pure
+domain rules with no SQL and no JSX, which is exactly what made the port a copy
+rather than a rewrite. `dashboard.ts` needed one change: the queries are awaited
+now, because Postgres is a socket where SQLite was a file.
+
+`glossary.ts` and `nutrition.ts` came across too and were later removed: nothing
+ever referenced them, and `nutrition.ts` was reachable only through a branch of
+the view model that no section renders. They are in the history if a Nutrition
+section ever earns its place. The same sweep dropped the unread `profile` branch
+and the BMI series that fed a chart which does not exist.
+
+The sections are **server** components. They only carried `"use client"` to
+import the charts, which dragged all seven into the client bundle to satisfy the
+four that draw one, and pushed the whole view model over the wire as serialised
+props. recharts now sits behind `next/dynamic` — 391 KB that no longer blocks
+the numbers and tables from painting. The month-grid calendar on the logging
+screen is deferred the same way, for another 70 KB.
 
 The view model is cached for an hour. These tables are loaded by hand, so the
 numbers change when someone changes them, never while anyone is looking, and
