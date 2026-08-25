@@ -128,3 +128,136 @@
     @apply font-sans;
   }
 }
+/* ---------------------------------------------------------------------------
+   Swiss / Bauhaus overrides on shadcn's token contract.
+
+   Every component is shadcn/ui; this file is the whole of the theming. Nothing
+   is restyled per-component — change a value here and the entire app follows,
+   which is the point of using the library rather than hand-rolling.
+
+   The design rules, in the order they matter:
+
+   1. The grid does the work. One column, flush left, quiet surfaces separated
+      by hairlines. A small radius rather than none: square corners fought the
+      library on every control, and the difference between 0 and 8px is the
+      difference between austere and simply calm.
+   2. One humanist typeface (Source Sans 3) at four sizes. Humanist rather than
+      grotesque because the open apertures stay legible at 11px, which is where
+      the labels live.
+   3. Near-black on warm paper, never pure black on pure white — #000 on #fff
+      vibrates on an OLED phone, which is the only screen this runs on.
+   4. Colour is information, not decoration. The three Bauhaus primaries carry
+      confidence: red low, yellow medium, blue high. Nothing else is coloured.
+      Every value here is checked by `pnpm design:contrast`, not eyeballed —
+      the poster yellow measured 1.8:1 as a dot on paper, which is invisible.
+   5. Numerals are tabular everywhere, so a changing figure doesn't reflow the
+      row it sits in.
+   6. Nothing is styled per-component. Every screen is shadcn/ui primitives,
+      and this file is the entire theme — the library handles focus rings,
+      disabled states and ARIA, which is exactly the sort of thing that is easy
+      to get subtly wrong by hand.
+   --------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Two sets on purpose. WCAG asks 4.5:1 of text and only 3:1 of a graphic, so
+     the poster primaries survive as marks but have to be darkened to be read as
+     type. One token trying to do both ends up too dark to be Bauhaus and too
+     light to be legible. */
+  --color-bauhaus-red: var(--bauhaus-red);
+  --color-bauhaus-blue: var(--bauhaus-blue);
+  --color-bauhaus-yellow: var(--bauhaus-yellow);
+  --color-mark-red: var(--mark-red);
+  --color-mark-blue: var(--mark-blue);
+  --color-mark-yellow: var(--mark-yellow);
+  --color-rule: var(--rule);
+}
+
+:root {
+  /* shadcn derives every other radius from this. 0.5rem is enough to soften a
+     control without rounding it into a pill. */
+  --radius: 0.5rem;
+
+  --background: oklch(0.985 0.004 90);      /* warm paper */
+  --foreground: oklch(0.18 0.006 280);      /* near-black ink */
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.18 0.006 280);
+  --primary-foreground: oklch(0.985 0.004 90);
+  --secondary: oklch(0.94 0.004 90);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.94 0.004 90);
+  --muted-foreground: oklch(0.46 0.005 280);   /* 6.83:1 — measured */
+  --accent: oklch(0.94 0.004 90);
+  --accent-foreground: var(--foreground);
+
+  --rule: oklch(0.82 0.005 90);
+  --border: var(--rule);   /* one hairline weight, not two */
+  --input: oklch(0.82 0.005 90);
+  --ring: oklch(0.18 0.006 280);
+
+  /* Darkened from the poster primaries so each one clears 4.5:1 as text on
+     paper. The undarkened hues are too light to read at 11px. */
+  --bauhaus-red: oklch(0.52 0.19 27);
+  --bauhaus-blue: oklch(0.45 0.17 258);
+  --bauhaus-yellow: oklch(0.55 0.12 78);
+
+  /* The poster hues, held as vivid as 3:1 on paper allows. Yellow is the one
+     that can't be: a poster yellow measures 1.8:1 here, so the mark is an ochre
+     rather than a primary. Measured, not eyeballed — see the contrast check in
+     the README. */
+  --mark-red: oklch(0.58 0.22 29);
+  --mark-blue: oklch(0.51 0.20 259);
+  --mark-yellow: oklch(0.66 0.14 79);
+
+  --destructive: var(--bauhaus-red);
+}
+
+.dark {
+  --background: oklch(0.16 0.005 280);
+  --foreground: oklch(0.94 0.004 90);
+  --card: oklch(0.20 0.005 280);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.23 0.005 280);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.94 0.004 90);
+  --primary-foreground: oklch(0.16 0.005 280);
+  --secondary: oklch(0.24 0.005 280);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.24 0.005 280);
+  --muted-foreground: oklch(0.72 0.005 280);   /* 7.82:1 — measured */
+  --accent: oklch(0.24 0.005 280);
+  --accent-foreground: var(--foreground);
+
+  --rule: oklch(0.34 0.005 280);
+  --border: var(--rule);
+  --input: oklch(0.34 0.005 280);
+  --ring: oklch(0.94 0.004 90);
+
+  /* Lightened rather than darkened — the same hues, re-tuned for a dark ground. */
+  --bauhaus-red: oklch(0.68 0.17 27);
+  --bauhaus-blue: oklch(0.70 0.14 254);
+  --bauhaus-yellow: oklch(0.82 0.14 85);
+
+  --mark-red: oklch(0.62 0.21 29);
+  --mark-blue: oklch(0.60 0.19 258);
+  --mark-yellow: oklch(0.82 0.16 85);
+
+  --destructive: var(--bauhaus-red);
+}
+
+@layer base {
+  html {
+    /* Tabular figures everywhere: a number that changes must not move the
+       text beside it. */
+    font-feature-settings: "tnum" 1, "cv05" 1;
+  }
+  body {
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+
