@@ -33,9 +33,25 @@ function cookieStore(): CookieStore | undefined {
   return (globalThis as unknown as { cookieStore?: CookieStore }).cookieStore;
 }
 
-/** True inside a service worker: no `window`, so no `document.cookie`. */
+/**
+ * True inside a service worker: no `window`, so no `document.cookie`.
+ *
+ * A runtime `in` check on `globalThis`, and it has to be. The obvious version —
+ * `typeof window === "undefined"` — reads correctly and does not survive the
+ * build: webpack's DefinePlugin constant-folds `typeof window` to `"object"`
+ * for the web target, so the comparison became `false` at compile time and the
+ * entire worker branch below was removed as dead code.
+ *
+ * That is a nasty way to fail, because the source stays right while the bundle
+ * quietly reverts to the broken behaviour, and the only symptom is the silent
+ * one this whole file exists to fix. Caught by grepping the built worker for
+ * `cookieStore` and finding nothing.
+ *
+ * `"X" in globalThis` is a property lookup on a live object, so there is
+ * nothing for the bundler to fold.
+ */
 function isServiceWorker(): boolean {
-  return typeof window === "undefined" && typeof self !== "undefined";
+  return "ServiceWorkerGlobalScope" in globalThis;
 }
 
 export function createClient() {
