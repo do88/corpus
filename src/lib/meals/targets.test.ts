@@ -11,7 +11,7 @@ import { computeTargets, KCAL_PER_G, type BodyInput } from "./targets";
 const OWNER: BodyInput = {
   weightKg: 114.8,
   leanMassKg: 79.44,
-  heightCm: 193,
+  heightCm: 195,
   age: 37,
   goalWeightKg: 100,
   sessionsLast28: 7,
@@ -28,8 +28,8 @@ describe("computeTargets", () => {
   it("falls back to Mifflin–St Jeor without a body-composition reading", () => {
     const t = computeTargets({ ...OWNER, leanMassKg: null });
     expect(t.basis.bmrFormula).toBe("mifflin-st-jeor");
-    // 10(114.8) + 6.25(193) − 5(37) + 5
-    expect(t.basis.bmr).toBe(2174);
+    // 10(114.8) + 6.25(195) − 5(37) + 5
+    expect(t.basis.bmr).toBe(2187);
   });
 
   it("reads BMR from lean tissue, so body fat does not inflate it", () => {

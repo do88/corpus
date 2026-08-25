@@ -13,6 +13,11 @@
  * — so pulling in a native binding for it would put a node-gyp compile in the
  * Netlify build for the sake of a script that only ever runs on this machine.
  *
+ * **It truncates every training table first, `profile` included.** Anything
+ * edited in Postgres since the last port — a corrected height, say — is
+ * overwritten by whatever Alpha 1's file still says. Re-check `profile` after
+ * running it.
+ *
  * The only transformations are the ones the types force:
  *
  *   TEXT date          -> date          ('' and NULL both become NULL)

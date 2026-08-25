@@ -190,7 +190,7 @@ export const GOAL_WEIGHT_KG = 100;
 export const FALLBACK_TARGETS: DailyTargets = computeTargets({
   weightKg: 114.8,
   leanMassKg: 79.44,
-  heightCm: 193,
+  heightCm: 195,
   age: 37,
   goalWeightKg: GOAL_WEIGHT_KG,
   sessionsLast28: 7,

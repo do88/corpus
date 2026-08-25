@@ -46,7 +46,7 @@ export async function loadTargets(supabase: SupabaseClient): Promise<DailyTarget
   return computeTargets({
     weightKg: Number(reading.data.weight_kg),
     leanMassKg: reading.data.fat_free_mass_kg ? Number(reading.data.fat_free_mass_kg) : null,
-    heightCm: Number(settings.height_cm ?? 193),
+    heightCm: Number(settings.height_cm ?? 195),
     age: Number(settings.age_at_latest_reading ?? 37),
     goalWeightKg: GOAL_WEIGHT_KG,
     // A count of zero is a real answer — it means no training, and the activity

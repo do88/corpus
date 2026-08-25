@@ -70,7 +70,7 @@ export async function buildDashboardData() {
     getRecentSessions(6),
   ]);
 
-  const heightCm = Number(profile.height_cm ?? 193);
+  const heightCm = Number(profile.height_cm ?? 195);
   const age = Number(profile.age_at_latest_reading ?? 37);
   const latest = readings[0];
 
