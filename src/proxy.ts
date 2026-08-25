@@ -104,7 +104,21 @@ export const config = {
      * `/.netlify/` is excluded for the same reason — it is where functions are
      * reachable directly, and a redirect there turns an invocation into a
      * silent no-op.
+     *
+     * **`/auth/` is excluded because running here broke Google sign-in.** The
+     * OAuth return lands on `/auth/callback?code=…`, and this proxy ran first:
+     * it builds a server client and calls `getUser()`, which writes back
+     * through `setAll`. That cookie set includes
+     * `sb-<ref>-auth-token-code-verifier` — the PKCE verifier the callback is
+     * about to need — and with no session to validate, the refresh clears it.
+     * The handler then called `exchangeCodeForSession` and got "PKCE code
+     * verifier not found in storage", having had it deleted a few milliseconds
+     * earlier by its own middleware.
+     *
+     * There was never anything for the proxy to do here anyway: `/auth` is
+     * already public below, so it refreshes a session for a request whose whole
+     * purpose is to create one.
      */
-    "/((?!_next/static|_next/image|favicon.ico|jobs/|\\.netlify/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|jobs/|auth/|\\.netlify/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

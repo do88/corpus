@@ -484,6 +484,28 @@ raise. RLS simply makes no row visible to update, so the statement succeeds
 having done nothing, and an error-only check passes happily while the feature
 is broken.
 
+### The proxy ate the PKCE verifier
+
+Google sign-in failed with *"PKCE code verifier not found in storage"*, which
+reads like a browser problem and was not.
+
+The OAuth return lands on `/auth/callback?code=…`, and `src/proxy.ts` matched
+that path. It builds a server client and calls `getUser()` to refresh the
+session, and `@supabase/ssr` writes back through `setAll` when it does. That
+cookie set includes `sb-<ref>-auth-token-code-verifier` — the PKCE verifier the
+callback is about to need — and with no session to validate, the refresh cleared
+it. The handler then called `exchangeCodeForSession` and was told the verifier
+was missing, having had it deleted a few milliseconds earlier by its own
+middleware.
+
+`/auth/` is excluded from the matcher now. There was never anything for the
+proxy to do there: those paths are already public, so it was refreshing a
+session for the one request whose entire purpose is to create one.
+
+The login button also swallowed thrown errors — only the *returned* error was
+handled, so a throw left `busy` stuck true and the button dead with nothing on
+screen. Silence is the worst outcome on a sign-in screen.
+
 ### Sign-in could be redirected off-site
 
 The post-login destination travels in `?next=`, which makes it attacker-chosen.

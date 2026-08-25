@@ -19,22 +19,31 @@ export default function Login() {
     const next = new URLSearchParams(location.search).get("next");
     if (next) sessionStorage.setItem(RETURN_TO, next);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        // No query string here, deliberately. Supabase matches this against its
-        // redirect allow-list, and the `**` wildcard does not match a query
-        // string — a `?next=` on the end silently fails the match, and Supabase
-        // falls back to the Site URL. The auth code then lands on `/` where
-        // nothing is waiting to exchange it.
-        //
-        // Where to go afterwards is remembered above instead, which never
-        // travels through Google in the first place.
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          // No query string here, deliberately. Supabase matches this against
+          // its redirect allow-list, and the `**` wildcard does not match a
+          // query string — a `?next=` on the end silently fails the match, and
+          // Supabase falls back to the Site URL. The auth code then lands on
+          // `/` where nothing is waiting to exchange it.
+          //
+          // Where to go afterwards is remembered above instead, which never
+          // travels through Google in the first place.
+          redirectTo: `${location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        setError(error.message);
+        setBusy(false);
+      }
+    } catch (thrown) {
+      // Only the *returned* error was handled before. A throw — a blocked
+      // cookie write, storage unavailable in a locked-down browser — left the
+      // promise rejected, `busy` stuck true and the button dead with nothing
+      // on screen to say why. Silence is the worst outcome on a sign-in screen.
+      setError(thrown instanceof Error ? thrown.message : "Could not start sign-in");
       setBusy(false);
     }
   }
