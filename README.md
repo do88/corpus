@@ -49,7 +49,8 @@ scripts/
 
 ```bash
 pnpm install
-pnpm dev                 # http://localhost:3000 — app only
+pnpm dev                 # http://localhost:3000 — against the HOSTED project
+pnpm dev:local           # http://localhost:3000 — against local Supabase, no login
 netlify dev --offline    # http://localhost:8888 — app + functions + blobs
 
 pnpm db:start            # local Supabase (Docker)
@@ -86,6 +87,33 @@ development anyway.
 
 Needs `ANTHROPIC_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
+
+### `pnpm dev` and `pnpm dev:local` are not the same app
+
+`.env.local` holds the **hosted** Supabase coordinates, so plain `pnpm dev`
+develops against production data and signs in through Google. That is also why
+`test:recovery` has to override `NEXT_PUBLIC_SUPABASE_URL` before it will write
+anything.
+
+`pnpm dev:local` points the same dev server at the Docker stack — local
+database, local auth, local storage — and skips the login screen entirely.
+Nothing it does can reach the real food log.
+
+The login screen is skipped by **signing in**, not by waving the proxy through,
+and the difference matters. RLS is the real boundary and it matches on the email
+in the JWT, so a bypass would render an app where every query returns nothing,
+every upload fails and the outbox has no token to send the worker — you would be
+debugging the workaround. Instead the script ensures a local password user
+carrying the owner's email exists, and the login page signs in with it on mount.
+Everything downstream behaves exactly as in production.
+
+Two things keep it out of production. `NEXT_PUBLIC_DEV_AUTH` is set by the
+script rather than living in `.env.local`, and it is only honoured when
+`NODE_ENV === "development"` — which `next build` never is. That makes the flag
+a compile-time `false` in any real build, so the bundler drops the sign-in path
+as dead code. Verified by building with the flag forced on and grepping the
+output: the password, the button label and the error string appear in zero
+files.
 
 `pnpm db:verify` exists because `supabase db reset` drops the database to prove
 the same thing. This replays each migration into a throwaway schema inside one

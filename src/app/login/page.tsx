@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { RETURN_TO } from "@/lib/auth/return-to";
+import { DEV_AUTH_ENABLED, DEV_EMAIL, DEV_PASSWORD } from "@/lib/auth/dev";
 
 export default function Login() {
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,50 @@ export default function Login() {
     }
   }
 
+  /**
+   * Under `pnpm dev:local`, sign in without showing this screen at all.
+   *
+   * A real `signInWithPassword` against the local stack, not a bypass — so the
+   * session, the JWT claims RLS reads, the access token the outbox sends the
+   * worker, Storage and Realtime all behave exactly as in production. Waving
+   * the proxy through instead would render an app where every query returns
+   * nothing, because RLS is the actual boundary and it matches on the email in
+   * the token.
+   *
+   * `DEV_AUTH_ENABLED` is `false` in any production build, so the bundler drops
+   * this whole branch — the credential below never reaches a deployed bundle.
+   */
+  useEffect(() => {
+    if (!DEV_AUTH_ENABLED) return;
+    let cancelled = false;
+
+    (async () => {
+      const supabase = createClient();
+      // Already signed in — nothing to do, and re-authenticating would discard
+      // a perfectly good session on every visit.
+      const { data } = await supabase.auth.getSession();
+      if (cancelled || data.session) return;
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: DEV_EMAIL,
+        password: DEV_PASSWORD,
+      });
+      if (cancelled) return;
+      if (error) {
+        setError(`Local sign-in failed: ${error.message}`);
+        return;
+      }
+      // A full load rather than a router push: the session lives in cookies the
+      // server has to read, and a client navigation would render before the
+      // proxy has seen them.
+      window.location.replace(new URLSearchParams(location.search).get("next") ?? "/");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-10">
       <Card>
@@ -54,7 +99,7 @@ export default function Login() {
 
         <CardContent className="space-y-4">
           <Button onClick={signIn} disabled={busy} className="w-full">
-            {busy ? "Redirecting…" : "Continue with Google"}
+            {busy ? "Redirecting…" : DEV_AUTH_ENABLED ? "Signing in locally…" : "Continue with Google"}
           </Button>
 
           {error && (
