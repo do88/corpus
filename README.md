@@ -77,6 +77,13 @@ compose, so the build opts out of Turbopack. It costs a few seconds and buys a
 real precache manifest rather than a hand-rolled worker. Revisit when Serwist
 supports Turbopack.
 
+`next.config.ts` therefore declares an empty `turbopack: {}` alongside it. Next
+refuses to start when it finds a `webpack` config with no `turbopack` config
+beside it — a sensible guard against a config nobody migrated, but here both are
+deliberate. Without it `pnpm dev` exits rather than starting. Dev stays on
+Turbopack, which is faster and unaffected, because Serwist is disabled in
+development anyway.
+
 Needs `ANTHROPIC_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
 
