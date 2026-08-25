@@ -77,6 +77,71 @@ try {
   }
 }
 
+/**
+ * The photo bucket needs all four verbs, and UPDATE is the one that was
+ * missing — `outbox/sync.ts` uploads with `upsert: true`, which Storage
+ * implements as an UPDATE on `storage.objects`. Without a policy for it the
+ * *first* upload of a photo worked and only a retry failed, so nothing noticed
+ * until a connection dropped a response.
+ *
+ * Checked as SQL rather than through the Storage API because that is the layer
+ * the policy lives at, and it needs no running Storage service to test.
+ *
+ * DELETE is not exercised here: Supabase puts a trigger on `storage.objects`
+ * that refuses direct deletion regardless of policy, so a raw statement tests
+ * the trigger rather than the grant. The delete policy is asserted below by
+ * reading the catalogue instead.
+ */
+try {
+  await asOwner(async (tx) => {
+    const [row] = await tx`
+      insert into storage.objects (bucket_id, name, owner)
+      values ('meal-photos', 'access-check/probe.jpg', null)
+      returning id`;
+    // The upsert path: the same object, written a second time.
+    //
+    // The row count is asserted, not just the absence of an error. A missing
+    // UPDATE policy does not raise — RLS simply makes no row visible to update,
+    // so the statement succeeds having done nothing. Checking only for a thrown
+    // error is what would let this regress silently a second time.
+    const updated = await tx`
+      update storage.objects set updated_at = now() where id = ${row.id} returning id`;
+    if (updated.length !== 1) throw new Error("update matched no row (no UPDATE policy?)");
+
+    const readBack = await tx`select 1 from storage.objects where id = ${row.id}`;
+    if (readBack.length !== 1) throw new Error("insert is not readable back (no SELECT policy?)");
+
+    throw new Rollback();
+  });
+} catch (error) {
+  if (error instanceof Rollback) {
+    console.log("  ok    insert/update/select meal-photos");
+  } else {
+    failures += 1;
+    console.log(`  FAIL  meal-photos storage — ${error.message}`);
+  }
+}
+
+// All four verbs must have a policy. The three above are proven by doing them;
+// this catches a missing DELETE, which no statement here can reach.
+try {
+  const rows = await sql`
+    select cmd from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and (qual like '%meal-photos%' or with_check like '%meal-photos%')`;
+  const found = new Set(rows.map((r) => r.cmd));
+  const missing = ["SELECT", "INSERT", "UPDATE", "DELETE"].filter((c) => !found.has(c));
+  if (missing.length) {
+    failures += 1;
+    console.log(`  FAIL  meal-photos has no ${missing.join("/")} policy`);
+  } else {
+    console.log("  ok    meal-photos policies complete");
+  }
+} catch (error) {
+  failures += 1;
+  console.log(`  FAIL  could not read storage policies — ${error.message}`);
+}
+
 // An unauthenticated caller must be refused, not quietly handed nothing.
 try {
   await sql.begin(async (tx) => {

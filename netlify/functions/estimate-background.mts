@@ -12,6 +12,8 @@ import { createWorkerClient } from "../../src/lib/supabase/worker";
  * the answer reaches the screen. 15 minutes of headroom against a call that
  * takes five seconds.
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async (req: Request) => {
   // The proxy deliberately excludes /jobs/*, because it authenticates by
   // cookie and this endpoint is called with a Bearer token. So this is the
@@ -25,8 +27,24 @@ export default async (req: Request) => {
     return new Response(auth.reason, { status: auth.status });
   }
 
-  const { mealId } = await req.json();
-  if (!mealId) return new Response("No mealId", { status: 400 });
+  // Guarded, because a malformed body would otherwise throw here and be logged
+  // as an unhandled crash rather than the 400 it is — and in a function whose
+  // response nobody reads, the log is the only place the difference shows.
+  let mealId: unknown;
+  try {
+    ({ mealId } = await req.json());
+  } catch {
+    console.error("estimate-background refused: unparseable body");
+    return new Response("Bad request", { status: 400 });
+  }
+
+  // The column is a uuid, so anything else is a caller error rather than a
+  // missing row — worth distinguishing, since "No such meal" was already once
+  // the message that sent a permissions bug in the wrong direction.
+  if (typeof mealId !== "string" || !UUID.test(mealId)) {
+    console.error(`estimate-background refused: bad mealId ${JSON.stringify(mealId)}`);
+    return new Response("No mealId", { status: 400 });
+  }
 
   const result = await processMeal(createWorkerClient(), mealId);
 
