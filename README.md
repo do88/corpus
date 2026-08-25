@@ -11,21 +11,32 @@ src/
   app/
     api/meals/analyze/   synchronous estimate — the boundary for the browser
   components/
-    meal-logger.tsx      the Phase 0 test harness
+    today.tsx            the day's log, sent and still queued
+    meal-logger.tsx      say what you ate; photo optional
+    meal-entry.tsx       one meal, and the ability to overrule it
+    training-sections.tsx  the dashboard, one section per thing worth knowing
     ui/                  shadcn/ui primitives
   lib/
     anthropic/schema.ts  zod -> the JSON Schema structured outputs will accept
     db.ts                the one Postgres connection
     sql.ts               shared SQL fragments: knee load, working volume
     queries.ts           SQL only — rows in, rows out
-    jobs/job.ts          the shape of a queued estimate
     meal/
       schema.ts          the contract: items in, totals derived
       prompt.ts          UK portions, consistency over cleverness
       estimate.ts        the one call to Claude
       compress.ts        client-side resize before upload
-      format.ts          display
-netlify/functions/       background worker + status reader
+      format.ts          macro labels and meal times, shared by the two views
+    meals/
+      repository.ts      every read and write of meal_log, in one place
+      process.ts         the one estimate path, shared by worker and sweep
+      enqueue.ts         asking the worker, shared by flush and retry
+    outbox/              IndexedDB queue: captured before the network is touched
+    supabase/
+      client.ts          the browser, as the signed-in user
+      server.ts          the server, as the signed-in user
+      worker.ts          the secret key — no session, bypasses RLS
+netlify/functions/       background worker + hourly reconciler
 supabase/migrations/     the schema
 scripts/
   port-sqlite.mjs        one-time load of Alpha 1's data
@@ -121,15 +132,23 @@ Every value measured, none eyeballed.
 Photo and a sentence in, macros back. The order is the design:
 
 1. Resize on the client — a 4000×3000 photo is ~10× the image tokens
-2. Upload to the private `meal-photos` bucket
-3. **Insert the `meal_log` row** — the meal is now on screen and safe
-4. Fire the background worker, which returns 202 immediately
-5. Worker estimates and writes back; Realtime swaps pending for the result
+2. **Insert the `meal_log` row** — the meal is now on screen and safe —
+   *concurrently* with uploading the photo to the private `meal-photos` bucket
+3. Fire the background worker, which returns 202 immediately
+4. Worker estimates and writes back; Realtime swaps pending for the result
 
-**Step 3 happens before anything slow.** The estimate is an enrichment that
-arrives later, not a precondition for the entry existing. If the worker never
-runs there is still a row saying you ate, which the reconciler can pick up. A
-logger that loses entries while "thinking" is one you stop trusting.
+**Nothing slow happens before the row exists.** The estimate is an enrichment
+that arrives later, not a precondition for the entry existing. If the worker
+never runs there is still a row saying you ate, which the reconciler can pick
+up. A logger that loses entries while "thinking" is one you stop trusting.
+
+The upload used to run *before* the insert, which put the slowest step in front
+of the one that makes the meal safe. It can be concurrent because the object
+path is derived from the client id rather than returned by the upload. The
+check order that follows is load-bearing, though: the upload is inspected
+first, because a failed upload beside a successful insert would leave a row
+naming a photo that does not exist — and the retry would hit the duplicate
+check, report success, and never upload it.
 
 ### Offline
 
@@ -177,9 +196,15 @@ there is no fallback to build, because typing already is the fallback.
 
 ### Recovery is ours, not the platform's
 
-`netlify/functions/reconcile.mts` runs every 10 minutes and is the **primary**
+`netlify/functions/reconcile.mts` runs **hourly** and is the **primary**
 recovery path. Netlify's documented retries do not fire (measured — see Phase 0),
 so nothing retries anything unless this does.
+
+Hourly is the floor, not a choice: Netlify's scheduler has no sub-hourly cron,
+and an invalid expression fails silently — `*/10 * * * *` was accepted at deploy
+and simply never fired, so the safety net was never armed. The gap that leaves
+is covered from the client, which retries anything stale whenever the app is
+opened, which is also the moment you would notice.
 
 It is also the only thing that can recover a meal whose worker was never invoked
 at all: signal lost between writing the row and firing the request, or a deploy
@@ -208,7 +233,16 @@ exactly what made the port a copy rather than a rewrite. `dashboard.ts` needed
 one change: the queries are awaited now, because Postgres is a socket where
 SQLite was a file.
 
-`pnpm check:dashboard` proves the data layer end to end without a browser:
+The view model is cached for an hour. These tables are loaded by hand, so the
+numbers change when someone changes them, never while anyone is looking, and
+recomputing a dozen multi-CTE queries per view is work for nothing. The cache
+sits on the query layer rather than the route: route-segment `revalidate` makes
+Next prerender at build time, where there is no database to reach, and the build
+hangs until it gives up. `revalidateTag("training")` drops it after a re-port.
+
+`pnpm check:dashboard` proves the data layer end to end without a browser — and
+calls the *uncached* builder, because a smoke check answered from cache proves
+nothing about the database:
 
 ```
 sessions      468  (2021-10-05 → 2026-08-15)
@@ -257,6 +291,45 @@ than "the role cannot reach the table".
 `authenticated` with the owner's email in the JWT claims — what the app actually
 is at runtime — and it found the `anon` discrepancy on its first run.
 
+### The same shape again, in Storage
+
+A later audit found the identical mistake one layer over. The photo upload uses
+`upsert: true` so a retry overwrites its own earlier object instead of leaving
+orphans; Storage implements that overwrite as an **UPDATE** on
+`storage.objects`, and the bucket had policies for select, insert and delete
+only.
+
+So it failed exactly where it mattered and nowhere else. A first upload is an
+INSERT and worked fine. The case the upsert exists for — photo uploaded,
+response lost on a bad connection, outbox retries — hit the missing policy,
+threw, and went back to the queue to fail the same way forever. A meal with a
+photo could stick permanently on precisely the connection this app is built
+for.
+
+Two things worth keeping from it. First, `check:access` now covers Storage, and
+the check was proven by dropping the policy and watching it fail — a check
+nobody has seen fail is a check nobody has tested. Second, it asserts **row
+counts**, not just the absence of an error: a missing UPDATE policy does not
+raise. RLS simply makes no row visible to update, so the statement succeeds
+having done nothing, and an error-only check passes happily while the feature
+is broken.
+
+### Sign-in could be redirected off-site
+
+The post-login destination travels in `?next=`, which makes it attacker-chosen.
+The guard was `startsWith("/") && !startsWith("//")`, which looks sufficient and
+is not: the URL parser treats a backslash as a slash for special schemes and
+strips tabs before parsing, so both `/\evil.com` and `/<tab>/evil.com` passed it
+and resolved to another origin.
+
+The payload is a link that sends you through a real Google sign-in on the real
+domain and lands you somewhere else — about the most convincing shape a phish
+can take, because every part of it up to the last hop is genuine.
+
+The fix is to stop pattern-matching and ask the parser: resolve against the
+origin, compare origins, and rebuild the path from the parsed parts. Guessing at
+the syntax a browser will apply is a losing game; the browser will tell you.
+
 ---
 
 ## Two database clients, on purpose
@@ -276,6 +349,12 @@ arithmetic — `getKneeLoadByWeek` alone is five chained CTEs. PostgREST cannot
 express any of that, and rewriting it to fit would mean pulling thousands of
 rows into JavaScript and aggregating there, which is how a fast query becomes a
 slow one.
+
+`DATABASE_URL` should name the **transaction pooler** (`…pooler.supabase.com:6543`),
+not the direct endpoint. `db.ts` keys off that to turn prepared statements off,
+which the pooler requires, and to hold a small pool rather than a large one. Point
+it at `:5432` and every serverless instance opens up to ten direct connections,
+which exhausts the database's limit under any concurrency at all.
 
 **Nothing in the app reads SQLite.** `scripts/port-sqlite.mjs` is the single
 place that opens Alpha 1's old file, and it uses Node's built-in `node:sqlite`
