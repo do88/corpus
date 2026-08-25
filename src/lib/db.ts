@@ -27,8 +27,8 @@ function connectionString(): string {
     throw new Error(
       "DATABASE_URL is not set. The training dashboard needs a direct Postgres " +
         "connection — PostgREST cannot express its queries — so this cannot fall " +
-        "back to the local stack. Set it to the Supabase transaction pooler " +
-        "(…pooler.supabase.com:6543), not the direct endpoint: see the README.",
+        "back to the local stack. Use the Supabase *session* pooler, port 5432 " +
+        "on the pooler host, not the transaction pooler on 6543: see the README.",
     );
   }
   return LOCAL;
@@ -37,38 +37,49 @@ function connectionString(): string {
 const CONNECTION = connectionString();
 
 /**
- * Supabase's transaction pooler (port 6543) is the right endpoint for anything
- * serverless — a direct connection per invocation exhausts the database's
- * connection limit fast. It multiplexes, which means a statement prepared on
- * one connection may be executed on another, so prepared statements have to be
- * off. Leaving them on produces "prepared statement does not exist" under load
- * and nowhere else, which is a miserable thing to debug in production.
+ * Transaction pooling, and why this app does not use it.
+ *
+ * Port 6543 on the pooler host is Supavisor in transaction mode, and it is the
+ * usual advice for anything serverless: it multiplexes, so a hundred short-lived
+ * invocations do not become a hundred server connections. It also forbids
+ * prepared statements, because a statement prepared on one connection may be
+ * executed on another.
+ *
+ * It did not work here, and the failure was ugly. Every dashboard query is fast
+ * against the hosted database on its own — 24 to 179 ms, measured — but the ten
+ * of them that `getDashboardData` runs through `Promise.all` either hung past
+ * seven minutes or came back as `canceling statement due to statement timeout`.
+ * In production that was a hard function crash on `/training` while each of its
+ * queries was individually healthy, which is about the least informative way a
+ * page can fail.
+ *
+ * The likely mechanism is `prepare: false`. postgres.js sets `describeFirst` on
+ * any parameterised query that is not already prepared, so each one needs a
+ * Describe round trip before its Bind and Execute — and transaction mode is
+ * free to hand those to different server connections. Whatever the exact cause,
+ * the same code against the *session* pooler on 5432 returns the whole dashboard
+ * immediately.
+ *
+ * So: port 5432, session mode. Each client gets a real connection for its
+ * lifetime, prepared statements work, and the multiplexing this app does not
+ * need is not worth a page that cannot render. `isPooled` therefore matches only
+ * the transaction pooler — a session-mode URL is treated as the ordinary
+ * connection it behaves like.
  */
 const isPooled = CONNECTION.includes("pooler.supabase.com:6543");
+
+/**
+ * Modest even on a real connection. Ten was fine against a local Docker
+ * Postgres and is not a sensible share of a hosted project's connection limit
+ * once several serverless instances are warm at once.
+ */
+const isLocal = CONNECTION.includes("127.0.0.1") || CONNECTION.includes("localhost");
 
 const sql = postgres(
   CONNECTION,
   {
     prepare: !isPooled,
-    /**
-     * More than one connection even when pooled, which the first version got
-     * wrong for a plausible-sounding reason: "the pooler is doing the pooling".
-     * Supavisor pools *across* clients. It does nothing to make one client's
-     * own queue concurrent, and `max: 1` is a queue.
-     *
-     * It interacts badly with `prepare: false`, which transaction-mode pooling
-     * requires. In postgres.js, `describeFirst` is set for any query carrying
-     * bind parameters that is not already prepared (`src/connection.js`), and a
-     * connection with a describe in flight is moved to the `full` queue — so it
-     * dispatches nothing else until that query completes. With a single
-     * connection there is nothing to fall back to, and the eleven dashboard
-     * queries that `getDashboardData` deliberately runs through `Promise.all`
-     * were being served strictly one at a time.
-     *
-     * Four is enough to keep the fan-out moving without a serverless instance
-     * holding an unreasonable share of the pooler's slots.
-     */
-    max: isPooled ? 4 : 10,
+    max: isPooled ? 1 : isLocal ? 10 : 4,
     // postgres.js returns numerics as strings to protect precision. Every
     // numeric here is a body weight or a rep count, so a JS number is fine and
     // the alternative is string arithmetic scattered through the metrics layer.

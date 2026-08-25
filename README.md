@@ -574,11 +574,23 @@ express any of that, and rewriting it to fit would mean pulling thousands of
 rows into JavaScript and aggregating there, which is how a fast query becomes a
 slow one.
 
-`DATABASE_URL` should name the **transaction pooler** (`…pooler.supabase.com:6543`),
-not the direct endpoint. `db.ts` keys off that to turn prepared statements off,
-which the pooler requires, and to hold a small pool rather than a large one. Point
-it at `:5432` and every serverless instance opens up to ten direct connections,
-which exhausts the database's limit under any concurrency at all.
+`DATABASE_URL` should name the **session** pooler — port **5432** on the pooler
+host — and not the transaction pooler on 6543.
+
+Transaction mode is the usual serverless advice and it broke this app. Every
+dashboard query is fast against the hosted database on its own (24–179 ms,
+measured), but the ten that `getDashboardData` runs through `Promise.all` either
+hung past seven minutes or returned `canceling statement due to statement
+timeout`. In production that was a hard function crash on `/training` while each
+of its queries was individually healthy. The same code against `:5432` returns
+the whole dashboard immediately.
+
+The likely mechanism is the `prepare: false` that transaction mode requires:
+postgres.js needs a Describe round trip before Bind and Execute for every
+parameterised query, and transaction mode is free to hand those to different
+server connections. Session mode gives each client a real connection for its
+lifetime, so prepared statements work and the ordering holds. This app makes a
+handful of requests a day and does not need the multiplexing it was paying for.
 
 **Nothing in the app reads SQLite.** `scripts/port-sqlite.mjs` is the single
 place that opens Alpha 1's old file, and it uses Node's built-in `node:sqlite`
