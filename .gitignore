@@ -45,3 +45,8 @@ next-env.d.ts
 
 # written by `netlify dev` alongside .netlify/
 deno.lock
+
+# compiled from src/app/sw.ts by Serwist at build time
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Sans_3 } from "next/font/google";
+import { Offline } from "@/components/offline";
 import { Theme } from "@/components/theme";
 import "./globals.css";
 
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // React hydrates, so the server markup and the client's never match here.
     <html lang="en" className={`${sans.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col">
-        <Theme>{children}</Theme>
+        <Offline>
+          <Theme>{children}</Theme>
+        </Offline>
       </body>
     </html>
   );

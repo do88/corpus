@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // `netlify dev` writes bundled edge functions here — generated, not ours.
     ".netlify/**",
+    // Serwist compiles src/app/sw.ts to here. Generated bundle, not source.
+    "public/sw.js",
+    "public/swe-worker-*.js",
   ]),
   {
     // Netlify Functions v2 are *defined* by a default-exported handler — the
