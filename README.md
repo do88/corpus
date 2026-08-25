@@ -17,6 +17,7 @@ src/
   app/
     api/meals/analyze/   synchronous estimate — the boundary for the browser
   components/
+    account-form.tsx     name, picture, sign out
     app-header.tsx       the oversized iOS title
     tab-bar.tsx          bottom navigation, safe-area padded
     metric-card.tsx      a figure, its ring, and its target
@@ -420,6 +421,15 @@ protein       175 g from 79.44 kg lean
 knee          median 39/wk, peak 114
 strength      Deadlift 168kg, Squat 96kg, Bench 113.3kg, OHP 72kg
 ```
+
+**`DATABASE_URL` missing in production is React error #441.** The training page
+needs a direct Postgres connection, and `db.ts` used to fall back to the local
+Docker stack when the variable was unset — which on a Netlify server means
+connecting to nothing. The server component threw, and production reported it as
+"an error occurred in the Server Components render" with the specifics omitted,
+while the log said ECONNREFUSED against `127.0.0.1` rather than naming the
+variable nobody set. Outside development the variable is now required and its
+absence says so.
 
 **Production needs two things the app cannot do for itself.** `DATABASE_URL`
 must point at the hosted Postgres — the dashboard queries need real SQL, so they

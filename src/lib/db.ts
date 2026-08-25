@@ -5,8 +5,36 @@ import postgres from "postgres";
  * credentials and bypasses RLS, which is what the importers and the
  * verification gate need.
  */
-const CONNECTION =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+/**
+ * The local Docker stack, and only ever as a *development* convenience.
+ *
+ * This default used to apply everywhere, which turned a missing environment
+ * variable into a connection attempt against `127.0.0.1` on a Netlify server —
+ * where nothing is listening. The server component threw, and production
+ * reported it as React error #441: "an error occurred in the Server Components
+ * render", with the specifics omitted. A whole page down, and the log said
+ * ECONNREFUSED against localhost rather than naming the variable nobody set.
+ *
+ * Outside development the variable is now required, and its absence says so.
+ */
+const LOCAL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+function connectionString(): string {
+  const configured = process.env.DATABASE_URL;
+  if (configured) return configured;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "DATABASE_URL is not set. The training dashboard needs a direct Postgres " +
+        "connection — PostgREST cannot express its queries — so this cannot fall " +
+        "back to the local stack. Set it to the Supabase transaction pooler " +
+        "(…pooler.supabase.com:6543), not the direct endpoint: see the README.",
+    );
+  }
+  return LOCAL;
+}
+
+const CONNECTION = connectionString();
 
 /**
  * Supabase's transaction pooler (port 6543) is the right endpoint for anything

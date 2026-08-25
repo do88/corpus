@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, House } from "lucide-react";
+import { CircleUser, Dumbbell, House } from "lucide-react";
 
 /**
  * The bottom tab bar — the single biggest tell that something is an app rather
@@ -12,13 +12,14 @@ import { Dumbbell, House } from "lucide-react";
  * Without that inset the labels sit under the gesture bar on any modern iPhone,
  * which is the detail people notice without being able to name.
  *
- * Two routes, so two tabs. The composer is not a third: logging happens inline
- * on Today rather than behind a modal, so a centre "+" would open the screen
- * you are already looking at.
+ * Three routes, so three tabs. The composer is not a fourth: logging happens
+ * inline on Today rather than behind a modal, so a centre "+" would open the
+ * screen you are already looking at.
  */
 const TABS = [
   { href: "/", label: "Today", icon: House },
   { href: "/training", label: "Training", icon: Dumbbell },
+  { href: "/account", label: "Account", icon: CircleUser },
 ] as const;
 
 export function TabBar() {

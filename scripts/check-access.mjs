@@ -142,6 +142,43 @@ try {
   console.log(`  FAIL  could not read storage policies — ${error.message}`);
 }
 
+// The avatar bucket, same four verbs. An avatar is always an overwrite after
+// the first one, so a missing UPDATE policy here would break the feature on its
+// second use — the `meal-photos` bug, one bucket over.
+try {
+  const rows = await sql`
+    select cmd from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and (qual like '%avatars%' or with_check like '%avatars%')`;
+  const found = new Set(rows.map((r) => r.cmd));
+  const missing = ["SELECT", "INSERT", "UPDATE", "DELETE"].filter((c) => !found.has(c));
+  if (missing.length) {
+    failures += 1;
+    console.log(`  FAIL  avatars has no ${missing.join("/")} policy`);
+  } else {
+    console.log("  ok    avatars policies complete");
+  }
+} catch (error) {
+  failures += 1;
+  console.log(`  FAIL  could not read avatar policies — ${error.message}`);
+}
+
+// Both photo buckets must stay private: the paths are guessable by design.
+try {
+  const rows = await sql`
+    select id, public from storage.buckets where id in ('meal-photos', 'avatars')`;
+  const publicOnes = rows.filter((r) => r.public).map((r) => r.id);
+  if (publicOnes.length) {
+    failures += 1;
+    console.log(`  FAIL  bucket(s) are public: ${publicOnes.join(", ")}`);
+  } else {
+    console.log(`  ok    ${rows.length} bucket(s) private`);
+  }
+} catch (error) {
+  failures += 1;
+  console.log(`  FAIL  could not read buckets — ${error.message}`);
+}
+
 // An unauthenticated caller must be refused, not quietly handed nothing.
 try {
   await sql.begin(async (tx) => {
