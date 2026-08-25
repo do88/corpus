@@ -22,18 +22,53 @@ import { mealResponseSchema, totalsFor } from "../src/lib/meal/schema";
 import { toStructuredOutputSchema } from "../src/lib/anthropic/schema";
 
 /**
- * The Phase 0 meals, with the values measured by hand at the time.
+ * The reference meals, and where their numbers come from.
+ *
+ * The first four were measured by hand during Phase 0. The rest are **composed**
+ * — each is a list of components whose per-100g values are published (CoFID,
+ * manufacturer labels for branded items), summed. That is a weaker provenance
+ * than a weighed plate and it is stated rather than hidden: a composed label
+ * carries the compiler's own assumptions about portion size, which is exactly
+ * the thing being measured. They are good enough to separate a model that is
+ * broadly right from one that is 30% low; they are not good enough to argue
+ * about three percentage points.
  *
  * Text-only on purpose. A photo would test vision as well as estimation, and
- * these need to isolate one thing — a model that reads the picture well but
+ * these need to isolate one thing — a model that reads a picture well but
  * guesses portions badly should not be able to hide behind a good photo.
+ *
+ * `vague` marks meals with no stated quantity. They are the interesting ones:
+ * anything can estimate "200g grilled chicken breast", and the spread between
+ * models opens up on "a handful of almonds", which is what real logging
+ * actually looks like.
  */
-const REFERENCE = [
+const REFERENCE: { note: string; kcal: number; protein: number; vague?: boolean }[] = [
+  // — Phase 0, weighed —
   { note: "2 Weetabix with semi-skimmed milk and a banana", kcal: 305, protein: 12 },
   { note: "2 scoops of whey protein in water", kcal: 232, protein: 47 },
   { note: "A pint of lager and a packet of peanuts", kcal: 505, protein: 12 },
   { note: "A tin of mackerel and two slices of white toast", kcal: 540, protein: 34 },
-] as const;
+
+  // — Composed from published per-100g values —
+  { note: "Three scrambled eggs on two slices of wholemeal toast", kcal: 456, protein: 27 },
+  { note: "A 170g pot of 0% Greek yoghurt with a handful of blueberries", kcal: 145, protein: 18 },
+  { note: "200g grilled chicken breast with 200g white rice and broccoli", kcal: 625, protein: 70 },
+  { note: "A jacket potato with baked beans and cheese", kcal: 560, protein: 26 },
+  { note: "Two slices of white toast with peanut butter", kcal: 370, protein: 14 },
+  { note: "A bowl of porridge made with 60g oats and 300ml semi-skimmed milk", kcal: 375, protein: 17 },
+  { note: "130g salmon fillet with new potatoes and green beans", kcal: 460, protein: 38 },
+  { note: "Spaghetti bolognese made with 150g of 5% beef mince", kcal: 570, protein: 46 },
+  { note: "A protein shake with two scoops of whey and 400ml semi-skimmed milk", kcal: 440, protein: 62 },
+  { note: "Half an avocado on two slices of sourdough", kcal: 372, protein: 10 },
+  { note: "Two boiled eggs and an apple", kcal: 227, protein: 13 },
+  { note: "A Big Mac and medium fries", kcal: 830, protein: 30 },
+
+  // — Vague on purpose —
+  { note: "A handful of almonds", kcal: 175, protein: 6, vague: true },
+  { note: "A large flat white and a chocolate digestive", kcal: 185, protein: 7, vague: true },
+  { note: "A chicken and bacon sandwich from a supermarket meal deal", kcal: 450, protein: 28, vague: true },
+  { note: "A pint of Guinness", kcal: 210, protein: 2, vague: true },
+];
 
 /** $ per million tokens, in/out. Update alongside the README's cost table. */
 const PRICING: Record<string, { in: number; out: number }> = {
@@ -214,10 +249,15 @@ if (selected.length === 0) {
   process.exit(1);
 }
 
+type Row = { model: string; kcal: number; protein: number; vagueKcal: number; cost: number; ms: number; n: number };
+const table: Row[] = [];
+
 for (const { model, run } of selected) {
   console.log(`\n${model}`);
   let kcalErr = 0;
   let proteinErr = 0;
+  let vagueKcalErr = 0;
+  let vagueN = 0;
   let cost = 0;
   let latency = 0;
   let ok = 0;
@@ -229,36 +269,72 @@ for (const { model, run } of selected) {
       const dp = pct(r.protein, meal.protein);
       kcalErr += Math.abs(dk);
       proteinErr += Math.abs(dp);
+      if (meal.vague) {
+        vagueKcalErr += Math.abs(dk);
+        vagueN += 1;
+      }
       latency += r.latencyMs;
       const price = PRICING[model];
-      if (price) {
-        cost += (r.usage.input * price.in + r.usage.output * price.out) / 1e6;
-      }
+      if (price) cost += (r.usage.input * price.in + r.usage.output * price.out) / 1e6;
       ok += 1;
       console.log(
-        `  ${meal.note.slice(0, 38).padEnd(38)} ` +
-          `${String(r.kcal).padStart(4)} kcal (${dk >= 0 ? "+" : ""}${dk.toFixed(0)}%)  ` +
-          `${String(r.protein).padStart(3)} g P (${dp >= 0 ? "+" : ""}${dp.toFixed(0)}%)`,
+        `  ${meal.vague ? "?" : " "} ${meal.note.slice(0, 52).padEnd(52)} ` +
+          `${String(r.kcal).padStart(4)} (${dk >= 0 ? "+" : ""}${dk.toFixed(0)}%)  ` +
+          `${String(r.protein).padStart(3)}g P (${dp >= 0 ? "+" : ""}${dp.toFixed(0)}%)`,
       );
     } catch (error) {
       console.log(
-        `  ${meal.note.slice(0, 38).padEnd(38)} FAILED  ${(error as Error).message.slice(0, 50)}`,
+        `    ${meal.note.slice(0, 52).padEnd(52)} FAILED  ${(error as Error).message.slice(0, 60)}`,
       );
     }
   }
 
   if (ok > 0) {
-    console.log(
-      `  ${"—".repeat(38)} mean |error| ${(kcalErr / ok).toFixed(1)}% kcal, ` +
-        `${(proteinErr / ok).toFixed(1)}% protein · ` +
-        `${PRICING[model] ? `$${(cost / ok).toFixed(5)}` : "cost —"}/meal · ` +
-        `${Math.round(latency / ok)}ms`,
-    );
+    table.push({
+      model,
+      kcal: kcalErr / ok,
+      protein: proteinErr / ok,
+      vagueKcal: vagueN ? vagueKcalErr / vagueN : NaN,
+      cost: PRICING[model] ? cost / ok : NaN,
+      ms: latency / ok,
+      n: ok,
+    });
+    console.log(`  ${"—".repeat(54)} ${ok}/${REFERENCE.length} answered`);
   }
 }
 
+if (table.length) {
+  console.log("\n\nmean |error| over " + REFERENCE.length + " meals\n");
+  console.log(
+    "  " +
+      "model".padEnd(24) +
+      "kcal".padStart(7) +
+      "protein".padStart(9) +
+      "vague kcal".padStart(12) +
+      "$/meal".padStart(11) +
+      "latency".padStart(9),
+  );
+  for (const r of table) {
+    console.log(
+      "  " +
+        r.model.padEnd(24) +
+        `${r.kcal.toFixed(1)}%`.padStart(7) +
+        `${r.protein.toFixed(1)}%`.padStart(9) +
+        (Number.isNaN(r.vagueKcal) ? "—" : `${r.vagueKcal.toFixed(1)}%`).padStart(12) +
+        (Number.isNaN(r.cost) ? "—" : `$${r.cost.toFixed(5)}`).padStart(11) +
+        `${Math.round(r.ms)}ms`.padStart(9),
+    );
+  }
+  console.log(
+    "\n  ? marks meals with no stated quantity — where models actually differ.",
+  );
+}
+
 console.log(
-  "\nCost is per text-only meal; a photo adds roughly 1,500 image tokens on top.\n" +
-    "At six meals a day, multiply by 180 for a monthly figure.",
+  "\n  Cost is per text-only meal; a photo adds roughly 1,500 image tokens.\n" +
+    "  At six meals a day, multiply by 180 for a monthly figure.\n" +
+    "  Labels beyond the first four are composed from published per-100g values,\n" +
+    "  not weighed — good enough to separate broadly-right from 30% low, not\n" +
+    "  good enough to argue about three percentage points.",
 );
 process.exit(0);

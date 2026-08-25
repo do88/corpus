@@ -733,35 +733,33 @@ comparing the prompting, not the models. Add a filter to run a subset
 Measured August 2026, text-only:
 
 ```
-                        kcal err   protein err    $/meal    latency
-claude-opus-5              4.5%          9.7%   $0.01160     4.5 s
-claude-sonnet-5            4.2%         14.6%   $0.00402     4.0 s
-claude-haiku-4-5          14.6%          8.5%   $0.00154     3.0 s
-gemini-3.1-flash-lite      4.8%         12.4%   $0.00011     5.1 s
+                         kcal   protein   vague kcal    $/meal   latency
+claude-opus-5            7.1%      8.9%        11.0%   $0.01161    4.5 s
+claude-sonnet-5          8.6%      7.6%        11.5%   $0.00406    4.1 s
+claude-haiku-4-5        15.0%     13.0%        22.8%   $0.00154    1.9 s
 ```
 
-Within the Claude tiers, Opus stays. Sonnet matches it on calories at a third of
-the price but is half again as wrong on protein, and protein is the number this
-app exists to hit — the calorie target is a ceiling you approach, the protein
-target is a floor you clear. Haiku is cheapest and reads a tin of mackerel 30%
-low.
+Twenty meals: the four Phase 0 measured by hand, twelve composed from published
+per-100g values, and four deliberately vague — "a handful of almonds", "a
+supermarket meal deal sandwich". The vague column is the interesting one.
+Anything can estimate "200g grilled chicken breast"; the spread opens up on the
+phrasing real logging actually uses, and it roughly doubles every model's error.
 
-**Gemini Flash Lite is the awkward result.** It lands between Opus and Sonnet on
-both measures at **a hundredth of Opus's cost** — £0.02 a month against £2.10 —
-which is not a rounding difference, it is a different order of magnitude for a
-few tenths of a percent of accuracy.
+**The sample size mattered more than the models did.** At four meals Sonnet
+looked half again as wrong as Opus on protein (14.6% against 9.7%) and that was
+noise: at twenty it is 7.6% against 8.9%, which is *better*. Opus keeps a small
+lead on calories, Sonnet a small lead on protein, and at this sample size
+neither gap is worth defending. Haiku is the one clear result — worse on every
+measure, and worst where it matters most, at 22.8% on vague meals.
 
-Four meals is too small a sample to separate 4.5% from 4.8%, though. Before
-moving anything on the strength of this table, widen `REFERENCE` — twenty meals
-with known labels would make the protein column mean something, and protein is
-the column that decides.
+So the honest reading is that Opus and Sonnet are indistinguishable here and
+Sonnet is a third of the price. Haiku is not a candidate.
 
-One thing the run itself taught: `output_config.effort` is rejected by Haiku
-4.5, so its first four attempts were `invalid_request_error` and no numbers at
-all. The comparison keeps `effort: "low"` wherever the model accepts it, because
-that is what the app sends — dropping it everywhere would measure something the
-app does not do. Similarly, `GET /v1beta/models` lists Gemini models a given key
-cannot actually invoke: `gemini-2.5-flash` appears in the list and 404s on
+Two things the runs themselves taught: `output_config.effort` is rejected by
+Haiku 4.5, so its first attempts were `invalid_request_error` and no numbers at
+all — the bench keeps `effort: "low"` wherever the model accepts it, because
+that is what the app sends. And `GET /v1beta/models` lists Gemini models a key
+cannot actually invoke; `gemini-2.5-flash` appears in the list and 404s on
 `generateContent`.
 
 ### Why the model isn't asked for totals
