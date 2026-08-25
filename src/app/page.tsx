@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { kcalByDay, listMealsInRange, localDay, weekOf } from "@/lib/meals/repository";
+import { loadTargets } from "@/lib/meals/load-targets";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
 import { Today } from "@/components/today";
@@ -28,7 +29,10 @@ export default async function Home({
 
   // One query covers the day being shown and the dots on the week strip.
   const week = weekOf(day);
-  const meals = await listMealsInRange(supabase, week[0], week[6]);
+  const [meals, targets] = await Promise.all([
+    listMealsInRange(supabase, week[0], week[6]),
+    loadTargets(supabase),
+  ]);
 
   return (
     // pb-28 clears the fixed tab bar; without it the last meal hides behind it.
@@ -40,6 +44,7 @@ export default async function Home({
         day={day}
         today={today}
         logged={kcalByDay(meals)}
+        targets={targets}
       />
     </main>
   );

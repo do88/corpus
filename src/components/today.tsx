@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/metric-card";
 import { createClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/meal/format";
-import { DAILY_TARGET } from "@/lib/meals/targets";
+import type { DailyTargets } from "@/lib/meals/targets";
 import { totalsForDay, type MealRow } from "@/lib/meals/repository";
 import {
   getServerSnapshot,
@@ -34,11 +34,14 @@ export function Today({
   day,
   today,
   logged,
+  targets,
 }: {
   initialMeals: MealRow[];
   day: string;
   today: string;
   logged: Record<string, number>;
+  /** Computed server-side from the latest weigh-in — see lib/meals/targets.ts. */
+  targets: DailyTargets;
 }) {
   const [meals, setMeals] = useState(initialMeals);
 
@@ -135,7 +138,7 @@ export function Today({
   return (
     <div className="mt-5 space-y-5">
       <DayPicker day={day} today={today} logged={logged} />
-      <Totals totals={totals} queued={queued.length} />
+      <Totals totals={totals} queued={queued.length} targets={targets} />
       {/* Logging always applies to now, so it only shows on today. Offering it
           on a past day would imply back-dating, which the 04:00 rule already
           decides and the composer has no way to override. */}
@@ -175,9 +178,11 @@ export function Today({
 function Totals({
   totals,
   queued,
+  targets,
 }: {
   totals: ReturnType<typeof totalsForDay>;
   queued: number;
+  targets: DailyTargets;
 }) {
   const inFlight = queued > 0 || totals.pending > 0 || totals.failed > 0;
 
@@ -188,7 +193,7 @@ function Totals({
           label="Calories"
           icon={<Flame className="size-4" />}
           value={totals.kcal}
-          target={DAILY_TARGET.kcal}
+          target={targets.kcal}
           unit="kcal"
           metric="energy"
         />
@@ -196,7 +201,7 @@ function Totals({
           label="Protein"
           icon={<Utensils className="size-4" />}
           value={totals.protein_g}
-          target={DAILY_TARGET.protein_g}
+          target={targets.protein_g}
           unit="g"
           metric="protein"
         />
@@ -207,7 +212,7 @@ function Totals({
           label="Carbs"
           icon={<Wheat className="size-4" />}
           value={totals.carbs_g}
-          target={DAILY_TARGET.carbs_g}
+          target={targets.carbs_g}
           unit="g"
           metric="water"
         />
@@ -215,7 +220,7 @@ function Totals({
           label="Fat"
           icon={<Droplet className="size-4" />}
           value={totals.fat_g}
-          target={DAILY_TARGET.fat_g}
+          target={targets.fat_g}
           unit="g"
           metric="weight"
         />

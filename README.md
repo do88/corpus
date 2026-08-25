@@ -215,6 +215,38 @@ system → light → dark. Three states rather than a switch, because "follow th
 device" is a real preference — dropping it would mean telling the app to go dark
 twice a day.
 
+### The targets compute themselves
+
+Four numbers, and only two are decisions. `lib/meals/targets.ts`:
+
+- **BMR** uses **Katch–McArdle** when a lean-mass reading exists, falling back to
+  Mifflin–St Jeor when it does not. Mifflin works off total bodyweight, which
+  treats a kilo of fat as metabolically equal to a kilo of muscle; at 30% body
+  fat that overstates the burn. On the reading on file it returns 2086 against
+  the scale's own measured 2105 — a 1% disagreement between a formula and a
+  bioimpedance device, which is about as much validation as either deserves.
+- **Activity** is read from sessions actually logged in the last 28 days, not
+  chosen from a dropdown where everyone picks "moderately active" and is wrong
+  in the same direction.
+- **The deficit is a percentage**, not a fixed −500. A fixed number gets
+  progressively harsher as bodyweight falls — 500 off 2900 is 17%, 500 off 2300
+  is 22% — so a plan that starts comfortable ends up punishing exactly when it
+  gets hard.
+- **Protein is allocated first**, at 2.4 g per kg of *lean* mass, and never
+  moves. A deeper deficit comes out of carbs and fat. That is the difference
+  between saying protein comes first and meaning it.
+- **Fat has a floor** at 0.8 g/kg of *goal* weight — anchored to the target so
+  it stays still while the weight moves. A floor that falls as you lose is not a
+  floor.
+- **Carbs take the remainder**, so the four always sum back to the calorie
+  target. Picking three numbers independently is how a tracker ends up showing
+  macros that add to a different total than the one printed above them.
+
+Ten tests cover the properties rather than the arithmetic: that BMR ignores added
+fat, that protein holds steady as the deficit deepens, that the fat floor does
+not follow the weight down, that carbs never go negative, and that the projected
+rate of loss stays under 1% of bodyweight a week.
+
 ### Two sets of hues, because AA demands it
 
 `pnpm design:contrast` checks every token in both themes, and it survived the
