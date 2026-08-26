@@ -26,7 +26,7 @@ export default async function Training() {
   const { headline } = data;
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-3">
+    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-3 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
       <AppHeader
         title="Training"
         caption={`${headline.total_workouts} sessions since ${headline.first_date.slice(0, 4)}`}

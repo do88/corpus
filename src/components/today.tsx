@@ -231,7 +231,9 @@ function Totals({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      {/* Two-up on a phone, four-across once there is room — the four are one
+          set and only split into rows because a phone cannot hold them. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           label="Calories"
           icon={<Flame className="size-4" />}
@@ -248,9 +250,6 @@ function Totals({
           unit="g"
           metric="protein"
         />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
         <MetricCard
           label="Carbs"
           icon={<Wheat className="size-4" />}
@@ -292,6 +291,20 @@ function Totals({
   );
 }
 
+/**
+ * The day as a timeline.
+ *
+ * Meals in the order they happened, newest first, on a spine with the time
+ * against each one. A plain list of cards said *what* was eaten; a timeline
+ * says *when*, and when is most of what you look at a food log to find out —
+ * whether the gap between breakfast and lunch was six hours, whether the
+ * calories all landed after nine at night. The data was always there in a
+ * subtitle; this makes it the structure instead.
+ *
+ * Anything still queued sits at the top, above the spine rather than on it:
+ * those meals have a time but have not reached the server, and putting them
+ * in the sequence would imply a certainty they do not have yet.
+ */
 function MealList({
   meals,
   queued,
@@ -314,28 +327,70 @@ function MealList({
     );
   }
 
-  return (
-    <ul className="space-y-2.5">
-      {queued.map((meal) => (
-        <li key={meal.clientId} className="surface px-4 py-3.5">
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="text-[0.9375rem] font-medium leading-snug">
-              {meal.note || (meal.photo ? "Photo" : "Meal")}
-            </span>
-            <Badge variant="secondary" className="shrink-0 rounded-full">
-              <CloudUpload className="size-3" aria-hidden /> waiting
-            </Badge>
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {formatTime(meal.loggedAt)}
-            {meal.lastError && ` · ${meal.lastError}`}
-          </div>
-        </li>
-      ))}
+  const ordered = [...meals].reverse();
 
-      {[...meals].reverse().map((meal) => (
-        <MealEntry key={meal.id} meal={meal} onChanged={onChanged} onRemoved={onRemoved} />
-      ))}
-    </ul>
+  return (
+    <div className="space-y-2.5">
+      {queued.length > 0 && (
+        <ul className="space-y-2.5">
+          {queued.map((meal) => (
+            <li key={meal.clientId} className="surface px-4 py-3.5">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-[0.9375rem] font-medium leading-snug">
+                  {meal.note || (meal.photo ? "Photo" : "Meal")}
+                </span>
+                <Badge variant="secondary" className="shrink-0 rounded-full">
+                  <CloudUpload className="size-3" aria-hidden /> waiting
+                </Badge>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatTime(meal.loggedAt)}
+                {meal.lastError && ` · ${meal.lastError}`}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ordered.length > 0 && (
+        <ol className="relative space-y-2.5">
+          {/*
+            The spine. Absolutely positioned rather than a border on each row,
+            so it runs continuously through the gaps between cards — a border
+            per item would break at every margin and read as ticks, not a line.
+            Inset to stop short of the last node so it does not dangle.
+          */}
+          <span
+            aria-hidden
+            className="absolute left-[5px] top-3 bottom-3 w-px"
+            style={{ background: "var(--rule)" }}
+          />
+
+          {ordered.map((meal) => (
+            <li key={meal.id} className="relative flex gap-3">
+              <span
+                aria-hidden
+                className="relative z-10 mt-[1.15rem] size-2.5 shrink-0 rounded-full ring-4"
+                style={{
+                  background:
+                    meal.status === "analyzed"
+                      ? "var(--accent-protein)"
+                      : meal.status === "failed"
+                        ? "var(--destructive)"
+                        : "var(--muted-foreground)",
+                  // The ring is the page colour, which punches a hole in the
+                  // spine behind each node rather than letting the line run
+                  // through it.
+                  "--tw-ring-color": "var(--background)",
+                } as React.CSSProperties}
+              />
+              <div className="min-w-0 flex-1">
+                <MealEntry meal={meal} onChanged={onChanged} onRemoved={onRemoved} />
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   );
 }

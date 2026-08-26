@@ -45,10 +45,15 @@ export function MealEntry({
     (meal.photo_path ? "Photo" : "Meal");
 
   return (
+    // An <article>, not an <li>: the timeline in `today.tsx` owns the list item
+    // so it can put the spine node beside this card. Returning an <li> here too
+    // nested one inside another, which is invalid and showed up as a hydration
+    // mismatch rather than anything visible.
+    //
     // Each meal is its own card. A divided list reads as a table; separate
     // cards read as objects you can act on — which these are, since tapping one
     // opens its numbers for correction.
-    <li className="surface tappable overflow-hidden">
+    <article className="surface tappable overflow-hidden">
       <button
         type="button"
         onClick={() => setEditing((v) => !v)}
@@ -122,7 +127,7 @@ export function MealEntry({
           onDone={() => setEditing(false)}
         />
       )}
-    </li>
+    </article>
   );
 }
 
