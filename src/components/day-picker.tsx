@@ -119,7 +119,7 @@ export function DayPicker({
               aria-label={longDate(date)}
               className="tappable flex flex-col items-center gap-1 py-0.5 disabled:opacity-25"
             >
-              <span className="text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+              <span className="text-[0.75rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
                 {WEEKDAY.format(new Date(`${date}T12:00:00Z`)).charAt(0)}
               </span>
 

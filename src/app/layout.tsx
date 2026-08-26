@@ -44,11 +44,13 @@ export const viewport: Viewport = {
   // `viewportFit: cover` is what puts the layout under the notch and home
   // indicator, which is what makes `env(safe-area-inset-*)` mean anything.
   viewportFit: "cover",
-  // A tracker is a lot of small numbers; pinch-zooming it just breaks the
-  // layout, and double-tap-to-zoom adds 300ms to every tap.
+  // Zoom stays available. This used to pin `maximumScale: 1` with
+  // `userScalable: false` to feel more native, which is a WCAG 1.4.4 failure:
+  // it takes pinch-zoom away from exactly the people who need it, and "a
+  // tracker is a lot of small numbers" is an argument *for* letting someone
+  // enlarge them, not against. The 300ms tap delay it also claimed to avoid
+  // has not existed since browsers started honouring `width=device-width`.
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
