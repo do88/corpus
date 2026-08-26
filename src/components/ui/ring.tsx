@@ -94,8 +94,13 @@ export function Ring({
       <div className="absolute inset-0 grid place-items-center">
         {children ?? (
           <span
-            className="text-[0.8125rem] font-semibold tabular-nums"
-            style={{ color: over ? colour : undefined }}
+            // Scaled to the ring rather than fixed: at 52px the old 13px sat
+            // shoulder to shoulder with the stroke.
+            style={{
+              fontSize: Math.max(11, Math.round(size * 0.22)),
+              color: over ? colour : undefined,
+            }}
+            className="font-semibold tabular-nums"
           >
             {Math.round(pct)}%
           </span>
