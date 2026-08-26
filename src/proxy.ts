@@ -90,7 +90,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Everything except static assets, images, and `/jobs/*`.
+     * Everything except static assets, images, `/jobs/*`, and the local worker
+     * adapter.
      *
      * `/jobs/*` is excluded deliberately, and it was a bug that it wasn't. In
      * production the Next runtime's edge function matches before Netlify routes
@@ -100,6 +101,8 @@ export const config = {
      *
      * Those functions verify the token themselves (lib/auth/verify.ts), which
      * is the right check for a caller that has no cookie jar.
+     * `/api/meals/process` is the development-only equivalent and performs the
+     * same Bearer-token verification inside its route handler.
      *
      * `/.netlify/` is excluded for the same reason — it is where functions are
      * reachable directly, and a redirect there turns an invocation into a
@@ -119,6 +122,6 @@ export const config = {
      * already public below, so it refreshes a session for a request whose whole
      * purpose is to create one.
      */
-    "/((?!_next/static|_next/image|favicon.ico|jobs/|auth/|\\.netlify/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|jobs/|api/meals/process|auth/|\\.netlify/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

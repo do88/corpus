@@ -133,11 +133,8 @@ async function runClaude(model: string, note: string): Promise<Result> {
 }
 
 /**
- * Gemini's structured output is `responseSchema`, an OpenAPI subset — not JSON
- * Schema. It rejects `additionalProperties` and `$schema`, so the schema is
- * described here rather than reused from `toStructuredOutputSchema`, which
- * exists to satisfy Anthropic's own constraints. Same *shape*, same fields,
- * different dialect.
+ * Gemini accepts the shared contract through `responseJsonSchema`. Keep this
+ * deliberately plain so every compared model receives the same constraints.
  */
 async function runGemini(model: string, note: string): Promise<Result> {
   const key = process.env.GEMINI_API_KEY;
@@ -167,12 +164,12 @@ async function runGemini(model: string, note: string): Promise<Result> {
             systemInstruction: { parts: [{ text: MEAL_SYSTEM_PROMPT }] },
             contents: [{ parts: [{ text: `The user says: "${note}"` }] }],
             generationConfig: {
-              // The app uses low effort with Claude. Gemini defaults to medium
-              // thinking, so pin low here to compare the same latency/cost posture.
+              // Pin low across the benchmark so its model rows retain the same
+              // latency/cost posture. Production deliberately uses medium.
               thinkingConfig: { thinkingLevel: "low" },
               maxOutputTokens: 2000,
               responseMimeType: "application/json",
-              responseSchema: GEMINI_MEAL_SCHEMA,
+              responseJsonSchema: GEMINI_MEAL_SCHEMA,
             },
           }),
         },

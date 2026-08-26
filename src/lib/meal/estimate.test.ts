@@ -65,13 +65,14 @@ describe("estimateMeal", () => {
     expect(body.contents[0].parts).toEqual([
       { text: 'The user says: "two slices of toast"' },
     ]);
-    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "low" });
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "MEDIUM" });
     expect(body.generationConfig.responseMimeType).toBe("application/json");
-    expect(body.generationConfig.responseSchema.required).toEqual([
+    expect(body.generationConfig.responseJsonSchema.required).toEqual([
       "items",
       "confidence",
       "assumptions",
     ]);
+    expect(init.signal).toBeInstanceOf(AbortSignal);
 
     expect(result.model).toBe(MEAL_MODEL);
     expect(result.estimate).toMatchObject({ kcal: 200, protein_g: 8, carbs_g: 36, fat_g: 2 });

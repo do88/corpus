@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { SerwistProvider } from "@serwist/next/react";
 import { OUTBOX_TAG } from "@/lib/outbox/tag";
 
+const SERVICE_WORKER_ENABLED = process.env.NODE_ENV === "production";
+let developmentResetStarted = false;
+
 /**
  * Registers the service worker, and asks Android to wake it when signal
  * returns.
@@ -16,11 +19,54 @@ import { OUTBOX_TAG } from "@/lib/outbox/tag";
  */
 export function Offline({ children }: { children: React.ReactNode }) {
   return (
-    <SerwistProvider swUrl="/sw.js" register reloadOnOnline={false}>
-      <RegisterBackgroundSync />
+    <SerwistProvider
+      swUrl="/sw.js"
+      disable={!SERVICE_WORKER_ENABLED}
+      register
+      reloadOnOnline={false}
+    >
+      {SERVICE_WORKER_ENABLED ? <RegisterBackgroundSync /> : <ResetDevelopmentWorker />}
       {children}
     </SerwistProvider>
   );
+}
+
+/**
+ * A production build leaves `public/sw.js` on disk. Next dev serves that file,
+ * so merely disabling the Serwist webpack plugin is not enough: a previously
+ * registered worker keeps controlling localhost and asks for the old build's
+ * hashed assets. Remove it once and reload the controlled page cleanly.
+ */
+function ResetDevelopmentWorker() {
+  useEffect(() => {
+    if (developmentResetStarted || !("serviceWorker" in navigator)) return;
+    developmentResetStarted = true;
+
+    void (async () => {
+      const wasControlled = navigator.serviceWorker.controller !== null;
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      if (registrations.length === 0) return;
+
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+
+      if ("caches" in window) {
+        const names = await caches.keys();
+        await Promise.all(
+          names
+            .filter((name) => /serwist|precache|workbox/i.test(name))
+            .map((name) => caches.delete(name)),
+        );
+      }
+
+      // Unregistering stops the next navigation from being controlled; it does
+      // not release the current page. One reload completes that transition.
+      if (wasControlled) window.location.reload();
+    })().catch((error) => {
+      console.warn("[offline] Could not clear the development service worker", error);
+    });
+  }, []);
+
+  return null;
 }
 
 function RegisterBackgroundSync() {

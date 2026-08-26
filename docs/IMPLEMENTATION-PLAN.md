@@ -20,7 +20,7 @@ gets rewritten or dropped.
 | Platform | Next.js PWA, **Android only** | Background Sync works; no app store; one codebase |
 | Data, auth, files | **Supabase** — Postgres, Google auth, Storage, Realtime | One service instead of three; already familiar |
 | Hosting | **Netlify** | Background Functions: 15 min on the free tier; existing projects there |
-| Vision model | **`gemini-3.7-flash`**, low thinking, structured outputs | Strongest overall Gemini row in the 20-meal benchmark; quality-first multimodal choice |
+| Vision model | **`gemini-3.7-flash`**, medium thinking, structured outputs | Strongest overall Gemini row in the low-thinking 20-meal benchmark; production takes the quality-first setting |
 | Background work | **Netlify Background Function + DB-as-queue** | No fourth service; the `meal_log` row *is* the job record |
 | Sync cadence | Hevy monthly cron; Garmin + RENPHO manual upload | Agreed connectivity level |
 
@@ -302,7 +302,7 @@ nutrition logic · Lighthouse PWA pass.
 |---|---|
 | Supabase | free tier |
 | Netlify | free tier, Background Functions included |
-| Gemini 3.7 Flash | ~$0.30/month for text-only meals at 6 entries/day at current promotional pricing; image input extra |
+| Gemini 3.7 Flash | < $1/month for text-only meals at 6 entries/day with medium thinking at current promotional pricing; image input extra |
 
 Against Cal AI at £4–6/month, with the data staying yours.
 

@@ -88,8 +88,12 @@ supports Turbopack.
 refuses to start when it finds a `webpack` config with no `turbopack` config
 beside it — a sensible guard against a config nobody migrated, but here both are
 deliberate. Without it `pnpm dev` exits rather than starting. Dev stays on
-Turbopack, which is faster and unaffected, because Serwist is disabled in
-development anyway.
+Turbopack, which is faster, and does not register a service worker. If a
+production worker was already controlling localhost, the app unregisters it
+and clears its precache once. Meal estimation still works under plain
+`pnpm dev`: the client calls a development-only Next route that delegates to
+the same `processMeal` function as Netlify. Production continues to use the
+immediate-202 `/jobs/estimate` background function.
 
 Needs `GEMINI_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
@@ -731,7 +735,7 @@ cost. Same prompt matters: give each model its own tuned prompt and you are
 comparing the prompting, not the models. Add a filter to run a subset
 (`pnpm compare:models claude`); every row is real API calls against real money.
 
-Measured August 2026, text-only:
+Measured August 2026, text-only, with low thinking/effort:
 
 ```
                          kcal   protein   vague kcal    $/meal   latency
@@ -773,12 +777,12 @@ would therefore be 3.1 Flash-Lite; production deliberately uses
 
 Three things the runs themselves taught: `output_config.effort` is rejected by
 Haiku 4.5, so its first attempts were `invalid_request_error` and no numbers at
-all — the bench keeps `effort: "low"` wherever the model accepts it, because
-that matches the production path's low-thinking latency and cost posture.
-Gemini's billed output includes thinking tokens, which are reported separately
-from visible candidate tokens. And free-tier quota errors carry a retry delay;
-the bench respects it instead of immediately burning every remaining meal on
-the same 429.
+all. The bench keeps low thinking/effort wherever the model accepts it so model
+rows retain the same latency and cost posture; production deliberately uses
+medium thinking as a quality-first choice. Gemini's billed output includes
+thinking tokens, which are reported separately from visible candidate tokens.
+And free-tier quota errors carry a retry delay; the bench respects it instead
+of immediately burning every remaining meal on the same 429.
 
 ### Why the model isn't asked for totals
 

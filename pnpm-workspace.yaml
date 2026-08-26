@@ -12,3 +12,10 @@ allowBuilds:
   sharp: true
   esbuild: true
   unrs-resolver: true
+  # Both packages ship compiled runtime artifacts; their source-build scripts
+  # are unnecessary for an application install.
+  '@google/genai': false
+  protobufjs: false
+
+minimumReleaseAgeExclude:
+  - '@google/genai@2.19.0'

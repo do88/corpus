@@ -3,9 +3,9 @@ import { z } from "zod";
 /**
  * Macro fields are whole, non-negative numbers.
  *
- * The bounds live here and are enforced on parse; `toStructuredOutputSchema`
- * removes them on the way to the API, which rejects `minimum`/`maximum` on an
- * integer. See lib/anthropic/schema.ts.
+ * The bounds live here and are enforced on parse. Anthropic's adapter removes
+ * them from its request dialect; Gemini's JSON Schema path accepts them. See
+ * lib/anthropic/schema.ts and gemini-schema.ts.
  */
 const wholeAmount = z.number().int().min(0);
 

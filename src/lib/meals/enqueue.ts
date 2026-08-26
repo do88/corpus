@@ -19,7 +19,12 @@
  */
 export async function requestEstimate(mealId: string, accessToken: string): Promise<void> {
   try {
-    await fetch("/jobs/estimate", {
+    // `/jobs/estimate` is a Netlify function and therefore does not exist under
+    // plain `next dev`. The local route delegates to the same `processMeal`
+    // implementation; production keeps the immediate-202 background function.
+    const path =
+      process.env.NODE_ENV === "production" ? "/jobs/estimate" : "/api/meals/process";
+    const response = await fetch(path, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -27,7 +32,12 @@ export async function requestEstimate(mealId: string, accessToken: string): Prom
       },
       body: JSON.stringify({ mealId }),
     });
-  } catch {
+
+    if (!response.ok) throw new Error(`Estimate worker returned ${response.status}`);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[requestEstimate] Local worker request failed", error);
+    }
     // Left for the reconciler.
   }
 }
