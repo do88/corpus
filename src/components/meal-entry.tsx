@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { correctMacros, deleteMeal, type MealRow } from "@/lib/meals/repository";
-import { MACRO_LABELS, formatTime } from "@/lib/meal/format";
+import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
 
 /**
@@ -40,7 +40,9 @@ export function MealEntry({
   const [editing, setEditing] = useState(false);
 
   const summary =
-    meal.items?.map((i) => i.name).join(", ") ??
+    // `?.length` rather than `?.`: an empty items array joins to "", which is
+    // not nullish and would have swallowed the note behind an empty title.
+    (meal.items?.length ? summariseItems(meal.items) : undefined) ??
     meal.note ??
     (meal.photo_path ? "Photo" : "Meal");
 
