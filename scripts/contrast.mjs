@@ -57,6 +57,11 @@ const REQUIRED = {
   "--accent-protein": { need: 3, on: ["card", "ground"] },
   "--accent-water": { need: 3, on: ["card"] },
   "--accent-weight": { need: 3, on: ["card"] },
+  // The timeline nodes are small filled dots drawn on the bare page, not on a
+  // card — so they are graphics against the ground.
+  "--time-morning": { need: 3, on: ["ground"] },
+  "--time-afternoon": { need: 3, on: ["ground"] },
+  "--time-evening": { need: 3, on: ["ground"] },
   "--rule": { need: 1.5, on: ["card"] },
   "--border": { need: 1.5, on: ["card"] },
   "--input": { need: 1.5, on: ["card"] },

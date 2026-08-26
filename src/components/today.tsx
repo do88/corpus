@@ -6,7 +6,7 @@ import { CloudUpload, Droplet, Flame, Utensils, Wheat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/metric-card";
 import { createClient } from "@/lib/supabase/client";
-import { formatTime } from "@/lib/meal/format";
+import { formatTime, mealBand } from "@/lib/meal/format";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { totalsForDay, type MealRow } from "@/lib/meals/repository";
 import {
@@ -329,6 +329,21 @@ function MealList({
 
   const ordered = [...meals].reverse();
 
+  /*
+    The spine takes the colour of the day it spans: warm at the morning end,
+    cool through the afternoon, deep at the evening one.
+
+    The stops come from the meals themselves rather than from a fixed
+    sunrise-to-dusk ramp. A fixed ramp would draw a full day's sweep behind
+    three meals that all happened after eight at night, which is exactly the
+    shape this view exists to make visible. A day logged entirely in one band
+    gets that band, flat — one stop, so `linear-gradient` needs the duplicate.
+  */
+  const bands = [...new Set(ordered.map((meal) => mealBand(meal.logged_at)))];
+  const spine = `linear-gradient(to bottom, ${(bands.length === 1 ? [bands[0], bands[0]] : bands)
+    .map((band) => `var(--time-${band})`)
+    .join(", ")})`;
+
   return (
     <div className="space-y-2.5">
       {queued.length > 0 && (
@@ -363,7 +378,7 @@ function MealList({
           <span
             aria-hidden
             className="absolute left-[5px] top-3 bottom-3 w-px"
-            style={{ background: "var(--rule)" }}
+            style={{ background: spine }}
           />
 
           {ordered.map((meal) => (
@@ -372,9 +387,12 @@ function MealList({
                 aria-hidden
                 className="relative z-10 mt-[1.15rem] size-2.5 shrink-0 rounded-full ring-4"
                 style={{
+                  // Time of day for a meal that landed; status colour for one
+                  // that did not. Failed and pending are the exceptions worth
+                  // spending a colour on, so they keep theirs.
                   background:
                     meal.status === "analyzed"
-                      ? "var(--accent-protein)"
+                      ? `var(--time-${mealBand(meal.logged_at)})`
                       : meal.status === "failed"
                         ? "var(--destructive)"
                         : "var(--muted-foreground)",

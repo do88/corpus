@@ -194,6 +194,9 @@
   --color-ink-protein: var(--ink-protein);
   --color-ink-water: var(--ink-water);
   --color-ink-weight: var(--ink-weight);
+  --color-time-morning: var(--time-morning);
+  --color-time-afternoon: var(--time-afternoon);
+  --color-time-evening: var(--time-evening);
   --color-rule: var(--rule);
   --color-elevated: var(--elevated);
 }
@@ -240,6 +243,17 @@
   --ink-protein: oklch(0.53 0.20 256);
   --ink-water: oklch(0.53 0.12 220);
   --ink-weight: oklch(0.50 0.21 285);
+
+  /* Time of day, for the timeline spine and its nodes.
+
+     A second colour axis, and it has to stay legible as one. The metric hues
+     are vivid because a figure owns its colour; these are deliberately half
+     their chroma, because a muted warm-to-cool sweep reads as "when" while a
+     saturated one would read as another reading to interpret. Chroma is what
+     keeps the two axes apart — nothing here ever colours a number. */
+  --time-morning: oklch(0.62 0.10 55);
+  --time-afternoon: oklch(0.60 0.09 195);
+  --time-evening: oklch(0.52 0.11 300);
 
   --destructive: oklch(0.55 0.21 27);
 
@@ -323,6 +337,10 @@
   --ink-protein: oklch(0.78 0.14 256);
   --ink-water: oklch(0.80 0.10 220);
   --ink-weight: oklch(0.76 0.15 285);
+
+  --time-morning: oklch(0.76 0.10 55);
+  --time-afternoon: oklch(0.74 0.09 195);
+  --time-evening: oklch(0.70 0.11 300);
 
   --destructive: oklch(0.68 0.19 27);
 
