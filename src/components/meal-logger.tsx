@@ -154,14 +154,20 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
         rounded container rather than sitting as separate controls in a row.
         That is what makes it read as a composer instead of a form.
       */}
-      <div className="surface flex items-end gap-1 p-1.5" style={{ borderRadius: 999 }}>
+      <div className="surface flex items-end gap-0.5 p-1.5" style={{ borderRadius: 999 }}>
         <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. 2 eggs and a slice of toast…"
+          // Short on purpose. The field is `field-sizing-content`, so it grows
+          // to fit its contents — and a placeholder counts, which meant the
+          // longer example wrapped and left the composer sitting two lines tall
+          // while empty. Three buttons take about 140px of the pill, so the
+          // example has to fit what is left of a phone's width, not of the
+          // page's.
+          placeholder="e.g. 2 eggs on toast"
           rows={1}
           aria-label="What did you eat?"
-          className="recessed max-h-32 min-h-10 flex-1 resize-none border-0 px-3.5 py-2 focus-visible:ring-0"
+          className="recessed max-h-32 min-h-10 flex-1 resize-none border-0 px-3 py-2 focus-visible:ring-0"
           style={{ borderRadius: 999 }}
           onKeyDown={(e) => {
             // Enter sends, Shift+Enter makes a new line — the convention every
