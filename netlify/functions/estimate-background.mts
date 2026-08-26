@@ -8,7 +8,7 @@ import { createWorkerClient } from "../../src/lib/supabase/worker";
  *
  * A background function rather than a route handler for one reason: it returns
  * 202 the instant it is invoked, so the phone can be locked and in a pocket
- * while Claude is still thinking. The row is the job record; Realtime is how
+ * while Gemini is still estimating. The row is the job record; Realtime is how
  * the answer reaches the screen. 15 minutes of headroom against a call that
  * takes five seconds.
  */
@@ -17,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async (req: Request) => {
   // The proxy deliberately excludes /jobs/*, because it authenticates by
   // cookie and this endpoint is called with a Bearer token. So this is the
-  // only check standing between the outside world and Anthropic credits.
+  // only check standing between the outside world and Gemini credits.
   const auth = await verifyOwner(req.headers.get("authorization"));
   if (!auth.ok) {
     // Logged, not just returned. A background function's response goes nowhere

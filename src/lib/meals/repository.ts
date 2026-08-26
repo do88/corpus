@@ -100,7 +100,7 @@ export function weekOf(day: string): string[] {
   });
 }
 
-/** What the worker writes back once Claude has answered. */
+/** What the worker writes back once the estimator has answered. */
 export async function saveEstimate(
   supabase: SupabaseClient,
   id: string,

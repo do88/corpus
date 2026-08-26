@@ -19,6 +19,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { MEAL_SYSTEM_PROMPT } from "../src/lib/meal/prompt";
 import { mealResponseSchema, totalsFor } from "../src/lib/meal/schema";
+import { GEMINI_MEAL_SCHEMA } from "../src/lib/meal/gemini-schema";
 import { toStructuredOutputSchema } from "../src/lib/anthropic/schema";
 
 /**
@@ -79,8 +80,13 @@ const PRICING: Record<string, { in: number; out: number }> = {
   // go here — a model with no entry prints "—" rather than a confident $0.00000,
   // because a made-up cost is worse than an absent one in a table whose whole
   // job is deciding on cost.
-  "gemini-3.1-flash-lite": { in: 0.1, out: 0.4 },
-  "gemini-flash-lite-latest": { in: 0.1, out: 0.4 },
+  // Standard paid-tier rates checked against Google's pricing page on
+  // 2026-08-25. The 3.7/3.6 rates are introductory through 2026-12-31.
+  "gemini-3.7-flash": { in: 0.75, out: 3.75 },
+  "gemini-3.6-flash": { in: 0.75, out: 3.75 },
+  "gemini-3.5-flash": { in: 1.5, out: 9 },
+  "gemini-3.5-flash-lite": { in: 0.3, out: 2.5 },
+  "gemini-3.1-flash-lite": { in: 0.25, out: 1.5 },
 };
 
 type Result = {
@@ -133,56 +139,67 @@ async function runClaude(model: string, note: string): Promise<Result> {
  * exists to satisfy Anthropic's own constraints. Same *shape*, same fields,
  * different dialect.
  */
-const GEMINI_SCHEMA = {
-  type: "object",
-  properties: {
-    items: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          qty: { type: "string" },
-          kcal: { type: "integer" },
-          protein_g: { type: "integer" },
-          carbs_g: { type: "integer" },
-          fat_g: { type: "integer" },
-        },
-        required: ["name", "qty", "kcal", "protein_g", "carbs_g", "fat_g"],
-      },
-    },
-    confidence: { type: "string", enum: ["low", "medium", "high"] },
-    assumptions: { type: "string" },
-  },
-  required: ["items", "confidence", "assumptions"],
-};
-
 async function runGemini(model: string, note: string): Promise<Result> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
 
-  const startedAt = Date.now();
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-goog-api-key": key },
-      body: JSON.stringify({
-        // Gemini has no separate system role on this endpoint version;
-        // `systemInstruction` is the equivalent slot.
-        systemInstruction: { parts: [{ text: MEAL_SYSTEM_PROMPT }] },
-        contents: [{ parts: [{ text: `The user says: "${note}"` }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: GEMINI_SCHEMA,
-        },
-      }),
-    },
-  );
-  const latencyMs = Date.now() - startedAt;
+  let responseBody: string | undefined;
+  let latencyMs = 0;
 
-  if (!response.ok) {
-    const body = await response.text();
+  // Free-tier quotas are deliberately small. Respect Google's RetryInfo when
+  // present instead of immediately burning every remaining meal on 429s.
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const startedAt = Date.now();
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          // Fetch otherwise has no deadline: one stalled request can block every
+          // meal and model behind it indefinitely. Thirty seconds is already far
+          // outside a useful interactive meal-logging latency.
+          signal: AbortSignal.timeout(30_000),
+          headers: { "Content-Type": "application/json", "X-goog-api-key": key },
+          body: JSON.stringify({
+            // Gemini has no separate system role on this endpoint version;
+            // `systemInstruction` is the equivalent slot.
+            systemInstruction: { parts: [{ text: MEAL_SYSTEM_PROMPT }] },
+            contents: [{ parts: [{ text: `The user says: "${note}"` }] }],
+            generationConfig: {
+              // The app uses low effort with Claude. Gemini defaults to medium
+              // thinking, so pin low here to compare the same latency/cost posture.
+              thinkingConfig: { thinkingLevel: "low" },
+              maxOutputTokens: 2000,
+              responseMimeType: "application/json",
+              responseSchema: GEMINI_MEAL_SCHEMA,
+            },
+          }),
+        },
+      );
+    } catch (error) {
+      if (attempt < 2 && (error as Error).name === "TimeoutError") {
+        console.log("    request timed out; retrying once");
+        continue;
+      }
+      throw error;
+    }
+
+    latencyMs = Date.now() - startedAt;
+    responseBody = await response.text();
+
+    if (response.status === 429 && attempt < 4) {
+      const retryInfo = responseBody.match(/"retryDelay"\s*:\s*"([\d.]+)s"/);
+      const retryMs = retryInfo
+        ? Math.ceil(Number(retryInfo[1]) * 1000) + 250
+        : Math.min(attempt * 10_000, 30_000);
+      console.log(`    quota reached; retrying in ${(retryMs / 1000).toFixed(1)}s`);
+      await new Promise((resolve) => setTimeout(resolve, retryMs));
+      continue;
+    }
+
+    if (response.ok) break;
+
     // A 404 here means the model is not callable by this key, which is not the
     // same as not existing: `GET /v1beta/models` lists models the key cannot
     // actually invoke (`gemini-2.5-flash` is listed and 404s). Say so, rather
@@ -194,9 +211,11 @@ async function runGemini(model: string, note: string): Promise<Result> {
           `https://generativelanguage.googleapis.com/v1beta/models`,
       );
     }
-    throw new Error(`${response.status} ${body.replace(/\s+/g, " ").slice(0, 110)}`);
+    throw new Error(`${response.status} ${responseBody.replace(/\s+/g, " ").slice(0, 110)}`);
   }
-  const body = await response.json();
+
+  if (!responseBody) throw new Error("no response body");
+  const body = JSON.parse(responseBody);
 
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("no text in response");
@@ -213,7 +232,11 @@ async function runGemini(model: string, note: string): Promise<Result> {
     latencyMs,
     usage: {
       input: body.usageMetadata?.promptTokenCount ?? 0,
-      output: body.usageMetadata?.candidatesTokenCount ?? 0,
+      // Google bills thinking tokens at the output-token rate, but reports
+      // them separately from visible candidate tokens.
+      output:
+        (body.usageMetadata?.candidatesTokenCount ?? 0) +
+        (body.usageMetadata?.thoughtsTokenCount ?? 0),
     },
   };
 }
@@ -225,9 +248,11 @@ const CANDIDATES: { model: string; run: (m: string, n: string) => Promise<Result
   // Verified callable with the key this was built against. `gemini-2.5-flash`
   // is listed by the models endpoint and 404s on generateContent, so it is not
   // here — the list is broader than what a given key may actually invoke.
+  { model: "gemini-3.7-flash", run: runGemini },
+  { model: "gemini-3.6-flash", run: runGemini },
+  { model: "gemini-3.5-flash", run: runGemini },
+  { model: "gemini-3.5-flash-lite", run: runGemini },
   { model: "gemini-3.1-flash-lite", run: runGemini },
-  { model: "gemini-flash-lite-latest", run: runGemini },
-  { model: "gemini-flash-latest", run: runGemini },
 ];
 
 const pct = (got: number, want: number) => ((got - want) / want) * 100;
@@ -283,9 +308,17 @@ for (const { model, run } of selected) {
           `${String(r.protein).padStart(3)}g P (${dp >= 0 ? "+" : ""}${dp.toFixed(0)}%)`,
       );
     } catch (error) {
+      const message = (error as Error).message;
       console.log(
-        `    ${meal.note.slice(0, 52).padEnd(52)} FAILED  ${(error as Error).message.slice(0, 60)}`,
+        `    ${meal.note.slice(0, 52).padEnd(52)} FAILED  ${message.slice(0, 60)}`,
       );
+      // A model that cannot answer even the first representative request in
+      // 30 seconds is not usable for this interactive app. Do not spend another
+      // nineteen minutes proving the same endpoint failure.
+      if (ok === 0 && message.toLowerCase().includes("timeout")) {
+        console.log("    stopping this model after its first-request timeout");
+        break;
+      }
     }
   }
 
@@ -312,7 +345,8 @@ if (table.length) {
       "protein".padStart(9) +
       "vague kcal".padStart(12) +
       "$/meal".padStart(11) +
-      "latency".padStart(9),
+      "latency".padStart(9) +
+      "answered".padStart(10),
   );
   for (const r of table) {
     console.log(
@@ -322,7 +356,8 @@ if (table.length) {
         `${r.protein.toFixed(1)}%`.padStart(9) +
         (Number.isNaN(r.vagueKcal) ? "—" : `${r.vagueKcal.toFixed(1)}%`).padStart(12) +
         (Number.isNaN(r.cost) ? "—" : `$${r.cost.toFixed(5)}`).padStart(11) +
-        `${Math.round(r.ms)}ms`.padStart(9),
+        `${Math.round(r.ms)}ms`.padStart(9) +
+        `${r.n}/${REFERENCE.length}`.padStart(10),
     );
   }
   console.log(

@@ -1,8 +1,8 @@
 # do.fit
 
 Food logging by photo and a sentence. Point the phone at a plate, say what it
-is, and get kcal and macros back. Installable PWA, Supabase behind it, Claude
-Opus 5 doing the estimating.
+is, and get kcal and macros back. Installable PWA, Supabase behind it, Gemini
+3.7 Flash doing the estimating.
 
 The name is user-facing only. The IndexedDB outbox, the Background Sync tag and
 the local Supabase `project_id` are all still `corpus-*`: renaming the database
@@ -29,14 +29,15 @@ src/
     training-sections.tsx  the dashboard, one section per thing worth knowing
     ui/                  shadcn/ui primitives
   lib/
-    anthropic/schema.ts  zod -> the JSON Schema structured outputs will accept
+    anthropic/schema.ts  Claude schema adapter used by the model benchmark
     db.ts                the one Postgres connection
     sql.ts               shared SQL fragments: knee load, working volume
     queries.ts           SQL only — rows in, rows out
     meal/
       schema.ts          the contract: items in, totals derived
+      gemini-schema.ts   Gemini's production structured-output contract
       prompt.ts          UK portions, consistency over cleverness
-      estimate.ts        the one call to Claude
+      estimate.ts        the one call to Gemini
       compress.ts        client-side resize before upload
       format.ts          macro labels and meal times, shared by the two views
     meals/
@@ -90,7 +91,7 @@ deliberate. Without it `pnpm dev` exits rather than starting. Dev stays on
 Turbopack, which is faster and unaffected, because Serwist is disabled in
 development anyway.
 
-Needs `ANTHROPIC_API_KEY` in `.env.local`. Everything else runs locally: the
+Needs `GEMINI_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
 
 ### Local development is isolated from the hosted project
@@ -109,7 +110,7 @@ pnpm check:access:hosted  # grants and RLS as actually deployed
 
 Both pass `--env-file=.env.local --env-file=.env.hosted`, in that order. The
 order is load-bearing: Node lets the **last** file win, so hosted overrides
-local while `ANTHROPIC_API_KEY` is still picked up from the first. Reversed, the
+local while `GEMINI_API_KEY` is still picked up from the first. Reversed, the
 production lever would quietly operate on the local database.
 
 It used to be the other way round — `.env.local` was the hosted project — which
@@ -272,7 +273,8 @@ light                          dark
 
 Photo and a sentence in, macros back. The order is the design:
 
-1. Resize on the client — a 4000×3000 photo is ~10× the image tokens
+1. Resize on the client — a 4000×3000 photo is several MB; the 1024px copy is
+   roughly 200 KB and uses far fewer billable image tokens
 2. **Insert the `meal_log` row** — the meal is now on screen and safe —
    *concurrently* with uploading the photo to the private `meal-photos` bucket
 3. Fire the background worker, which returns 202 immediately
@@ -358,11 +360,10 @@ re-apportioning it across four foods.
 
 ### Voice
 
-The browser's own `SpeechRecognition` — the Web Speech API — not a model of
-ours. No Anthropic call, no audio anywhere near Claude: the model only ever
-receives the text that comes back. Cheaper, faster, and a better prompt than
-audio would be. Where the browser can't do it the button isn't rendered; typing
-is already the fallback.
+The browser's own `SpeechRecognition` — the Web Speech API — not Gemini's audio
+input. No audio reaches the estimator: Gemini only receives the text that comes
+back. Cheaper, faster, and a better prompt than audio would be. Where the
+browser can't do it the button isn't rendered; typing is already the fallback.
 
 **It is not on-device, though this said so for a while.** Chrome's implementation
 streams the audio to Google's speech servers — the same recognition behind
@@ -390,7 +391,7 @@ scheduled function — measured against the deployed site, not assumed: GET, POS
 and PUT to `/.netlify/functions/reconcile` all return **403**. `/jobs/estimate`
 does answer 202 to an unauthenticated caller, but that is a background function
 acknowledging before its handler runs; `verifyOwner` refuses inside it, and
-nothing reaches Anthropic.
+nothing reaches Gemini.
 
 It is also the only thing that can recover a meal whose worker was never invoked
 at all: signal lost between writing the row and firing the request, or a deploy
@@ -737,6 +738,11 @@ Measured August 2026, text-only:
 claude-opus-5            7.1%      8.9%        11.0%   $0.01161    4.5 s
 claude-sonnet-5          8.6%      7.6%        11.5%   $0.00406    4.1 s
 claude-haiku-4-5        15.0%     13.0%        22.8%   $0.00154    1.9 s
+gemini-3.7-flash          6.3%      7.6%         9.1%   $0.00164    4.4 s
+gemini-3.6-flash          6.7%      9.8%         8.6%   $0.00094    2.1 s
+gemini-3.5-flash          6.4%      9.8%         9.7%   $0.00540    3.0 s
+gemini-3.5-flash-lite     8.3%     11.1%        11.3%   $0.00053    1.2 s
+gemini-3.1-flash-lite     6.7%      8.5%        12.5%   $0.00058    1.5 s
 ```
 
 Twenty meals: the four Phase 0 measured by hand, twelve composed from published
@@ -753,14 +759,26 @@ neither gap is worth defending. Haiku is the one clear result — worse on every
 measure, and worst where it matters most, at 22.8% on vague meals.
 
 So the honest reading is that Opus and Sonnet are indistinguishable here and
-Sonnet is a third of the price. Haiku is not a candidate.
+Sonnet is a third of the price. Haiku is not a candidate. Gemini changes the
+decision again: 3.1 Flash-Lite lands in the same accuracy band at about a
+seventh of Sonnet's cost and lower latency.
 
-Two things the runs themselves taught: `output_config.effort` is rejected by
+3.5 Flash-Lite is newer and five thousandths of a cent cheaper per meal, but it
+gave up 1.6 points on calories and 2.6 on protein. That saves less than one cent
+per month at six meals a day. 3.7 Flash has the strongest Gemini row, but its
+small gains are below what these labels and this sample can defend; it costs
+2.8 times as much and takes nearly three times as long. The cost-first choice
+would therefore be 3.1 Flash-Lite; production deliberately uses
+`gemini-3.7-flash` as the quality-first choice, especially for vague meals.
+
+Three things the runs themselves taught: `output_config.effort` is rejected by
 Haiku 4.5, so its first attempts were `invalid_request_error` and no numbers at
 all — the bench keeps `effort: "low"` wherever the model accepts it, because
-that is what the app sends. And `GET /v1beta/models` lists Gemini models a key
-cannot actually invoke; `gemini-2.5-flash` appears in the list and 404s on
-`generateContent`.
+that matches the production path's low-thinking latency and cost posture.
+Gemini's billed output includes thinking tokens, which are reported separately
+from visible candidate tokens. And free-tier quota errors carry a retry delay;
+the bench respects it instead of immediately burning every remaining meal on
+the same 429.
 
 ### Why the model isn't asked for totals
 

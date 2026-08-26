@@ -20,7 +20,7 @@ gets rewritten or dropped.
 | Platform | Next.js PWA, **Android only** | Background Sync works; no app store; one codebase |
 | Data, auth, files | **Supabase** — Postgres, Google auth, Storage, Realtime | One service instead of three; already familiar |
 | Hosting | **Netlify** | Background Functions: 15 min on the free tier; existing projects there |
-| Vision model | **`claude-opus-5`**, `effort: low`, structured outputs | ~£2.20/mo at 6 entries/day; strongest at portion size and regional food |
+| Vision model | **`gemini-3.7-flash`**, low thinking, structured outputs | Strongest overall Gemini row in the 20-meal benchmark; quality-first multimodal choice |
 | Background work | **Netlify Background Function + DB-as-queue** | No fourth service; the `meal_log` row *is* the job record |
 | Sync cadence | Hevy monthly cron; Garmin + RENPHO manual upload | Agreed connectivity level |
 
@@ -52,7 +52,7 @@ netlify/functions/  ────────────────────
 Supabase  ─────────────────────────────────────────────────
   Postgres · Google auth + RLS · Storage · Realtime
 
-Claude Opus 5  ────────────────────────────────────────────
+Gemini 3.7 Flash  ─────────────────────────────────────────
   vision + structured output
 ```
 
@@ -202,14 +202,15 @@ audio. Cheaper, faster, and a better prompt.
 
 **Client-side resize before anything else** — 1024px longest edge, JPEG q0.8,
 ~200 KB. Non-negotiable for two reasons:
-- A raw 4000×3000 photo is ~16,000 image tokens vs ~1,600 resized: **10× cost**
+- A raw 4000×3000 photo is several MB vs roughly 200 KB resized: faster to
+  upload, fewer billable image tokens, and far less pressure on the outbox
 - 4 MB blobs blow the IndexedDB quota within a few meals
 
 **Flow**
 1. Resize → write to IndexedDB outbox → **entry appears immediately, pending**
 2. Upload photo to Storage; insert `meal_log` row
 3. Invoke `analyze-meal` background function (returns 202 instantly)
-4. Worker calls Claude, writes macros, sets `status='analyzed'`
+4. Worker calls Gemini, writes macros, sets `status='analyzed'`
 5. Realtime pushes the row back; UI swaps pending → result
 
 **Structured output contract**
@@ -301,7 +302,7 @@ nutrition logic · Lighthouse PWA pass.
 |---|---|
 | Supabase | free tier |
 | Netlify | free tier, Background Functions included |
-| Claude Opus 5 | ~£2.20/month at 6 entries/day |
+| Gemini 3.7 Flash | ~$0.30/month for text-only meals at 6 entries/day at current promotional pricing; image input extra |
 
 Against Cal AI at £4–6/month, with the data staying yours.
 

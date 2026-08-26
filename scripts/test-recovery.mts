@@ -12,7 +12,7 @@
  * was never eaten into a record whose whole value is being true. The test date
  * is 2020-01-01 so even a mistake is obvious and isolated.
  *
- * Costs one real Claude call (~$0.013), so it is a manual check rather than
+ * Costs one real Gemini call, so it is a manual integration check rather than
  * part of any watch loop.
  */
 import { processMeal } from "@/lib/meals/process";

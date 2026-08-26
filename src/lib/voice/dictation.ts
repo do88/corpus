@@ -1,16 +1,17 @@
 /**
  * Speech to text, via the browser's own `SpeechRecognition`.
  *
- * No model of ours is involved: this is the Web Speech API, and Claude only
- * ever receives the text it returns. That is cheaper, much faster, and a better
- * prompt than audio would be.
+ * No model of ours is involved: this is the Web Speech API, and Gemini only
+ * receives the text it returns. That is cheaper, much faster, and a better
+ * prompt than sending recorded audio would be.
  *
  * **It is not on-device, and the comment here used to claim it was.** Chrome
  * implements this by streaming the audio to Google's speech servers. Android
  * can recognise locally in some configurations, but it is not guaranteed and
  * nothing here requests it. The accurate statement is that the audio goes to
- * Google and never to Anthropic — worth saying precisely, because "never leaves
- * the phone" is a materially stronger promise than the one this actually keeps.
+ * Google's speech service, but not through this app's Gemini API call — worth
+ * saying precisely, because "never leaves the phone" is a materially stronger
+ * promise than the one this actually keeps.
  *
  * Chrome only, which matches where this app runs. Everywhere else
  * `isDictationAvailable()` is false and the button simply isn't rendered —

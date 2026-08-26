@@ -22,7 +22,7 @@ import { createClient } from "@/lib/supabase/server";
  * The odd one out, security-wise, and worth saying why it checks the session
  * itself when nothing else in `app/` does. Everywhere else the proxy is a gate
  * and RLS is the boundary — get the gate wrong and a stranger sees an empty
- * app. There is no RLS behind an Anthropic call. Here the proxy would be the
+ * app. There is no RLS behind a paid Gemini call. Here the proxy would be the
  * entire boundary, and the cost of it being wrong is billable credits rather
  * than a blank screen, so the check is repeated at the handler.
  */
