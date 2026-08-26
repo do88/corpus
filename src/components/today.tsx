@@ -19,6 +19,7 @@ import {
 import { flushOutbox } from "@/lib/outbox/sync";
 import { retryStalePending } from "@/lib/meals/retry";
 import { MealLogger } from "./meal-logger";
+import { Advisor } from "./advisor";
 import { MealEntry } from "./meal-entry";
 import { DayPicker } from "./day-picker";
 
@@ -186,11 +187,20 @@ export function Today({
           on a past day would imply back-dating, which the 04:00 rule already
           decides and the composer has no way to override. */}
       {isToday && (
-        <MealLogger
-          onQueued={() => {
-            void sync();
-          }}
-        />
+        <>
+          <MealLogger
+            onQueued={() => {
+              void sync();
+            }}
+          />
+          {/* Under the composer, not above it: logging is why this screen
+              exists, and deciding what to eat is the occasional question. */}
+          <Advisor
+            onQueued={() => {
+              void sync();
+            }}
+          />
+        </>
       )}
       <MealList
         meals={meals}
