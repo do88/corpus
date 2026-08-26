@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CloudUpload, Droplet, Flame, Utensils, Wheat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/metric-card";
@@ -59,6 +60,11 @@ export function Today({
   const allQueued = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const queued = allQueued.filter((m) => m.localDate === day);
 
+  // Held in a ref because the channel is created inside an async effect — the
+  // cleanup runs before that resolves on a fast day-change, and it needs
+  // something to remove.
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
   const upsert = useCallback((row: MealRow) => {
     setMeals((current) => {
       const index = current.findIndex((m) => m.id === row.id);
@@ -111,23 +117,60 @@ export function Today({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel("meal_log_today")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "meal_log", filter: `local_date=eq.${day}` },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            setMeals((c) => c.filter((m) => m.id !== (payload.old as MealRow).id));
-          } else {
-            upsert(payload.new as MealRow);
+    let cancelled = false;
+
+    (async () => {
+      /**
+       * Hand Realtime the access token before subscribing.
+       *
+       * Realtime is a separate websocket from the REST calls, and it enforces
+       * RLS on its own connection. Without a token it connects as `anon`, the
+       * owner policy refuses every row, and the server does exactly what it
+       * should: sends nothing. The subscription reports `SUBSCRIBED` either
+       * way, so the failure looks identical to an idle channel — meals only
+       * appeared on a refresh, because a refresh is the one path that re-reads
+       * the table over REST where the token *is* attached.
+       */
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session) await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+
+      const channel = supabase
+        // Day-scoped topic. A constant name meant changing date tore down and
+        // re-created a channel with the same topic while the previous leave was
+        // still in flight, which the server is entitled to treat as a duplicate.
+        .channel(`meal_log:${day}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "meal_log", filter: `local_date=eq.${day}` },
+          (payload) => {
+            if (payload.eventType === "DELETE") {
+              setMeals((c) => c.filter((m) => m.id !== (payload.old as MealRow).id));
+            } else {
+              upsert(payload.new as MealRow);
+            }
+          },
+        )
+        .subscribe((status, error) => {
+          // Previously `.subscribe()` took no callback, so a channel that never
+          // joined was indistinguishable from one with nothing to say.
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.error(`[realtime] ${status} on meal_log:${day}`, error ?? "");
           }
-        },
-      )
-      .subscribe();
+        });
+
+      channelRef.current = channel;
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [day, upsert]);
 
