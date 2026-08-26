@@ -8,26 +8,37 @@ import { Textarea } from "@/components/ui/textarea";
 import { localDay } from "@/lib/meals/repository";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
 import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
-import type { Advice } from "@/lib/meal/advise";
+import type { Advice, Turn } from "@/lib/meal/advise";
 
 /**
  * "I have these three things — which one?"
  *
  * Collapsed to a single line until asked for, because it is not the reason the
- * screen exists: logging is. It sits under the composer rather than above it
- * for the same reason.
+ * screen exists: logging is. It sits under the composer for the same reason.
  *
- * The answer offers to log itself. Deciding to eat the mackerel and then having
- * to type "tin of mackerel" into the box above is the sort of small stupidity
- * that stops a feature being used, and the text is already known.
+ * It remembers the exchange, and only the exchange. You can say "not the fish"
+ * or "I've also got eggs" and it keeps up, and closing the panel throws the lot
+ * away. That is the whole intended lifetime — the question is about what is in
+ * the kitchen right now, and an answer built on what was in the kitchen on
+ * Tuesday is worse than no answer. Nothing is written down anywhere.
+ *
+ * The answer offers to log itself. Deciding on the mackerel and then having to
+ * type "tin of mackerel" into the box above is the sort of small stupidity that
+ * stops a feature being used, and the text is already known.
  */
+
+/** Ten exchanges, matching the route's cap. Nobody deliberates this long. */
+const MAX_EXCHANGES = 10;
+
+type Exchange = { asked: string; advice: Advice };
+
 export function Advisor({ onQueued }: { onQueued: () => void }) {
   const dictation = useRef<Dictation | null>(null);
   const [open, setOpen] = useState(false);
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [options, setOptions] = useState("");
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [advice, setAdvice] = useState<Advice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const canDictate = useSyncExternalStore(() => () => {}, isDictationAvailable, () => false);
@@ -52,18 +63,33 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
 
   async function ask() {
     dictation.current?.stop();
+    const asked = options.trim();
+    if (!asked) return;
     setBusy(true);
     setError(null);
-    setAdvice(null);
     try {
+      // The model's own JSON goes back as its turn, so what it sees itself
+      // having said is exactly what it said.
+      const turns: Turn[] = [
+        ...exchanges.flatMap((exchange): Turn[] => [
+          { role: "user", text: exchange.asked },
+          { role: "model", text: JSON.stringify(exchange.advice) },
+        ]),
+        { role: "user", text: asked },
+      ];
+
       const response = await fetch("/api/advise", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ options }),
+        body: JSON.stringify({ turns }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Could not get an answer");
-      setAdvice(body as Advice);
+
+      setExchanges((previous) =>
+        [...previous, { asked, advice: body as Advice }].slice(-MAX_EXCHANGES),
+      );
+      setOptions("");
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not get an answer");
     } finally {
@@ -71,8 +97,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
     }
   }
 
-  async function logPick() {
-    if (!advice) return;
+  async function logPick(advice: Advice) {
     setBusy(true);
     try {
       const loggedAt = new Date();
@@ -100,8 +125,8 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
   function close() {
     dictation.current?.stop();
     setOpen(false);
+    setExchanges([]);
     setOptions("");
-    setAdvice(null);
     setError(null);
   }
 
@@ -118,22 +143,78 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
     );
   }
 
+  const started = exchanges.length > 0;
+
   return (
     <div className="surface space-y-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Say what you have in. It picks one, against what is left today.
         </p>
-        <Button size="icon" variant="ghost" onClick={close} aria-label="Close" className="-mr-1 -mt-1 size-7 shrink-0">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={close}
+          aria-label="Close"
+          className="-mr-1 -mt-1 size-7 shrink-0"
+        >
           <X className="size-4" />
         </Button>
       </div>
+
+      {started && (
+        <ol className="space-y-3">
+          {exchanges.map((exchange, index) => (
+            <li key={index} className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                <span className="sr-only">You asked: </span>
+                {exchange.asked}
+              </p>
+              <div className="rounded-2xl border border-[var(--rule)] p-3.5">
+                <p className="text-[1.0625rem] font-semibold tracking-[-0.01em]">
+                  {exchange.advice.pick}
+                </p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                  {/* Approximate, and said so: logging it runs the real
+                      estimator, which is allowed to disagree. */}
+                  ≈ {exchange.advice.kcal.toLocaleString("en-GB")} kcal ·{" "}
+                  <span style={{ color: "var(--ink-protein)" }}>
+                    {exchange.advice.protein_g}g protein
+                  </span>
+                </p>
+                <p className="mt-2 text-sm leading-normal">{exchange.advice.why}</p>
+                {exchange.advice.instead.trim() && (
+                  <p className="mt-1.5 text-xs leading-normal text-muted-foreground">
+                    {exchange.advice.instead}
+                  </p>
+                )}
+                {/* Only the current answer is loggable. An older one is a step
+                    in the conversation, not a standing offer. */}
+                {index === exchanges.length - 1 && (
+                  <Button
+                    size="sm"
+                    onClick={() => logPick(exchange.advice)}
+                    disabled={busy}
+                    className="mt-3 w-full"
+                  >
+                    Log it
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
 
       <div className="flex items-end gap-2">
         <Textarea
           value={options}
           onChange={(event) => setOptions(event.target.value)}
-          placeholder="a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
+          placeholder={
+            started
+              ? "not the fish… or say what else you have"
+              : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
+          }
           rows={2}
           className="min-h-0 flex-1 resize-none"
         />
@@ -151,26 +232,13 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
       </div>
 
       <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
-        {busy ? "Thinking…" : "Ask"}
+        {busy ? "Thinking…" : started ? "Ask again" : "Ask"}
       </Button>
 
-      {advice && (
-        <div className="rounded-2xl border border-[var(--rule)] p-3.5">
-          <p className="text-[1.0625rem] font-semibold tracking-[-0.01em]">{advice.pick}</p>
-          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-            {/* The advisor's own estimate, and labelled as approximate: logging
-                it runs the real estimator, which can disagree. */}
-            ≈ {advice.kcal.toLocaleString("en-GB")} kcal ·{" "}
-            <span style={{ color: "var(--ink-protein)" }}>{advice.protein_g}g protein</span>
-          </p>
-          <p className="mt-2 text-sm leading-normal">{advice.why}</p>
-          {advice.instead.trim() && (
-            <p className="mt-1.5 text-xs leading-normal text-muted-foreground">{advice.instead}</p>
-          )}
-          <Button size="sm" onClick={logPick} disabled={busy} className="mt-3 w-full">
-            Log it
-          </Button>
-        </div>
+      {started && (
+        <p className="text-xs text-muted-foreground">
+          Remembered until you close this, then forgotten. Nothing is saved.
+        </p>
       )}
 
       {error && (

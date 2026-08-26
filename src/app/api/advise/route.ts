@@ -21,10 +21,22 @@ import { summarise } from "@/lib/meals/summary";
  * whole boundary, and getting it wrong costs credits rather than a blank page.
  */
 
+/**
+ * The exchange so far, oldest first, ending with what was just asked.
+ *
+ * Bounded on both axes because every turn is resent on every question, so an
+ * unbounded thread is an unbounded prompt against a paid API. Twenty-one is
+ * ten exchanges and the new question — far past the point where anyone is
+ * still deciding what to eat.
+ */
+const turnSchema = z.object({
+  role: z.enum(["user", "model"]),
+  // Long enough for a rambling voice transcript.
+  text: z.string().min(1).max(1000),
+});
+
 const requestSchema = z.object({
-  // Long enough for a rambling voice transcript, bounded because it reaches a
-  // paid API.
-  options: z.string().min(1).max(1000),
+  turns: z.array(turnSchema).min(1).max(21),
 });
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
@@ -61,7 +73,7 @@ export async function POST(request: Request) {
     // failed meals excluded alike.
     const today = summarise(meals, [day], targets).days[0];
 
-    const advice = await adviseMeal(body.options, {
+    const advice = await adviseMeal(body.turns, {
       consumed: {
         kcal: today.kcal,
         protein_g: today.protein_g,

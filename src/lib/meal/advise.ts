@@ -28,6 +28,11 @@ The rules, in the order they matter:
   mention. Never tell them what they should be eating instead, or what would be
   better if they had it. They asked which of these — not what a good diet looks
   like. Ignoring this makes the answer useless to them.
+- This may run on as a short back-and-forth. They may add options, rule one
+  out, or say they do not fancy something. Weigh everything they have said they
+  have across the whole conversation, minus whatever they have ruled out, and
+  do not re-offer something they have just turned down. The rule above still
+  holds at every turn: nothing they have not mentioned.
 - Decide on the numbers. Protein is the priority: they are eating at a deficit
   and protein is the target they most often fall short of. Calories are a
   ceiling, protein is a floor.
@@ -63,6 +68,8 @@ export type Advice = z.infer<typeof adviceSchema>;
 const GEMINI_ADVICE_SCHEMA = Object.fromEntries(
   Object.entries(z.toJSONSchema(adviceSchema)).filter(([key]) => key !== "$schema"),
 );
+
+export type Turn = { role: "user" | "model"; text: string };
 
 export type DayState = {
   consumed: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
@@ -126,30 +133,59 @@ function describeDay(day: DayState): string {
   ].join("\n");
 }
 
-export async function adviseMeal(options: string, day: DayState): Promise<Advice> {
-  const trimmed = options.trim();
-  if (!trimmed) throw new Error("Say what you have");
+/**
+ * The words the person has offered, across the whole exchange.
+ *
+ * Every user turn, not just the latest, because "actually I've got eggs too"
+ * and "not the fish" are both legitimate turns and both change what is on the
+ * table. Checking the pick against only the last thing said would reject a
+ * perfectly good answer to the first question.
+ */
+export function offeredIn(turns: Turn[]): string {
+  return turns
+    .filter((turn) => turn.role === "user")
+    .map((turn) => turn.text)
+    .join(" ");
+}
+
+export async function adviseMeal(turns: Turn[], day: DayState): Promise<Advice> {
+  const latest = turns.at(-1);
+  if (!latest || latest.role !== "user" || !latest.text.trim()) {
+    throw new Error("Say what you have");
+  }
 
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
 
   const ai = new GoogleGenAI({ apiKey: key });
 
+  // Earlier turns go in as they were said. Only the newest carries the day's
+  // numbers, so the model is never reading a stale set from halfway through
+  // the conversation — the totals move as meals get logged mid-session.
+  const history = turns.slice(0, -1).map((turn) => ({
+    role: turn.role,
+    parts: [{ text: turn.text }],
+  }));
+  const opening = turns.length > 1 ? "They now say" : "They have available";
+
   let response;
   try {
     response = await ai.models.generateContent({
       model: ADVISE_MODEL,
       contents: [
+        ...history,
         {
           role: "user",
           parts: [
-            { text: `${describeDay(day)}\n\nThey have available: "${trimmed}"\n\nWhich one?` },
+            {
+              text: `${describeDay(day)}\n\n${opening}: "${latest.text.trim()}"\n\nWhich one?`,
+            },
           ],
         },
       ],
       config: {
         systemInstruction: ADVISE_SYSTEM_PROMPT,
-        // Low thinking: this is a comparison of three numbers against two
+        // Low thinking: this is a comparison of a few numbers against two
         // targets, not a problem. Medium bought nothing here but latency, and
         // this is the one call in the app a person waits on in real time.
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -175,7 +211,7 @@ export async function adviseMeal(options: string, day: DayState): Promise<Advice
   // The prompt is asked not to invent food; this is what makes it true. A
   // suggestion from outside the list is worse than no answer, because it is
   // the exact failure that makes this kind of feature irritating.
-  if (!looksLikeAnOption(advice.pick, trimmed)) {
+  if (!looksLikeAnOption(advice.pick, offeredIn(turns))) {
     throw new Error("Could not choose from those options — try naming them more plainly");
   }
 
