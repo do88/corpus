@@ -220,6 +220,32 @@ system → light → dark. Three states rather than a switch, because "follow th
 device" is a real preference — dropping it would mean telling the app to go dark
 twice a day.
 
+### Averages are over days you logged, not days that elapsed
+
+`/progress` rolls a week or a month up, and that sentence is the only real
+decision in it. A Tuesday with nothing on it is almost always a Tuesday you did
+not open the app, not one where you ate nothing — and counting it as a zero
+drags the mean down until the number says you are eating 1,400 kcal when you are
+not. That is worse than useless: it is a figure you would act on.
+
+The cost is that the average says nothing about consistency, so coverage is
+reported beside it and never folded into it. "2,256 average across 10 of 31
+days" is two honest facts; "728 average" is one misleading one.
+
+Two smaller rules follow from the same instinct. Pending and failed meals are
+excluded entirely rather than counted as zero — a pending meal has no numbers
+yet, and marking the day logged at nothing would understate it. And protein is
+scored as a floor you clear while calories are scored as a ceiling you stay
+under, because "within 10%" would flatter one and punish the other.
+
+The chart is hand-rolled rather than recharts: one series of at most 31 values
+with a reference line. The chart library earns its ~390 KB on the training page
+where four multi-series charts share it; here it would be the heaviest thing on
+the screen to draw thirty rectangles. Unlogged days are drawn as empty slots
+rather than skipped, so a gap looks like a gap — compressing the axis to only
+the days with data would make a fortnight of three entries look like three
+solid days.
+
 ### The targets compute themselves
 
 Four numbers, and only two are decisions. `lib/meals/targets.ts`:

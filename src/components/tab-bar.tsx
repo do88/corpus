@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUser, Dumbbell, House } from "lucide-react";
+import { ChartColumn, CircleUser, Dumbbell, House } from "lucide-react";
 import { Logomark } from "@/components/brand";
 
 /**
@@ -26,6 +26,7 @@ import { Logomark } from "@/components/brand";
  */
 const TABS = [
   { href: "/", label: "Today", icon: House },
+  { href: "/progress", label: "Progress", icon: ChartColumn },
   { href: "/training", label: "Training", icon: Dumbbell },
   { href: "/account", label: "Account", icon: CircleUser },
 ] as const;
