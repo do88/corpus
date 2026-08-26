@@ -2,6 +2,7 @@ import { ApiError, GoogleGenAI, ThinkingLevel, type Part } from "@google/genai";
 import { MEAL_SYSTEM_PROMPT } from "./prompt";
 import { mealResponseSchema, totalsFor, type MealEstimate } from "./schema";
 import { GEMINI_MEAL_SCHEMA } from "./gemini-schema";
+import { lookUpProduct, type ProductFacts } from "./lookup";
 
 export const MEAL_MODEL = "gemini-3.7-flash";
 
@@ -16,8 +17,11 @@ export type EstimateInput = {
 export type EstimateResult = {
   estimate: MealEstimate;
   model: string;
+  /** Wall-clock for the whole operation, including any product lookup. */
   latencyMs: number;
   usage: { input: number; output: number };
+  /** What the label lookup found, or null if it did not run or declined. */
+  lookup: ProductFacts | null;
 };
 
 /**
@@ -36,6 +40,19 @@ export async function estimateMeal(
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
 
+  const ai = new GoogleGenAI({ apiKey: key });
+  const note = input.note?.trim();
+
+  // Timed from here, not from the estimate call: the lookup is time the user
+  // spends watching "analysing…", so a latency that excluded it would be
+  // measuring the wrong thing.
+  const startedAt = Date.now();
+
+  // A branded product gets its label read before it gets estimated. Returns
+  // null for generic food, for a failed search, and for a lookup that is
+  // switched off — in every one of those cases this behaves as it always did.
+  const lookup = note ? await lookUpProduct(ai, note) : null;
+
   const parts: Part[] = [];
   if (input.imageBase64) {
     parts.push({
@@ -46,13 +63,16 @@ export async function estimateMeal(
     });
   }
   parts.push({
-    text: input.note?.trim()
-      ? `The user says: "${input.note.trim()}"`
+    text: note
+      ? `The user says: "${note}"`
       : "No description given — estimate from the photo alone.",
   });
+  if (lookup) {
+    parts.push({
+      text: `Published nutrition information found online for this product:\n\n${lookup.facts}`,
+    });
+  }
 
-  const ai = new GoogleGenAI({ apiKey: key });
-  const startedAt = Date.now();
   let response;
   try {
     response = await ai.models.generateContent({
@@ -95,6 +115,7 @@ export async function estimateMeal(
 
   return {
     estimate,
+    lookup,
     model: response.modelVersion ?? MEAL_MODEL,
     latencyMs,
     usage: {

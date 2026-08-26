@@ -98,6 +98,13 @@ immediate-202 `/jobs/estimate` background function.
 Needs `GEMINI_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
 
+Set `MEAL_PRODUCT_LOOKUP=off` to skip the branded-product label lookup. It is
+on by default and adds one Gemini call per meal with a description, but it only
+runs a *search* when the description names a brand — and Google Search
+grounding is billed per search rather than per token, so that gate is the whole
+cost story. Turning it off restores the previous behaviour exactly: estimates
+from the model's own knowledge, with no web access.
+
 ### Local development is isolated from the hosted project
 
 `.env.local` holds the **local** Supabase coordinates, so `pnpm dev`, the tests

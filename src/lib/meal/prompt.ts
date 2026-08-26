@@ -24,6 +24,11 @@ How to estimate:
 - If only a photo is given, estimate the portion from visual cues — plate size,
   cutlery, hand, packaging.
 - If only a description is given, assume typical portions for an adult man.
+- If published nutrition information is supplied below for a branded product,
+  those figures are the authority. Scale them to the portion described and use
+  them instead of your own recollection of the product. Say in "assumptions"
+  that the published label was used, and for what pack size — the reader needs
+  to know which numbers were looked up and which were guessed.
 - State every portion assumption you made in "assumptions", in one sentence.
 - Prefer being CONSISTENT over being clever. Use standard reference values and
   common portion sizes rather than trying to read fine detail from the image.
