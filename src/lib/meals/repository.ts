@@ -175,6 +175,50 @@ export async function correctMacros(
   if (error) throw new Error(`Could not save the correction: ${error.message}`);
 }
 
+/**
+ * Say what the meal actually was, and take the model's estimate of that.
+ *
+ * The difference from `correctMacros` is what it replaces. Typing 145 into the
+ * kcal box overrules the model and nothing else changes — the name, the
+ * itemisation and the assumptions all still describe the meal it thought you
+ * had. Saying "a large pack of biltong" replaces the description itself, so
+ * every one of those has to move with it, or the card ends up reading "beef
+ * jerky" over a biltong's numbers.
+ *
+ * `edited` goes back to false deliberately, including on a meal that was hand
+ * -corrected before. The flag means "these numbers are the user's, not the
+ * model's", and after this they are the model's again — just from a better
+ * description. Leaving it set would suppress the assumptions line on the card,
+ * which is the one place the new numbers explain themselves.
+ */
+export async function redescribeMeal(
+  supabase: SupabaseClient,
+  id: string,
+  note: string,
+  estimate: MealEstimate,
+  model: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("meal_log")
+    .update({
+      status: "analyzed",
+      note,
+      kcal: estimate.kcal,
+      protein_g: estimate.protein_g,
+      carbs_g: estimate.carbs_g,
+      fat_g: estimate.fat_g,
+      items: estimate.items,
+      confidence: estimate.confidence,
+      assumptions: estimate.assumptions,
+      model,
+      edited: false,
+      error: null,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(`Could not save the new description: ${error.message}`);
+}
+
 /** Remove a meal entirely — a mis-photograph, or something logged twice. */
 export async function deleteMeal(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from("meal_log").delete().eq("id", id);

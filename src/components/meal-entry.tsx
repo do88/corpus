@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Sparkles, Mic, Square } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { correctMacros, deleteMeal, type MealRow } from "@/lib/meals/repository";
+import { correctMacros, deleteMeal, redescribeMeal, type MealRow } from "@/lib/meals/repository";
+import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
+import type { MealEstimate } from "@/lib/meal/schema";
 import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
 
@@ -158,6 +161,70 @@ function Editor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Re-describing: say what it actually was and let the model estimate that.
+  const dictation = useRef<Dictation | null>(null);
+  const [describe, setDescribe] = useState("");
+  const [listening, setListening] = useState(false);
+  const [proposed, setProposed] = useState<{
+    note: string;
+    estimate: MealEstimate;
+    model: string;
+  } | null>(null);
+
+  const canDictate = typeof window !== "undefined" && isDictationAvailable();
+
+  useEffect(() => () => dictation.current?.stop(), []);
+
+  function toggleDictation() {
+    if (listening) {
+      dictation.current?.stop();
+      return;
+    }
+    setError(null);
+    setListening(true);
+    dictation.current = startDictation(
+      (text) => setDescribe(text),
+      (failure) => {
+        setListening(false);
+        if (failure) setError(`Dictation stopped: ${failure}`);
+      },
+    );
+  }
+
+  async function redo() {
+    dictation.current?.stop();
+    const note = describe.trim();
+    if (!note) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/meals/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not re-estimate");
+
+      const estimate = body.estimate as MealEstimate;
+      // Filled in rather than applied. The numbers land in the same boxes you
+      // would have typed them into, so the change is reviewable — and still
+      // adjustable by hand — before anything is written.
+      setValues({
+        kcal: String(estimate.kcal),
+        protein_g: String(estimate.protein_g),
+        carbs_g: String(estimate.carbs_g),
+        fat_g: String(estimate.fat_g),
+      });
+      setProposed({ note, estimate, model: body.model as string });
+      setDescribe("");
+    } catch (thrown) {
+      setError(thrown instanceof Error ? thrown.message : "Could not re-estimate");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -166,10 +233,34 @@ function Editor({
         MACROS.map((m) => [m, Math.max(0, Math.round(Number(values[m]) || 0))]),
       ) as Record<Macro, number>;
 
-      await correctMacros(createClient(), meal.id, macros);
-      // Applied locally as well as sent: Realtime delivers the same change a
-      // moment later, and waiting for it makes a deliberate edit feel laggy.
-      onChanged({ ...meal, ...macros, edited: true, status: "analyzed", error: null });
+      // Which of the two saves this is depends on whether the numbers on screen
+      // are still the ones the model just produced. Untouched, the whole
+      // description moves across — name, items and assumptions with it. Touched
+      // afterwards, the user has overruled it again and only the macros go,
+      // because an itemisation that no longer adds up to its own totals is
+      // worse than none.
+      const untouched =
+        proposed !== null && MACROS.every((m) => macros[m] === proposed.estimate[m]);
+
+      if (untouched) {
+        await redescribeMeal(createClient(), meal.id, proposed.note, proposed.estimate, proposed.model);
+        onChanged({
+          ...meal,
+          ...macros,
+          note: proposed.note,
+          items: proposed.estimate.items,
+          confidence: proposed.estimate.confidence,
+          assumptions: proposed.estimate.assumptions,
+          edited: false,
+          status: "analyzed",
+          error: null,
+        });
+      } else {
+        await correctMacros(createClient(), meal.id, macros);
+        // Applied locally as well as sent: Realtime delivers the same change a
+        // moment later, and waiting for it makes a deliberate edit feel laggy.
+        onChanged({ ...meal, ...macros, edited: true, status: "analyzed", error: null });
+      }
       onDone();
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not save");
@@ -217,13 +308,75 @@ function Editor({
         sentence bare, and the two views agreeing is worth more than a label
         on a line whose subject is obvious.
       */}
-      {meal.assumptions && (
-        <p className="text-xs leading-normal text-muted-foreground">{meal.assumptions}</p>
+      {/*
+        Say what it actually was.
+
+        Typing four numbers is the slow way to fix "beef jerky" when what you
+        had was a large pack of biltong — and it only fixes the numbers, which
+        leaves the card still calling it beef jerky. Describing it re-estimates
+        the whole thing, name and all.
+      */}
+      <div className="flex items-center gap-2">
+        <Input
+          value={describe}
+          onChange={(event) => setDescribe(event.target.value)}
+          placeholder="say what it actually was…"
+          aria-label="Describe what this meal actually was"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void redo();
+            }
+          }}
+          className="flex-1"
+        />
+        {canDictate && (
+          <Button
+            size="icon"
+            variant={listening ? "destructive" : "secondary"}
+            onClick={toggleDictation}
+            aria-label={listening ? "Stop dictation" : "Dictate"}
+            className="size-9 shrink-0 rounded-full"
+          >
+            {listening ? <Square className="size-3.5" /> : <Mic className="size-4" />}
+          </Button>
+        )}
+        <Button
+          size="icon"
+          variant="secondary"
+          onClick={redo}
+          disabled={busy || !describe.trim()}
+          aria-label="Re-estimate from this description"
+          className="size-9 shrink-0 rounded-full"
+        >
+          <Sparkles className="size-4" />
+        </Button>
+      </div>
+
+      {/*
+        The proposed assumptions replace the old ones while a re-estimate is
+        on the table, because the numbers in the boxes above are now its
+        numbers — showing the previous sentence beside them would be
+        describing a meal that is no longer on screen.
+      */}
+      {(proposed?.estimate.assumptions ?? meal.assumptions) && (
+        <p className="text-xs leading-normal text-muted-foreground">
+          {proposed ? (
+            <>
+              <span className="font-medium" style={{ color: "var(--ink-protein)" }}>
+                Re-estimated ·{" "}
+              </span>
+              {proposed.estimate.assumptions}
+            </>
+          ) : (
+            meal.assumptions
+          )}
+        </p>
       )}
 
       <div className="flex gap-2">
         <Button size="sm" onClick={save} disabled={busy} className="flex-1">
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Working…" : proposed ? "Save the new estimate" : "Save"}
         </Button>
         <Button size="sm" variant="outline" onClick={onDone}>
           Cancel
