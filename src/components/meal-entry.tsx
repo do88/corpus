@@ -111,7 +111,12 @@ export function MealEntry({
           )}
         </div>
 
-        {!meal.edited && meal.assumptions && meal.status === "analyzed" && (
+        {/*
+          Collapsed only. The editor below prints the same sentence in full,
+          and showing both put a truncated copy directly above the complete
+          one — the same text twice, the first cut off mid-word.
+        */}
+        {!editing && !meal.edited && meal.assumptions && meal.status === "analyzed" && (
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{meal.assumptions}</p>
         )}
         {meal.error && (
@@ -203,10 +208,15 @@ function Editor({
         ))}
       </div>
 
+      {/*
+        No "It assumed:" prefix. The model's sentences already open with
+        "Assumed …", so the label ran straight into the verb — "It assumed:
+        Assumed one standard 250g pouch". The collapsed card shows the same
+        sentence bare, and the two views agreeing is worth more than a label
+        on a line whose subject is obvious.
+      */}
       {meal.assumptions && (
-        <p className="text-xs leading-normal text-muted-foreground">
-          It assumed: {meal.assumptions}
-        </p>
+        <p className="text-xs leading-normal text-muted-foreground">{meal.assumptions}</p>
       )}
 
       <div className="flex gap-2">
