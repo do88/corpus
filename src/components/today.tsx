@@ -243,7 +243,7 @@ function Totals({
     <div className="space-y-3">
       {/* Two-up on a phone, four-across once there is room — the four are one
           set and only split into rows because a phone cannot hold them. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <MetricCard
           label="Calories"
           icon={<Flame className="size-4" />}
@@ -329,7 +329,7 @@ function MealList({
   if (meals.length === 0 && queued.length === 0) {
     return (
       <div className="surface px-6 py-10 text-center">
-        <p className="text-[0.9375rem] font-medium">Nothing logged yet</p>
+        <p className="text-[1rem] font-medium">Nothing logged yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Say what you ate, or add a photo.
         </p>
@@ -355,13 +355,13 @@ function MealList({
     .join(", ")})`;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {queued.length > 0 && (
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {queued.map((meal) => (
-            <li key={meal.clientId} className="surface px-4 py-3.5">
+            <li key={meal.clientId} className="surface px-5 py-4">
               <div className="flex items-baseline justify-between gap-4">
-                <span className="text-[0.9375rem] font-medium leading-snug">
+                <span className="text-[1rem] font-medium leading-snug">
                   {meal.note || (meal.photo ? "Photo" : "Meal")}
                 </span>
                 <Badge variant="secondary" className="shrink-0 rounded-full">
@@ -378,7 +378,7 @@ function MealList({
       )}
 
       {ordered.length > 0 && (
-        <ol className="relative space-y-2.5">
+        <ol className="relative space-y-3">
           {/*
             The spine. Absolutely positioned rather than a border on each row,
             so it runs continuously through the gaps between cards — a border

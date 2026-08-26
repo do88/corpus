@@ -135,7 +135,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="tappable surface flex w-full items-center gap-2 px-4 py-2.5 text-left"
+        className="tappable surface flex w-full items-center gap-2 px-5 py-3.5 text-left"
       >
         <HelpCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="text-sm text-muted-foreground">What should I have?</span>
@@ -146,7 +146,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
   const started = exchanges.length > 0;
 
   return (
-    <div className="surface space-y-3 p-4">
+    <div className="surface space-y-3.5 p-5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Say what you have in. It picks one, against what is left today.
@@ -170,8 +170,8 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
                 <span className="sr-only">You asked: </span>
                 {exchange.asked}
               </p>
-              <div className="rounded-2xl border border-[var(--rule)] p-3.5">
-                <p className="text-[1.0625rem] font-semibold tracking-[-0.01em]">
+              <div className="rounded-2xl border border-[var(--rule)] p-4">
+                <p className="text-[1.125rem] font-semibold tracking-[-0.01em]">
                   {exchange.advice.pick}
                 </p>
                 <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">

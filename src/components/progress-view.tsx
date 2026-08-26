@@ -63,9 +63,9 @@ export function ProgressView({
         })}
       </div>
 
-      <div className="surface p-4">
+      <div className="surface p-5">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">{label}</h2>
+          <h2 className="text-[1rem] font-semibold tracking-[-0.01em]">{label}</h2>
           {/*
             Coverage sits beside the averages and is never folded into them. A
             day you did not open the app is not a day you ate nothing, so it is
@@ -136,7 +136,7 @@ function Average({
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-[1.6rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
+        <span className="text-[1.75rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
           {value.toLocaleString("en-GB")}
         </span>
         <span className="text-xs font-medium text-muted-foreground">{unit}</span>
@@ -157,7 +157,7 @@ function Average({
 function Small({ label, value, target }: { label: string; value: number; target: number }) {
   return (
     <div>
-      <div className="text-[1.0625rem] font-semibold tabular-nums">
+      <div className="text-[1.125rem] font-semibold tabular-nums">
         {value.toLocaleString("en-GB")}
         <span className="ml-0.5 text-xs font-medium text-muted-foreground">g</span>
       </div>
@@ -185,9 +185,9 @@ function DailyBars({ summary, targets }: { summary: PeriodSummary; targets: Dail
   }));
 
   return (
-    <div className="surface p-4">
+    <div className="surface p-5">
       <div className="mb-1 flex items-baseline justify-between">
-        <h3 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Calories by day</h3>
+        <h3 className="text-[1rem] font-semibold tracking-[-0.01em]">Calories by day</h3>
         <span className="text-xs text-muted-foreground tabular-nums">
           {summary.loggedDays} of {summary.totalDays} days logged
         </span>

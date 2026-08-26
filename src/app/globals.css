@@ -161,11 +161,13 @@
 /* ---------------------------------------------------------------------------
    Type scale — the iOS sizes, with a floor.
 
-   iOS ships Footnote 13, Subheadline 15, Body 17, and the app was already
-   reaching for 15 and 17 by hand. Naming them makes the scale the default
-   rather than something each component re-decides.
+   Set one notch above the iOS defaults of 13/15/17, deliberately. This is a
+   single-user app read at arm's length on a phone, mostly at a glance, and
+   the extra point buys legibility that a dense multi-column product could not
+   afford. Naming the scale makes it the default rather than something each
+   component re-decides.
 
-   The floor is 13px, and it is the accessibility point. Tailwind's stock
+   The floor is 14px, and it is the accessibility point. Tailwind's stock
    `text-xs` is 12px and was carrying real content here — the model's
    assumptions, meal times, the "16/23 under target" hints. Twelve pixels is
    under every practical guideline for content type, and lifting the scale
@@ -177,11 +179,11 @@
    WCAG 1.4.12 without needing per-component overrides.
    --------------------------------------------------------------------------- */
 @theme {
-  --text-xs: 0.8125rem;        /* 13px — Footnote. The floor for content. */
+  --text-xs: 0.875rem;         /* 14px — the floor for content. */
   --text-xs--line-height: 1.45;
-  --text-sm: 0.9375rem;        /* 15px — Subheadline. */
+  --text-sm: 1rem;             /* 16px */
   --text-sm--line-height: 1.5;
-  --text-base: 1.0625rem;      /* 17px — Body. */
+  --text-base: 1.125rem;       /* 18px */
   --text-base--line-height: 1.5;
 }
 

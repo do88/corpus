@@ -37,23 +37,35 @@ export function MetricCard({
   const ink = `var(--ink-${metric})`;
 
   return (
-    <div className="surface p-3.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
+    <div className="surface p-4.5">
+      {/*
+        Stacked on a phone, side by side once there is room.
+
+        Letting it wrap on its own produced the worst of both: "Calories" and
+        "Protein" pushed the ring onto a second line while "Carbs" and "Fat"
+        kept it inline, so the two rows of cards did not match each other. The
+        breakpoint makes the same choice for all four.
+
+        Two across on a 360px phone leaves about 57px beside a 52px ring, and
+        "Calories" at this size wants 61 — so inline was never really available
+        there. Stacking gives the label the full width of the card and stops
+        the layout depending on how long the word happens to be.
+      */}
+      <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-2">
+        <div className="flex items-center gap-1.5">
           <span style={{ color: ink }} aria-hidden className="flex shrink-0">
             {icon}
           </span>
-          <span className="truncate text-[0.9375rem] font-semibold tracking-[-0.01em]">
-            {label}
-          </span>
+          <span className="text-[1rem] font-semibold tracking-[-0.01em]">{label}</span>
         </div>
-        {/* Smaller than it was, because it now shares a row with the label
-            rather than owning the card's full height. */}
         <Ring value={value} target={target} colour={accent} size={52} width={5} />
       </div>
 
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className="text-[1.6rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
+      {/* Wraps for the same reason the header does: at 320px "1,582" and "kcal"
+          together want 109px of a 97px card, and the unit dropping to its own
+          line is better than half of it disappearing. */}
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-1">
+        <span className="text-[1.75rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
           {value.toLocaleString("en-GB")}
         </span>
         <span className="text-xs font-medium text-muted-foreground">{unit}</span>

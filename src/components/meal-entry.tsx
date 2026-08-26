@@ -63,17 +63,17 @@ export function MealEntry({
         type="button"
         onClick={() => setEditing((v) => !v)}
         disabled={meal.status === "pending"}
-        className="w-full px-4 py-3.5 text-left disabled:opacity-100"
+        className="w-full px-5 py-4 text-left disabled:opacity-100"
         aria-expanded={editing}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 text-[0.9375rem] font-medium leading-snug">
+          <span className="min-w-0 text-[1rem] font-medium leading-snug">
             {summary}
           </span>
           <span className="shrink-0 text-right">
             {meal.status === "analyzed" ? (
               <>
-                <span className="text-[1.0625rem] font-bold tabular-nums tracking-[-0.02em]">
+                <span className="text-[1.125rem] font-bold tabular-nums tracking-[-0.02em]">
                   {meal.kcal?.toLocaleString("en-GB")}
                 </span>
                 <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
@@ -281,7 +281,7 @@ function Editor({
   }
 
   return (
-    <div className="mb-3 space-y-3 rounded-md bg-muted/50 p-3">
+    <div className="mb-4 space-y-3.5 rounded-2xl bg-muted/50 p-4">
       <div className="grid grid-cols-4 gap-2">
         {MACROS.map((macro) => (
           <div key={macro} className="space-y-1">

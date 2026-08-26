@@ -70,7 +70,7 @@ export function TabBar() {
                   strokeWidth={active ? 2.4 : 1.9}
                   aria-hidden
                 />
-                <span className="text-[0.75rem] font-medium tracking-[0.01em]">
+                <span className="text-[0.8125rem] font-medium tracking-[0.01em]">
                   {tab.label}
                 </span>
               </Link>

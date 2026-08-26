@@ -22,9 +22,9 @@ export function AppHeader({
   return (
     <header className="flex items-start justify-between gap-4 px-1 pb-1 pt-2">
       <div className="min-w-0">
-        <h1 className="text-[2rem] font-bold leading-tight tracking-[-0.03em]">{title}</h1>
+        <h1 className="text-[2.125rem] font-bold leading-tight tracking-[-0.03em]">{title}</h1>
         {caption && (
-          <p className="mt-0.5 text-[0.9375rem] text-muted-foreground">{caption}</p>
+          <p className="mt-0.5 text-[1rem] text-muted-foreground">{caption}</p>
         )}
       </div>
 

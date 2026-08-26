@@ -180,7 +180,7 @@ export function AccountForm({
           </button>
 
           <div className="min-w-0">
-            <div className="text-[1.0625rem] font-semibold tracking-[-0.01em]">
+            <div className="text-[1.125rem] font-semibold tracking-[-0.01em]">
               {profile.name}
             </div>
             <div className="truncate text-sm text-muted-foreground">{profile.email}</div>

@@ -27,7 +27,7 @@ export default async function Account() {
   const profile = readProfile(user);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-3 lg:max-w-2xl lg:pb-12 lg:pl-24 lg:pt-8">
+    <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-2xl lg:pb-12 lg:pl-24 lg:pt-8">
       <AppHeader title="Account" />
       <AccountForm
         profile={profile}
