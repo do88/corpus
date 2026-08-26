@@ -4,15 +4,16 @@ import { useRouter } from "next/navigation";
 import { Flame, Utensils } from "lucide-react";
 import type { DailyTargets } from "@/lib/meals/targets";
 import type { PeriodSummary } from "@/lib/meals/summary";
+import { BarsChart } from "@/components/charts-lazy";
 
 /**
  * A week or a month, averaged.
  *
- * The bar chart is hand-rolled rather than recharts. It is one series of at
- * most 31 values with a reference line — the chart library on the training
- * page costs ~390 KB and earns it there, where four multi-series charts share
- * it. Here it would be the heaviest thing on the screen to draw thirty
- * rectangles.
+ * The chart is the same `BarsChart` the training dashboard uses, lazily loaded
+ * through `charts-lazy` so recharts still stays out of the initial bundle. It
+ * gained a `references` line and per-bar colour for this screen rather than
+ * getting a second chart implementation beside it — one chart component with
+ * two more props beats two components that drift.
  */
 export function ProgressView({
   summary,
@@ -170,71 +171,44 @@ function Small({ label, value, target }: { label: string; value: number; target:
 /**
  * One bar per day against the calorie target.
  *
- * Unlogged days are drawn as an empty slot rather than skipped, so a gap looks
- * like a gap. Compressing the axis to only the days with data would make a
- * fortnight of three entries look like three solid days.
+ * Every day in the period gets a row, including the ones with nothing on them,
+ * so a gap looks like a gap — compressing the axis to only the days with data
+ * would make a fortnight of three entries look like three solid days.
  */
 function DailyBars({ summary, targets }: { summary: PeriodSummary; targets: DailyTargets }) {
-  const peak = Math.max(targets.kcal, ...summary.days.map((d) => d.kcal));
+  const data = summary.days.map((d) => ({
+    // Day of the month alone: the full date is in the tooltip, and thirty-one
+    // "2026-08-14"s will not fit across a phone.
+    day: d.date.slice(8),
+    kcal: d.kcal,
+    over: d.kcal > targets.kcal,
+  }));
 
   return (
     <div className="surface p-4">
-      <div className="mb-3 flex items-baseline justify-between">
+      <div className="mb-1 flex items-baseline justify-between">
         <h3 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Calories by day</h3>
         <span className="text-xs text-muted-foreground tabular-nums">
-          target {targets.kcal.toLocaleString("en-GB")}
+          {summary.loggedDays} of {summary.totalDays} days logged
         </span>
       </div>
 
-      <div className="relative flex h-32 items-end gap-1">
-        {/*
-          The target line, on the same scale as the bars and *above* them.
-          Without the z-index it rendered first and every bar painted straight
-          over it — the reference the chart exists to show was the one thing
-          you could not see.
-        */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed"
-          style={{
-            bottom: `${(targets.kcal / peak) * 100}%`,
-            borderColor: "var(--ink-energy)",
-            opacity: 0.7,
-          }}
-        />
-        {summary.days.map((d) => {
-          const over = d.kcal > targets.kcal;
-          return (
-            <div
-              key={d.date}
-              className="group relative flex-1"
-              style={{ height: "100%" }}
-              title={`${d.date} — ${d.logged ? `${d.kcal.toLocaleString("en-GB")} kcal` : "nothing logged"}`}
-            >
-              {/* The empty slot. Kept faint: it marks a day that exists, and
-                  at month length a stronger track reads as a bar of its own. */}
-              <div
-                className="absolute inset-x-0 bottom-0 rounded-t-[3px]"
-                style={{ height: "100%", background: "var(--muted)", opacity: 0.55 }}
-              />
-              <div
-                className="absolute inset-x-0 bottom-0 rounded-t-[3px] transition-[height]"
-                style={{
-                  height: `${peak === 0 ? 0 : (d.kcal / peak) * 100}%`,
-                  background: over
-                    ? "var(--accent-energy)"
-                    : "linear-gradient(to top, var(--accent-protein), color-mix(in oklch, var(--accent-protein) 70%, transparent))",
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-2 flex justify-between text-[0.6875rem] text-muted-foreground tabular-nums">
-        <span>{summary.days[0]?.date.slice(8)}</span>
-        <span>{summary.days.at(-1)?.date.slice(8)}</span>
-      </div>
+      <BarsChart
+        data={data}
+        x="day"
+        y="kcal"
+        unit=" kcal"
+        height={168}
+        // Four digits of calories need more room than the training charts' three.
+        yAxisWidth={52}
+        references={[{ value: targets.kcal, label: "target" }]}
+        // Amber for a day over the ceiling, blue for one under it — the same
+        // two hues the rings use for energy and protein, so the colours mean
+        // the same thing on both screens.
+        colourFor={(row) =>
+          row.over ? "var(--accent-energy)" : "var(--accent-protein)"
+        }
+      />
     </div>
   );
 }

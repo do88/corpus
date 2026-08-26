@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
   ReferenceLine,
@@ -112,28 +113,75 @@ export function TrendChart({
   );
 }
 
+/**
+ * Bars, with an optional reference line and per-bar colour.
+ *
+ * Both additions exist for the Progress screen: a calorie target is only
+ * meaningful drawn against the days, and a day that went over it should say so
+ * without needing the axis read. `TrendChart` already took `references`, so
+ * this is the same prop by the same name rather than a second spelling.
+ *
+ * `Cell` is how recharts colours bars individually — a `fill` on `Bar` applies
+ * to the whole series, so a per-row decision has to be a child element.
+ */
 export function BarsChart({
   data,
   x,
   y,
   unit = "",
   height = 160,
+  references = [],
+  colourFor,
+  yAxisWidth = 44,
 }: {
   data: Record<string, unknown>[];
   x: string;
   y: string;
   unit?: string;
   height?: number;
+  references?: { value: number; label: string }[];
+  /** Per-row bar colour. Omit for one colour across the series. */
+  colourFor?: (row: Record<string, unknown>) => string;
+  /**
+   * Room for the Y labels. 44px fits the three digits the training charts use
+   * and silently clipped four-digit calories to "300" — a chart quietly lying
+   * about its axis is worse than one that does not draw.
+   */
+  yAxisWidth?: number;
 }) {
   return (
     <div className="text-muted-foreground" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 4, bottom: 0, left: yAxisWidth > 44 ? 0 : -18 }}
+        >
           <CartesianGrid vertical={false} stroke="var(--rule)" />
           <XAxis dataKey={x} {...AXIS} minTickGap={16} />
-          <YAxis {...AXIS} width={44} />
+          <YAxis {...AXIS} width={yAxisWidth} />
           <ChartTooltip unit={unit} />
-          <Bar dataKey={y} fill="var(--foreground)" radius={3} isAnimationActive={false} />
+
+          {references.map((r) => (
+            <ReferenceLine
+              key={r.label}
+              y={r.value}
+              stroke={token("--ink-energy", "#a2670a")}
+              strokeDasharray="3 3"
+              label={{
+                value: r.label,
+                position: "insideTopRight",
+                fontSize: 10,
+                fill: token("--ink-energy", "#a2670a"),
+              }}
+            />
+          ))}
+
+          <Bar dataKey={y} radius={3} isAnimationActive={false} fill="var(--foreground)">
+            {colourFor &&
+              data.map((row, index) => (
+                <Cell key={index} fill={colourFor(row)} />
+              ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
