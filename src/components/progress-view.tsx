@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { Flame, Utensils } from "lucide-react";
 import type { DailyTargets } from "@/lib/meals/targets";
@@ -14,6 +12,12 @@ import { BarsChart } from "@/components/charts-lazy";
  * gained a `references` line and per-bar colour for this screen rather than
  * getting a second chart implementation beside it — one chart component with
  * two more props beats two components that drift.
+ *
+ * A Server Component, which it could not be while it handed the chart a
+ * `colourFor` callback: a function cannot cross the boundary into a lazily
+ * loaded client chart, so the whole file had to ship to the browser to
+ * describe two colours. The colour is a field on each row now, decided here
+ * where the target is known, and none of this renders on the client.
  */
 export function ProgressView({
   summary,
@@ -192,7 +196,11 @@ function DailyBars({ summary, targets }: { summary: PeriodSummary; targets: Dail
     // "2026-08-14"s will not fit across a phone.
     day: d.date.slice(8),
     kcal: d.kcal,
-    over: d.kcal > targets.kcal,
+    // Amber for a day over the ceiling, blue for one under it — the same two
+    // hues the rings use for energy and protein, so the colours mean the same
+    // thing on both screens. Decided here, where the target is known, and
+    // carried as data so the chart needs no callback.
+    fill: d.kcal > targets.kcal ? "var(--accent-energy)" : "var(--accent-protein)",
   }));
 
   return (
@@ -213,12 +221,7 @@ function DailyBars({ summary, targets }: { summary: PeriodSummary; targets: Dail
         // Four digits of calories need more room than the training charts' three.
         yAxisWidth={52}
         references={[{ value: targets.kcal, label: "target" }]}
-        // Amber for a day over the ceiling, blue for one under it — the same
-        // two hues the rings use for energy and protein, so the colours mean
-        // the same thing on both screens.
-        colourFor={(row) =>
-          row.over ? "var(--accent-energy)" : "var(--accent-protein)"
-        }
+        colourKey="fill"
       />
     </div>
   );

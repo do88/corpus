@@ -123,6 +123,13 @@ export function TrendChart({
  *
  * `Cell` is how recharts colours bars individually — a `fill` on `Bar` applies
  * to the whole series, so a per-row decision has to be a child element.
+ *
+ * The colour arrives as a field on each row rather than as a callback. A
+ * function would be the obvious API and is the wrong one here: this component
+ * is loaded through a client boundary, and a function cannot cross it, so
+ * every caller would have to become a Client Component purely to describe a
+ * colour. Naming a key keeps the decision with whoever built the data — which
+ * is where it belongs — and keeps it serialisable.
  */
 export function BarsChart({
   data,
@@ -131,7 +138,7 @@ export function BarsChart({
   unit = "",
   height = 160,
   references = [],
-  colourFor,
+  colourKey,
   yAxisWidth = 44,
 }: {
   data: Record<string, unknown>[];
@@ -140,8 +147,11 @@ export function BarsChart({
   unit?: string;
   height?: number;
   references?: { value: number; label: string }[];
-  /** Per-row bar colour. Omit for one colour across the series. */
-  colourFor?: (row: Record<string, unknown>) => string;
+  /**
+   * The field on each row holding that bar's colour. Omit for one colour
+   * across the series.
+   */
+  colourKey?: string;
   /**
    * Room for the Y labels. 44px fits the three digits the training charts use
    * and silently clipped four-digit calories to "300" — a chart quietly lying
@@ -177,9 +187,9 @@ export function BarsChart({
           ))}
 
           <Bar dataKey={y} radius={3} isAnimationActive={false} fill="var(--foreground)">
-            {colourFor &&
+            {colourKey &&
               data.map((row, index) => (
-                <Cell key={index} fill={colourFor(row)} />
+                <Cell key={index} fill={String(row[colourKey])} />
               ))}
           </Bar>
         </BarChart>
