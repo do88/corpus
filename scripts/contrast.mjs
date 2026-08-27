@@ -48,7 +48,7 @@ const REQUIRED = {
   "--foreground": { need: 4.5, on: ["card", "ground"] },
   "--muted-foreground": { need: 4.5, on: ["card", "ground"] },
   // The per-metric hues, as *type* — a figure or a label. All inside cards.
-  "--ink-energy": { need: 4.5, on: ["card"] },
+  "--ink-energy": { need: 4.5, on: ["card", "warn"] },
   "--ink-protein": { need: 4.5, on: ["card", "ground"] },
   "--ink-water": { need: 4.5, on: ["card"] },
   "--ink-weight": { need: 4.5, on: ["card"] },
@@ -135,6 +135,9 @@ for (const [theme, selector] of [["light", ":root"], ["dark", "\\.dark"]]) {
   // plus the worst point of each glow; the card is opaque, so it is one colour.
   const BACKDROPS = {
     card: [{ name: "card", colour: rgb(parse(resolve(tokens, tokens["--card"]))) }],
+    // Warnings get their own surface, and the ink on them is the same ink used
+    // on a card — which is only safe if somebody checks, so somebody does.
+    warn: [{ name: "warn", colour: rgb(parse(resolve(tokens, tokens["--warn-surface"]))) }],
     ground: [
       { name: "ground", colour: base },
       ...groundLayers(tokens).map((layer, i) => ({

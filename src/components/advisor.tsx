@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
@@ -247,7 +247,8 @@ export function Advisor() {
       )}
 
       {error && (
-        <Alert variant="destructive" className="mt-3">
+        <Alert variant="warning" className="mt-3">
+          <TriangleAlert />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

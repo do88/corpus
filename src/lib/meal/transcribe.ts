@@ -173,7 +173,22 @@ export async function transcribeAudio(input: TranscribeInput): Promise<Transcrib
       : await viaSpecialist(key, input);
 
   const cleaned = text.trim();
-  if (!cleaned) throw new Error("Nothing was said");
+  /*
+    "Nothing was said" was the whole message, and it cost an afternoon.
+
+    It is what you get when the model returns no words, and that has several
+    quite different causes — a flat microphone, a take too quiet to make out,
+    a token cap spent on thinking, a genuinely wordless recording. Reported as
+    one sentence they are indistinguishable, and the sentence sounds like a
+    judgement about the recording rather than a thing that might be broken.
+
+    The silent case is caught in the browser now, before the upload. What is
+    left here is a recording that had sound in it and no speech the model would
+    commit to, so that is what it says.
+  */
+  if (!cleaned) {
+    throw new Error("I heard sound but no words — try again a bit closer to the mic");
+  }
 
   return { text: cleaned, model: TRANSCRIBE_MODEL, latencyMs: Date.now() - startedAt };
 }

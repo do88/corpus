@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Send, X } from "lucide-react";
+import { Camera, Send, TriangleAlert, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
@@ -199,7 +199,8 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="warning">
+          <TriangleAlert />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

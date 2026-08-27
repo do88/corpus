@@ -146,7 +146,7 @@ describe("transcribeAudio", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(flashSaid("   "));
     await expect(
       transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" }),
-    ).rejects.toThrow(/nothing was said/i);
+    ).rejects.toThrow(/no words/i);
   });
 
   it("refuses a media type it cannot send", async () => {

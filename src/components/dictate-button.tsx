@@ -35,6 +35,20 @@ export function DictateButton({
   const [seconds, setSeconds] = useState(0);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  /*
+    How loud it has actually been.
+
+    Two jobs, and the second one is why it exists. It drives the meter, so you
+    can see it hearing you — the complaint that killed the last attempt at
+    voice was that you could not tell. And it is remembered as a peak across
+    the whole take, so a recording with nothing in it can be named as such here
+    instead of being sent off and coming back as "nothing was said", which
+    sounds like the model's opinion rather than a flat microphone.
+  */
+  const level = useRef(0);
+  const peak = useRef(0);
+  const audio = useRef<{ context: AudioContext; analyser: AnalyserNode } | null>(null);
+  const [meter, setMeter] = useState(0);
 
   // Whether this browser can record at all.
   //
@@ -49,8 +63,26 @@ export function DictateButton({
   useEffect(() => {
     if (state !== "recording") return;
     const started = Date.now();
-    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 250);
-    return () => clearInterval(timer);
+    const samples = new Float32Array(2048);
+    let frame = 0;
+
+    const tick = () => {
+      const analyser = audio.current?.analyser;
+      if (analyser) {
+        analyser.getFloatTimeDomainData(samples);
+        let loudest = 0;
+        for (const sample of samples) loudest = Math.max(loudest, Math.abs(sample));
+        peak.current = Math.max(peak.current, loudest);
+        // Eased, or the ring flickers on every consonant and reads as noise
+        // rather than as a level.
+        level.current = Math.max(loudest, level.current * 0.82);
+        setMeter(level.current);
+      }
+      setSeconds(Math.floor((Date.now() - started) / 1000));
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [state]);
 
   // Let go of the microphone whichever way this component goes away. iOS keeps
@@ -59,12 +91,23 @@ export function DictateButton({
   const release = useCallback(() => {
     recorder.current?.stream.getTracks().forEach((track) => track.stop());
     recorder.current = null;
+    void audio.current?.context.close().catch(() => {});
+    audio.current = null;
   }, []);
   useEffect(() => release, [release]);
 
   async function start() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      context.createMediaStreamSource(stream).connect(analyser);
+      audio.current = { context, analyser };
+      peak.current = 0;
+      level.current = 0;
+
       const mimeType = bestAudioType();
       const media = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunks.current = [];
@@ -73,8 +116,9 @@ export function DictateButton({
       };
       media.onstop = () => {
         const blob = new Blob(chunks.current, { type: media.mimeType || "audio/webm" });
+        const loudest = peak.current;
         release();
-        void send(blob);
+        void send(blob, loudest);
       };
       recorder.current = media;
       media.start();
@@ -98,9 +142,15 @@ export function DictateButton({
     recorder.current?.stop();
   }
 
-  async function send(blob: Blob) {
+  async function send(blob: Blob, loudest: number) {
     try {
       if (!blob.size) throw new Error("Nothing was recorded");
+      // Named here rather than paid for at the other end. Below this the take
+      // is a flat line, and the useful thing to say is which microphone it
+      // came from — not that the model heard no words in it.
+      if (loudest < SILENCE) {
+        throw new Error("That came out silent — check which microphone your Mac is using");
+      }
       const response = await fetch("/api/meals/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,8 +208,20 @@ export function DictateButton({
         <Loader2 className="size-4 animate-spin" aria-hidden />
       ) : recording ? (
         <>
-          <Square className="size-3 fill-current" aria-hidden />
-          <span className="text-sm font-medium tabular-nums">{format(seconds)}</span>
+          {/* A ring that grows with your voice. The whole reason the last
+              attempt at this was thrown away is that you could not tell
+              whether it was hearing you; a timer alone counts just as
+              confidently through a dead microphone. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{
+              boxShadow: `0 0 0 ${Math.min(6, meter * 22).toFixed(1)}px color-mix(in oklch, var(--accent-energy) 30%, transparent)`,
+              transition: "box-shadow 90ms linear",
+            }}
+          />
+          <Square className="relative size-3 fill-current" aria-hidden />
+          <span className="relative text-sm font-medium tabular-nums">{format(seconds)}</span>
         </>
       ) : (
         <Mic className="size-4" aria-hidden />
@@ -176,6 +238,15 @@ function subscribeNever(): () => void {
 function canRecord(): boolean {
   return typeof window.MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 }
+
+/**
+ * Below this a take has nothing in it.
+ *
+ * Room tone on a laptop measures around 0.02 peak and speech an order of
+ * magnitude above that, so this sits under the quiet end of talking and over
+ * the loud end of an empty room.
+ */
+const SILENCE = 0.02;
 
 function format(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
