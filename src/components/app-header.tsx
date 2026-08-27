@@ -1,6 +1,3 @@
-import { Flame } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
-
 /**
  * The large title, iOS style.
  *
@@ -13,7 +10,6 @@ export function AppHeader({
   title,
   caption,
   action,
-  streak,
 }: {
   /** A node, not a string, so a screen can shorten its own title on a phone. */
   title: React.ReactNode;
@@ -27,8 +23,6 @@ export function AppHeader({
    * statement is one idea in one place, and it costs no row of its own.
    */
   action?: React.ReactNode;
-  /** Days in a row with something logged. Hidden at zero rather than shown as 0. */
-  streak?: number;
 }) {
   return (
     <header className="px-1 pb-1 pt-2">
@@ -37,20 +31,16 @@ export function AppHeader({
           {title}
         </h1>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {action}
-          {streak !== undefined && streak > 0 && (
-            <div
-              className="surface flex h-9 shrink-0 items-center gap-1 px-3"
-              style={{ borderRadius: 999 }}
-              aria-label={`${streak} day streak`}
-            >
-              <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
-              <span className="text-sm font-semibold tabular-nums">{streak}</span>
-            </div>
-          )}
-          <ThemeToggle />
-        </div>
+        {/*
+          The streak and the theme toggle used to sit here. They are in the
+          layout now — they belong to the app rather than to any one screen,
+          and living inside a page meant vanishing every time a page was
+          replaced by its skeleton. See `header-controls.tsx`.
+
+          The space they occupied is still reserved, so a long title wraps in
+          the same place whether or not the screen has an action of its own.
+        */}
+        <div className="flex h-9 shrink-0 items-center gap-2 pr-[5.5rem]">{action}</div>
       </div>
 
       {/*

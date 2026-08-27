@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
-import { differenceInCalendarDays, format, subDays } from "date-fns";
-import { clampDay, localDay, parseDay, toDay } from "@/lib/time";
+import { differenceInCalendarDays, format } from "date-fns";
+import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
@@ -80,7 +80,6 @@ export default async function Home({
             </Link>
           ) : undefined
         }
-        streak={streak(kcalByDay(meals), today)}
       />
       <RestoreDestination />
       <Today
@@ -131,24 +130,3 @@ function caption(
   return `${kcal.toLocaleString("en-GB")} kcal and ${protein}g protein to go`;
 }
 
-/**
- * Consecutive days ending today with something analysed on them.
- *
- * Counted back from today rather than forward from the first entry, so a gap
- * ends the streak — which is the only reading of the word that means anything.
- * Today not being logged *yet* does not break it: a streak that resets every
- * morning until breakfast would be a nag, not a record. So a missing today is
- * skipped once, and the count runs from yesterday.
- */
-function streak(logged: Record<string, number>, today: string): number {
-  const day = (offset: number) => toDay(subDays(parseDay(today), offset));
-
-  let count = 0;
-  for (let offset = logged[today] ? 0 : 1; ; offset += 1) {
-    if (!logged[day(offset)]) break;
-    count += 1;
-    // `logged` only covers the week that was fetched, so this cannot run away.
-    if (offset > 7) break;
-  }
-  return count;
-}

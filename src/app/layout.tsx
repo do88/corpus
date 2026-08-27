@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Offline } from "@/components/offline";
+import { HeaderControls } from "@/components/header-controls";
 import { TabBar } from "@/components/tab-bar";
 import { Theme } from "@/components/theme";
 import "./globals.css";
@@ -61,6 +62,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col" style={{ fontFamily: SYSTEM_SANS }}>
         <Offline>
           <Theme>
+            {/*
+              Rendered here so it survives a navigation. A layout is not
+              re-rendered when you move between the routes beneath it, which is
+              exactly the property these two want and the page header could not
+              give them.
+            */}
+            <HeaderControls />
             {children}
             <TabBar />
           </Theme>
