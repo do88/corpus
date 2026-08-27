@@ -588,3 +588,9 @@
   50%  { transform: scaleX(1); opacity: 1; }
   100% { transform: scaleX(0); opacity: 0.35; transform-origin: right; }
 }
+
+/* The three dots while the advisor is thinking. */
+@keyframes thinking {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
