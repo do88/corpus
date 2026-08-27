@@ -146,8 +146,16 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           placeholder="e.g. 2 eggs and a slice of toast"
           rows={1}
           aria-label="What did you eat?"
-          className="recessed max-h-40 min-h-11 w-full resize-none border-0 px-3.5 py-2.5 leading-normal focus-visible:ring-0"
-          style={{ borderRadius: 18 }}
+          // A drawn border rather than fill alone. The field was a recessed
+          // panel the same colour family as the card holding it, so on a
+          // bright screen there was nothing saying where it began — only a
+          // faint shadow, which is the first thing to disappear outdoors.
+          className="max-h-40 min-h-11 w-full resize-none bg-[var(--elevated)] px-3.5 py-2.5 leading-normal focus-visible:ring-0"
+          style={{
+            borderRadius: 16,
+            border: "1px solid var(--input)",
+            boxShadow: "inset 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent)",
+          }}
           onKeyDown={(e) => {
             // Enter sends, Shift+Enter makes a new line — the convention every
             // messaging app already taught everyone.
@@ -158,23 +166,31 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           }}
         />
 
-        <div className="mt-2 flex items-center justify-between">
+      {/*
+        Labelled, not just drawn, and given half the row each. Two unlabelled
+        circles left the reader to infer a camera and a paper plane, and a
+        paper plane means "send" in apps where sending is the point — here the
+        point is logging a meal, which is not the same promise. Words cost a
+        row that was empty anyway.
+
+        Equal halves rather than sizing each to its label: the two are
+        alternatives, not a primary with an afterthought beside it, and a
+        50/50 split says that without needing a third colour to say it.
+      */}
+        <div className="mt-2.5 flex items-center gap-2">
           <Button
-            size="icon"
-            variant="ghost"
+            variant="outline"
             onClick={() => fileInput.current?.click()}
-            aria-label="Add a photo"
-            className="tappable size-10 shrink-0 rounded-full"
+            className="tappable flex-1 rounded-full"
           >
-            <Camera className="size-5" />
+            <Camera className="size-4" />
+            Photo
           </Button>
 
           <Button
-            size="icon"
             onClick={save}
             disabled={busy || empty}
-            aria-label="Log it"
-            className="tappable size-10 shrink-0 rounded-full"
+            className="tappable flex-1 rounded-full"
             style={
               empty
                 ? undefined
@@ -189,6 +205,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
             }
           >
             <Send className="size-4" />
+            {busy ? "Saving…" : "Log it"}
           </Button>
         </div>
       </div>

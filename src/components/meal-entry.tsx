@@ -257,7 +257,24 @@ function Editor({
   }
 
   return (
-    <div className="mb-4 space-y-3.5 rounded-2xl bg-muted/50 p-4">
+    /*
+      Inset from the card and rounded to match it. The radius was `rounded-2xl`,
+      which on this theme is `--radius * 1.8` — about 40px, wider than the 22px
+      card containing it, so the inner corners bowed out past the outer ones.
+      Concentric is the rule that makes nested boxes look right: the inner
+      radius is the outer radius minus the gap, so 22 − 8 = 14.
+
+      Lighter, too. The fill is doing one job — marking this as a surface set
+      into the card — and at half of `--muted` it was reading as a different
+      material rather than the same one, slightly recessed.
+    */
+    <div
+      className="mx-2 mb-2 space-y-3.5 p-4"
+      style={{
+        borderRadius: 14,
+        background: "color-mix(in oklch, var(--muted) 35%, transparent)",
+      }}
+    >
       <div className="grid grid-cols-4 gap-2">
         {MACROS.map((macro) => (
           <div key={macro} className="space-y-1">
@@ -340,13 +357,13 @@ function Editor({
       )}
 
       <div className="flex gap-2">
-        <Button size="sm" onClick={save} disabled={busy} className="flex-1">
+        <Button onClick={save} disabled={busy} className="flex-1">
           {busy ? "Working…" : proposed ? "Save the new estimate" : "Save"}
         </Button>
-        <Button size="sm" variant="outline" onClick={onDone}>
+        <Button variant="outline" onClick={onDone}>
           Cancel
         </Button>
-        <Button size="sm" variant="destructive" onClick={remove} disabled={busy}>
+        <Button variant="destructive" onClick={remove} disabled={busy}>
           Delete
         </Button>
       </div>
