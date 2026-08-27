@@ -50,26 +50,24 @@ export function DayPicker({
   const router = useRouter();
   const week = weekOf(day);
 
-  // The week arrows still navigate imperatively: they move by a week, so
-  // their target is computed rather than fixed, and there is nothing for Next
-  // to prefetch until you press one.
-  const shift = (days: number) =>
-    router.push(href(toDay(addDays(parseDay(day), days)), today));
+  // A week either side. Computed at render, so these are links as well —
+  // "a week back" is a fixed destination, not an action.
+  const lastWeek = toDay(addDays(parseDay(day), -7));
+  const nextWeek = toDay(addDays(parseDay(day), 7));
 
   return (
     // The chevrons flank the strip rather than sitting in a bar above it. The
     // separate nav row duplicated what the discs already say, and two rows of
     // date chrome above the day's actual figures is one row too many.
     <div className="flex items-center gap-0.5">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => shift(-7)}
+      <Link
+        href={href(lastWeek, today)}
+        transitionTypes={["day-back"]}
         aria-label="Previous week"
-        className="tappable size-8 shrink-0 rounded-full text-muted-foreground"
+        className={`${ARROW} text-muted-foreground`}
       >
         <ChevronLeft className="size-4" />
-      </Button>
+      </Link>
 
       <div className="min-w-0 flex-1">
         <Popover>
@@ -180,19 +178,31 @@ export function DayPicker({
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => shift(7)}
-        disabled={week[0] > today}
-        aria-label="Next week"
-        className="tappable size-8 shrink-0 rounded-full text-muted-foreground"
-      >
-        <ChevronRight className="size-4" />
-      </Button>
+      {/*
+        There is no week after this one while you are in it, so the forward
+        arrow becomes a span rather than a link that goes nowhere — the same
+        rule the future day discs follow.
+      */}
+      {week[6] >= today ? (
+        <span aria-disabled aria-label="Next week" className={`${ARROW} text-muted-foreground opacity-25`}>
+          <ChevronRight className="size-4" />
+        </span>
+      ) : (
+        <Link
+          href={href(nextWeek, today)}
+          transitionTypes={["day-forward"]}
+          aria-label="Next week"
+          className={`${ARROW} text-muted-foreground`}
+        >
+          <ChevronRight className="size-4" />
+        </Link>
+      )}
     </div>
   );
 }
+
+/** The chevrons either side of the strip. */
+const ARROW = "tappable grid size-8 shrink-0 place-items-center rounded-full";
 
 /** Today is the bare route; any other day carries it in the URL. */
 function href(date: string, today: string) {

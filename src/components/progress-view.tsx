@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Flame, Utensils } from "lucide-react";
 import type { DailyTargets } from "@/lib/meals/targets";
 import type { PeriodSummary } from "@/lib/meals/summary";
@@ -29,23 +29,34 @@ export function ProgressView({
   label: string;
   day: string;
 }) {
-  const router = useRouter();
   const coverage =
     summary.totalDays === 0 ? 0 : Math.round((summary.loggedDays / summary.totalDays) * 100);
 
   return (
     <div className="mt-5 space-y-3">
-      {/* Week / month. Two states, so a segmented control rather than a menu. */}
+      {/*
+        Week / month. Two states, so a segmented control rather than a menu —
+        and two links rather than two buttons, because each has a fixed URL
+        known at render. A button calling `router.push` is invisible to Next's
+        prefetcher and to everything else that understands a link: the middle
+        button, a long press, the keyboard.
+
+        `aria-current` rather than `aria-pressed`. These do not toggle
+        anything; they say which of two views you are looking at, and a link
+        is not a switch.
+      */}
       <div className="surface flex gap-1 p-1" style={{ borderRadius: 999 }}>
         {(["week", "month"] as const).map((option) => {
           const active = option === range;
           return (
-            <button
+            <Link
               key={option}
-              type="button"
-              onClick={() => router.push(`/progress?range=${option}&d=${day}`)}
-              aria-pressed={active}
-              className="tappable flex-1 rounded-full py-2 text-sm font-medium capitalize transition-colors"
+              href={`/progress?range=${option}&d=${day}`}
+              // Lateral, like the tabs: week and month are two views of the
+              // same thing, so the page cross-fades rather than sliding.
+              transitionTypes={["tab"]}
+              aria-current={active ? "page" : undefined}
+              className="tappable flex-1 rounded-full py-2 text-center text-sm font-medium capitalize transition-colors"
               style={
                 active
                   ? {
@@ -58,7 +69,7 @@ export function ProgressView({
               }
             >
               {option}
-            </button>
+            </Link>
           );
         })}
       </div>
