@@ -1,10 +1,10 @@
+import { Screen } from "@/components/screen";
 import { differenceInCalendarDays, format, subDays } from "date-fns";
 import { localDay, parseDay, toDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import type { DailyTargets } from "@/lib/meals/targets";
-import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
 import { Today } from "@/components/today";
@@ -44,36 +44,34 @@ export default async function Home({
     // pb-28 clears the phone tab bar; lg:pl-24 clears the desktop rail, and the
     // column widens to hold four metric cards side by side rather than leaving
     // a 440px strip marooned in the middle of a 1440px window.
-    <PageTransition>
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-        <AppHeader
-          title={
-            /*
-              The month is dropped on a phone. The badges leave the title about
-              204px on a 360px screen and "Thursday 27 August" wants 305 —
-              measured, after the first attempt wrapped it onto two lines of
-              34px type. The weekday is the half worth keeping: a food log is
-              read as "what did I have on Tuesday", and the month is on the
-              caption's own screen anyway.
-            */
-            <>
-              <span className="lg:hidden">{format(parseDay(day), "EEEE d")}</span>
-              <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
-            </>
-          }
-          caption={caption(day, today, totalsForDay(onScreen), targets)}
-          streak={streak(kcalByDay(meals), today)}
-        />
-        <RestoreDestination />
-        <Today
-          initialMeals={onScreen}
-          day={day}
-          today={today}
-          logged={kcalByDay(meals)}
-          targets={targets}
-        />
-      </main>
-    </PageTransition>
+    <Screen>
+      <AppHeader
+        title={
+          /*
+            The month is dropped on a phone. The badges leave the title about
+            204px on a 360px screen and "Thursday 27 August" wants 305 —
+            measured, after the first attempt wrapped it onto two lines of
+            34px type. The weekday is the half worth keeping: a food log is
+            read as "what did I have on Tuesday", and the month is on the
+            caption's own screen anyway.
+          */
+          <>
+            <span className="lg:hidden">{format(parseDay(day), "EEEE d")}</span>
+            <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
+          </>
+        }
+        caption={caption(day, today, totalsForDay(onScreen), targets)}
+        streak={streak(kcalByDay(meals), today)}
+      />
+      <RestoreDestination />
+      <Today
+        initialMeals={onScreen}
+        day={day}
+        today={today}
+        logged={kcalByDay(meals)}
+        targets={targets}
+      />
+    </Screen>
   );
 }
 

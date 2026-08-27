@@ -1,4 +1,4 @@
-import { LoadingTransition } from "@/components/page-transition";
+import { LoadingScreen } from "@/components/screen";
 import { AdvisorSkeleton } from "@/components/skeletons";
 
 /**
@@ -7,10 +7,8 @@ import { AdvisorSkeleton } from "@/components/skeletons";
  */
 export default function Loading() {
   return (
-    <LoadingTransition>
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-2xl lg:pb-12 lg:pl-24 lg:pt-8">
-        <AdvisorSkeleton />
-      </main>
-    </LoadingTransition>
+    <LoadingScreen width="narrow">
+      <AdvisorSkeleton />
+    </LoadingScreen>
   );
 }

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Camera, Send, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { PromptField } from "@/components/prompt-field";
 import { compressForEstimate } from "@/lib/meal/compress";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
@@ -135,35 +135,20 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
         pill.
       */}
       <div className="surface p-2.5" style={{ borderRadius: 26 }}>
-        <Textarea
+        <PromptField
           value={note}
-          onChange={(e) => setNote(e.target.value)}
-          // Room for a proper example again: nothing shares this row, so the
-          // placeholder is bounded by the card rather than by what three
-          // buttons left over. It still has to fit one line on a phone —
-          // the field is `field-sizing-content`, so a wrapped placeholder
-          // would leave the composer two lines tall while empty.
+          onChange={setNote}
+          onSubmit={() => {
+            if (!empty) void save();
+          }}
+          // Room for a proper example: nothing shares this row, so the
+          // placeholder is bounded by the card rather than by what the buttons
+          // left over. It still has to fit one line on a phone — the field
+          // grows with its contents, and a placeholder counts, so a wrapped
+          // one would leave the composer two lines tall while empty.
           placeholder="e.g. 2 eggs and a slice of toast"
-          rows={1}
-          aria-label="What did you eat?"
-          // A drawn border rather than fill alone. The field was a recessed
-          // panel the same colour family as the card holding it, so on a
-          // bright screen there was nothing saying where it began — only a
-          // faint shadow, which is the first thing to disappear outdoors.
-          className="max-h-40 min-h-11 w-full resize-none bg-[var(--elevated)] px-3.5 py-2.5 leading-normal focus-visible:ring-0"
-          style={{
-            borderRadius: 16,
-            border: "1px solid var(--input)",
-            boxShadow: "inset 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent)",
-          }}
-          onKeyDown={(e) => {
-            // Enter sends, Shift+Enter makes a new line — the convention every
-            // messaging app already taught everyone.
-            if (e.key === "Enter" && !e.shiftKey && !empty) {
-              e.preventDefault();
-              void save();
-            }
-          }}
+          label="What did you eat?"
+          className="min-h-11"
         />
 
       {/*

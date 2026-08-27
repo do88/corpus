@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { PromptField } from "@/components/prompt-field";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
 import type { Advice, Turn } from "@/lib/meal/advise";
@@ -146,18 +146,17 @@ export function Advisor() {
       )}
 
       <div className="surface space-y-3 p-5">
-        <Textarea
+        <PromptField
           value={options}
-          onChange={(event) => setOptions(event.target.value)}
+          onChange={setOptions}
+          onSubmit={() => { if (options.trim() && !busy) void ask(); }}
           placeholder={
             started
               ? "not the fish… or say what else you have"
               : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
           }
+          label="What do you have in?"
           rows={2}
-          aria-label="What do you have in?"
-          className="recessed min-h-0 w-full resize-none border-0 px-3.5 py-2.5 leading-normal focus-visible:ring-0"
-          style={{ borderRadius: 18 }}
         />
         <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
           {busy ? "Thinking…" : started ? "Ask again" : "Ask"}

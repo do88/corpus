@@ -1,6 +1,6 @@
+import { Screen } from "@/components/screen";
 import { AppHeader } from "@/components/app-header";
 import { Advisor } from "@/components/advisor";
-import { PageTransition } from "@/components/page-transition";
 import { Remaining } from "@/components/remaining";
 import { createClient } from "@/lib/supabase/server";
 import { listMealsInRange } from "@/lib/meals/repository";
@@ -30,12 +30,10 @@ export default async function AdvisorScreen() {
   const today = summarise(meals, [day], targets).days[0];
 
   return (
-    <PageTransition>
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-2xl lg:pb-12 lg:pl-24 lg:pt-8">
-        <AppHeader title="What now?" caption="Say what you have in — it picks one" />
-        <Remaining consumed={today} targets={targets} />
-        <Advisor />
-      </main>
-    </PageTransition>
+    <Screen width="narrow">
+      <AppHeader title="What now?" caption="Say what you have in — it picks one" />
+      <Remaining consumed={today} targets={targets} />
+      <Advisor />
+    </Screen>
   );
 }
