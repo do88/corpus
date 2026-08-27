@@ -11,7 +11,9 @@ import { ImageResponse } from "next/og";
  * The mark is the open ring around a dot — see `components/brand.tsx` for what
  * it means — on an ink ground so it reads against any launcher wallpaper.
  */
-export const dynamic = "force-static";
+// No `force-static` any more: under Cache Components a GET handler prerenders
+// by itself when it touches no runtime data, and this one only reads `params`.
+// `generateStaticParams` below names both sizes, so both are built once.
 
 const ALLOWED = new Set(["192", "512"]);
 

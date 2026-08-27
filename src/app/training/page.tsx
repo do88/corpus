@@ -19,7 +19,6 @@ import { TrainingSections } from "@/components/training-sections";
  * attempts and failed. Caching the query layer instead keeps the build free of
  * any database dependency, which is the property worth protecting.
  */
-export const dynamic = "force-dynamic";
 
 export default async function Training() {
   const data = await getDashboardData();

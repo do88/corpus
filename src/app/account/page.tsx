@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/server";
  * URL for a private avatar is minted here rather than in the client — the
  * browser has no business holding the credential that mints it.
  */
-export const dynamic = "force-dynamic";
 
 export default async function Account() {
   const supabase = await createClient();

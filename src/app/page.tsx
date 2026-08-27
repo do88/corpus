@@ -12,7 +12,6 @@ import { Today } from "@/components/today";
  * linkable, survives a refresh, and gets back/forward for free — three things
  * that would otherwise need building.
  */
-export const dynamic = "force-dynamic";
 
 export default async function Home({
   searchParams,

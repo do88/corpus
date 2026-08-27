@@ -12,7 +12,6 @@ import { datesBetween, monthRange, summarise, weekRange } from "@/lib/meals/summ
  * particular week is linkable, survives a refresh, and gets back/forward for
  * free. Three things that would otherwise need building.
  */
-export const dynamic = "force-dynamic";
 
 const MONTH = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 const DAY_MONTH = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });

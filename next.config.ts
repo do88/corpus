@@ -16,6 +16,21 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   /**
+   * Prerender a static shell for every route and stream the dynamic parts in.
+   *
+   * This is the whole performance story for this app. Every page here reads
+   * the session from cookies, so every page was dynamic, which meant every tab
+   * tap woke a Netlify function and waited for it before painting anything.
+   * With Cache Components the shell — layout, nav, and each route's loading
+   * skeleton — is built once and served from the CDN, so the first paint costs
+   * no function at all and the cold start only delays the data.
+   *
+   * Stable since Next 16, and it subsumes the old `ppr`, `dynamicIO` and
+   * `useCache` flags. Requires the Node runtime, which is what Netlify runs.
+   */
+  cacheComponents: true,
+
+  /**
    * Empty on purpose, and required.
    *
    * Next 16 runs Turbopack by default. Serwist is a webpack plugin, so
