@@ -1,4 +1,4 @@
-import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { MEAL_MODEL } from "./estimate";
 
 /**
@@ -218,10 +218,25 @@ async function viaFlash(key: string, input: TranscribeInput): Promise<string> {
       ],
       config: {
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        maxOutputTokens: 400,
+        // Thinking is billed against this cap, and thinking is the part that
+        // scales with how much was said. At 400 a twenty-five second ramble
+        // spent 393 tokens reasoning and had three left to answer with, so it
+        // returned two words of the middle of the sentence — or nothing, which
+        // is what "Nothing was said" was really reporting. A transcript is
+        // never more than a few hundred tokens; the headroom is for the
+        // thinking in front of it. MINIMAL is rejected by this model, so the
+        // level cannot go lower than LOW.
+        maxOutputTokens: 4000,
         httpOptions: { timeout: TIMEOUT_MS },
       },
     });
+
+    // A truncated transcript is worse than no transcript. It arrives looking
+    // like a whole sentence, goes into the box, and gets logged as the meal —
+    // the failure that reads as success.
+    if (response.candidates?.[0]?.finishReason === FinishReason.MAX_TOKENS) {
+      throw new Error("That was too long to write down in one go — try it in shorter takes");
+    }
     return response.text ?? "";
   } catch (error) {
     throw asFriendlyError(error);

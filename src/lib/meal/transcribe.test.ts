@@ -181,6 +181,24 @@ describe("transcribeAudio", () => {
     expect(parts[1].text).toContain("Mr Kipling");
   });
 
+  it("refuses a truncated transcript instead of passing off half a sentence", async () => {
+    // The failure that reads as success. Thinking is billed against the same
+    // cap as the answer, so a long take can leave a few tokens to reply with —
+    // and a fragment of the middle of a sentence looks exactly like a whole
+    // one by the time it is sitting in the box waiting to be logged.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      json({
+        candidates: [
+          { content: { parts: [{ text: " crisps and" }] }, finishReason: "MAX_TOKENS" },
+        ],
+        usageMetadata: { promptTokenCount: 900, candidatesTokenCount: 3, thoughtsTokenCount: 393 },
+      }),
+    );
+    await expect(
+      transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" }),
+    ).rejects.toThrow(/shorter takes/i);
+  });
+
   it("says so plainly when the quota is gone", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       json({ error: { code: 429, message: "quota", status: "RESOURCE_EXHAUSTED" } }, 429),
