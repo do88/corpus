@@ -10,6 +10,13 @@ import type { DailyTargets } from "../meals/targets";
  * kitchen, which one?* That question has a real answer, because the gap between
  * what has been eaten and what was targeted is a number.
  *
+ * It answers the question that was asked, which is not always the question the
+ * numbers answer. "Something sweet" and "nothing heavy" are constraints, and
+ * they narrow the field before the macros choose within it rather than being
+ * weighed against them. An answer that takes the highest-protein option and
+ * then calls it sweet is worse than one saying nothing here is sweet: it reads
+ * as not having listened, which is the thing that gets a feature abandoned.
+ *
  * The single most important rule is that it may only choose from the options
  * given. Advice that reaches for the yoghurt-and-berries you did not mention is
  * the advice everybody already has and nobody wants; it answers a question
@@ -33,9 +40,22 @@ The rules, in the order they matter:
   have across the whole conversation, minus whatever they have ruled out, and
   do not re-offer something they have just turned down. The rule above still
   holds at every turn: nothing they have not mentioned.
-- Decide on the numbers. Protein is the priority: they are eating at a deficit
-  and protein is the target they most often fall short of. Calories are a
-  ceiling, protein is a floor.
+- If they say what they fancy — something sweet, something hot, something
+  quick, nothing heavy, no more fish — that is a constraint, not a preamble.
+  Narrow to the options that meet it, and only then use the numbers to choose
+  between what is left. A nutritionally optimal answer to a question they did
+  not ask is a bad answer.
+- If nothing they have meets what they asked for, say so in the opening clause
+  and then give the closest thing. Never pick on the numbers and then describe
+  the result as though it met the request: calling a high-protein option a
+  satisfying sweet thing is worse than admitting there is nothing sweet in the
+  house, because it means you were not listening.
+- Do not re-offer the option you just chose unless it genuinely fits what they
+  have now added or asked for. If it does still fit, say why it fits *this*
+  request — not why it was the right pick a turn ago.
+- Then decide on the numbers. Protein is the priority: they are eating at a
+  deficit and protein is the target they most often fall short of. Calories are
+  a ceiling, protein is a floor.
 - If an option would take them over the calorie ceiling, say so plainly and
   pick one that does not. If every option would, pick the least bad and say
   that is what you have done.
@@ -43,7 +63,8 @@ The rules, in the order they matter:
   even when it is not the lowest in calories. Early in the day, leave room.
 - Estimate the chosen option's calories and protein the way you would estimate
   any meal. UK portions and UK supermarket products.
-- Be brief and lead with the number that decided it. Two sentences at most.
+- Be brief and lead with whatever actually decided it: what they asked for if
+  they asked for something, the number otherwise. Two sentences at most.
   No encouragement, no "consider speaking to a professional", no praise for
   what they have eaten so far. They want a decision, not a coach.`;
 
@@ -55,7 +76,9 @@ export const adviceSchema = z.object({
   protein_g: z.number().int().min(0).describe("Estimated protein for the chosen option"),
   why: z
     .string()
-    .describe("Why this one, in at most two sentences, leading with the deciding number"),
+    .describe(
+      "Why this one, in at most two sentences, leading with whatever decided it — what they asked for if they asked for something, the deciding number otherwise",
+    ),
   instead: z
     .string()
     .describe(
