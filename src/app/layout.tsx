@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Offline } from "@/components/offline";
 import { HeaderControls } from "@/components/header-controls";
@@ -67,8 +68,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               re-rendered when you move between the routes beneath it, which is
               exactly the property these two want and the page header could not
               give them.
+
+              Behind a Suspense boundary because it reads the session and the
+              log, and uncached work sitting directly in the layout makes every
+              route in the app dynamic — the whole shell would wait on this one
+              query before anything could be prerendered. Streamed, the shell
+              still goes out static and the controls arrive with the rest.
             */}
-            <HeaderControls />
+            {/* No fallback: the controls are positioned out of flow, so an
+                empty boundary shifts nothing while it waits. */}
+            <Suspense fallback={null}>
+              <HeaderControls />
+            </Suspense>
             {children}
             <TabBar />
           </Theme>

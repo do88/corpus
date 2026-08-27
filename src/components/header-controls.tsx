@@ -85,3 +85,4 @@ async function currentStreak(supabase: SupabaseClient): Promise<number> {
   }
   return count;
 }
+
