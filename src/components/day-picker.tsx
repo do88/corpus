@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { addDays, format, subDays } from "date-fns";
+import { ZONE, parseDay, toDay } from "@/lib/time";
 import { weekOf } from "@/lib/meals/repository";
 
 /**
@@ -49,11 +51,7 @@ export function DayPicker({
 
   const go = (date: string) => router.push(date === today ? "/" : `/?d=${date}`);
 
-  const shift = (days: number) => {
-    const d = new Date(`${day}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    go(d.toISOString().slice(0, 10));
-  };
+  const shift = (days: number) => go(toDay(addDays(parseDay(day), days)));
 
   return (
     // The chevrons flank the strip rather than sitting in a bar above it. The
@@ -88,10 +86,14 @@ export function DayPicker({
             <Calendar
               mode="single"
               required
-              selected={new Date(`${day}T12:00:00Z`)}
-              defaultMonth={new Date(`${day}T12:00:00Z`)}
-              disabled={{ after: new Date(`${today}T12:00:00Z`) }}
-              onSelect={(date) => date && go(toISODate(date))}
+              // The calendar is told the zone rather than being handed dates
+              // pinned to UTC noon: it does that anchoring itself, correctly,
+              // and hand-anchoring on top of it was two workarounds stacked.
+              timeZone={ZONE}
+              selected={parseDay(day)}
+              defaultMonth={parseDay(day)}
+              disabled={{ after: parseDay(today) }}
+              onSelect={(date) => date && go(toDay(date))}
             />
           </PopoverContent>
         </Popover>
@@ -120,7 +122,7 @@ export function DayPicker({
               className="tappable flex flex-col items-center gap-1 py-0.5 disabled:opacity-25"
             >
               <span className="text-[0.8125rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                {WEEKDAY.format(new Date(`${date}T12:00:00Z`)).charAt(0)}
+                {format(parseDay(date), "EEEEE")}
               </span>
 
               <span
@@ -163,29 +165,13 @@ export function DayPicker({
   );
 }
 
-const WEEKDAY = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" });
-const LONG = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
-
 function longDate(date: string) {
-  return LONG.format(new Date(`${date}T12:00:00Z`));
+  return format(parseDay(date), "EEEE d MMMM");
 }
 
-/** Local dates are plain YYYY-MM-DD; going via toISOString would shift them. */
-function toISODate(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-}
 
 function formatHeading(day: string, today: string) {
   if (day === today) return "Today";
-  const yesterday = new Date(`${today}T12:00:00Z`);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  if (day === yesterday.toISOString().slice(0, 10)) return "Yesterday";
+  if (day === toDay(subDays(parseDay(today), 1))) return "Yesterday";
   return longDate(day);
 }

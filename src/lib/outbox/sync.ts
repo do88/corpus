@@ -1,6 +1,7 @@
+import { localDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/client";
 import { requestEstimate } from "@/lib/meals/enqueue";
-import { localDay, type MealRow } from "@/lib/meals/repository";
+import { type MealRow } from "@/lib/meals/repository";
 import { markFailed, pending, remove, type OutboxMeal } from "./store";
 
 /**

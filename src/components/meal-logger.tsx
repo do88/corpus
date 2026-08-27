@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { compressForEstimate } from "@/lib/meal/compress";
-import { localDay } from "@/lib/meals/repository";
+import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
 import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
 

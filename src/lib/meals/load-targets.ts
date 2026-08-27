@@ -1,3 +1,5 @@
+import { subDays } from "date-fns";
+import { inZone, toDay } from "../time";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   computeTargets,
@@ -34,7 +36,9 @@ export async function loadTargets(supabase: SupabaseClient): Promise<DailyTarget
     supabase
       .from("workouts")
       .select("id", { count: "exact", head: true })
-      .gte("date", new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)),
+      // A calendar cutoff on London days, not 28 * 24 hours of elapsed time —
+      // the column is a `date`, and the two differ by an hour twice a year.
+      .gte("date", toDay(subDays(inZone(), 28))),
   ]);
 
   if (reading.error || !reading.data) return FALLBACK_TARGETS;

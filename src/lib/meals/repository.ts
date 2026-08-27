@@ -1,3 +1,5 @@
+import { addDays, startOfWeek } from "date-fns";
+import { parseDay, toDay } from "@/lib/time";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MealEstimate } from "@/lib/meal/schema";
 
@@ -40,19 +42,6 @@ export type MealRow = {
   error: string | null;
 };
 
-/**
- * The day a moment belongs to, with the boundary at 04:00 — a meal at 1am
- * counts toward the night before.
- *
- * Mirrors the `local_day()` function in migration ...818. Two copies because
- * the client has to name the day it is inserting before the row exists, and it
- * cannot call a Postgres function to find out. Same rule, and they must move
- * together.
- */
-export function localDay(at: Date = new Date()): string {
-  const shifted = new Date(at.getTime() - 4 * 60 * 60 * 1000);
-  return shifted.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-}
 
 /**
  * Every meal across a span of days, for the week strip.
@@ -90,14 +79,8 @@ export function kcalByDay(meals: MealRow[]): Record<string, number> {
 
 /** The seven dates of the week containing `day`, Monday first. */
 export function weekOf(day: string): string[] {
-  const date = new Date(`${day}T12:00:00Z`);
-  const monday = new Date(date);
-  monday.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setUTCDate(monday.getUTCDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
+  const monday = startOfWeek(parseDay(day), { weekStartsOn: 1 });
+  return Array.from({ length: 7 }, (_, i) => toDay(addDays(monday, i)));
 }
 
 /** What the worker writes back once the estimator has answered. */

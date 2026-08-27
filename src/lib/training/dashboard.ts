@@ -1,3 +1,4 @@
+import { inZone } from "../time";
 import { unstable_cache } from "next/cache";
 import { fmtPace, longDate, longQuarter, shortDay, weekOf } from "./format";
 import {
@@ -76,7 +77,7 @@ export async function buildDashboardData() {
 
   const energy = estimateEnergy(latest.weight_kg, heightCm, age);
   const leanIndex = ffmi(latest.fat_free_mass_kg, heightCm);
-  const currentYear = String(new Date().getFullYear());
+  const currentYear = String(inZone().getFullYear());
   const target = compositionTargets(latest.fat_free_mass_kg, latest.skeletal_muscle_kg);
   const round1 = (n: number) => Math.round(n * 10) / 10;
 

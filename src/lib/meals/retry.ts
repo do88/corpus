@@ -1,3 +1,4 @@
+import { subMilliseconds } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requestEstimate } from "./enqueue";
 import { MAX_ATTEMPTS, type MealRow } from "./repository";
@@ -30,7 +31,8 @@ export async function retryStalePending(
   accessToken: string,
   day: string,
 ): Promise<number> {
-  const staleBefore = new Date(Date.now() - STALE_AFTER_MS).toISOString();
+  // A genuine elapsed-time window, so absolute arithmetic is the right kind.
+  const staleBefore = subMilliseconds(new Date(), STALE_AFTER_MS).toISOString();
 
   const { data, error } = await supabase
     .from("meal_log")

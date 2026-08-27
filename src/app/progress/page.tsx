@@ -1,8 +1,10 @@
+import { format } from "date-fns";
+import { localDay, parseDay } from "@/lib/time";
 import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { ProgressView } from "@/components/progress-view";
 import { createClient } from "@/lib/supabase/server";
-import { listMealsInRange, localDay } from "@/lib/meals/repository";
+import { listMealsInRange } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { datesBetween, monthRange, summarise, weekRange } from "@/lib/meals/summary";
 
@@ -14,8 +16,6 @@ import { datesBetween, monthRange, summarise, weekRange } from "@/lib/meals/summ
  * free. Three things that would otherwise need building.
  */
 
-const MONTH = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
-const DAY_MONTH = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
 
 export default async function Progress({
   searchParams,
@@ -43,8 +43,8 @@ export default async function Progress({
 
   const label =
     range === "month"
-      ? MONTH.format(new Date(`${from}T12:00:00Z`))
-      : `${DAY_MONTH.format(new Date(`${from}T12:00:00Z`))} – ${DAY_MONTH.format(new Date(`${to}T12:00:00Z`))}`;
+      ? format(parseDay(from), "MMMM yyyy")
+      : `${format(parseDay(from), "d MMMM")} – ${format(parseDay(to), "d MMMM")}`;
 
   return (
     <PageTransition>

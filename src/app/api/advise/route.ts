@@ -1,10 +1,12 @@
+import { format } from "date-fns";
+import { inZone, localDay } from "@/lib/time";
 import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isOwner } from "@/lib/auth/owner";
 import { adviseMeal } from "@/lib/meal/advise";
 import { createClient } from "@/lib/supabase/server";
-import { listMealsInRange, localDay } from "@/lib/meals/repository";
+import { listMealsInRange } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { summarise } from "@/lib/meals/summary";
 
@@ -37,13 +39,6 @@ const turnSchema = z.object({
 
 const requestSchema = z.object({
   turns: z.array(turnSchema).min(1).max(21),
-});
-
-const TIME = new Intl.DateTimeFormat("en-GB", {
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-  timeZone: "Europe/London",
 });
 
 export async function POST(request: Request) {
@@ -81,7 +76,7 @@ export async function POST(request: Request) {
         fat_g: today.fat_g,
       },
       targets,
-      time: TIME.format(new Date()),
+      time: format(inZone(), "HH:mm"),
     });
 
     return NextResponse.json(advice);

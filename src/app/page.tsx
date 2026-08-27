@@ -1,5 +1,7 @@
+import { format, subDays } from "date-fns";
+import { localDay, parseDay, toDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
-import { kcalByDay, listMealsInRange, localDay, weekOf } from "@/lib/meals/repository";
+import { kcalByDay, listMealsInRange, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
@@ -55,16 +57,10 @@ export default async function Home({
   );
 }
 
-const LONG_DAY = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
 
 /** The title says "Today"; this says which day that actually is. */
 function caption(day: string, today: string): string {
-  const date = LONG_DAY.format(new Date(`${day}T12:00:00Z`));
+  const date = format(parseDay(day), "EEEE d MMMM");
   return day === today ? date : `${date} · not today`;
 }
 
@@ -78,11 +74,7 @@ function caption(day: string, today: string): string {
  * skipped once, and the count runs from yesterday.
  */
 function streak(logged: Record<string, number>, today: string): number {
-  const day = (offset: number) => {
-    const d = new Date(`${today}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - offset);
-    return d.toISOString().slice(0, 10);
-  };
+  const day = (offset: number) => toDay(subDays(parseDay(today), offset));
 
   let count = 0;
   for (let offset = logged[today] ? 0 : 1; ; offset += 1) {

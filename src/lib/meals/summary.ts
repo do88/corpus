@@ -1,3 +1,5 @@
+import { eachDayOfInterval, endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
+import { parseDay, toDay } from "../time";
 import type { MealRow } from "./repository";
 import type { DailyTargets } from "./targets";
 
@@ -40,14 +42,7 @@ export type PeriodSummary = {
 
 /** Every date from `from` to `to` inclusive, as plain YYYY-MM-DD. */
 export function datesBetween(from: string, to: string): string[] {
-  const out: string[] = [];
-  const cursor = new Date(`${from}T12:00:00Z`);
-  const end = new Date(`${to}T12:00:00Z`);
-  while (cursor <= end) {
-    out.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return out;
+  return eachDayOfInterval({ start: parseDay(from), end: parseDay(to) }).map(toDay);
 }
 
 export function summarise(
@@ -105,18 +100,17 @@ export function summarise(
 
 /** The Monday-anchored week containing `day`, and the day before it repeats. */
 export function weekRange(day: string): [string, string] {
-  const date = new Date(`${day}T12:00:00Z`);
-  const monday = new Date(date);
-  monday.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  return [monday.toISOString().slice(0, 10), sunday.toISOString().slice(0, 10)];
+  const date = parseDay(day);
+  // `weekStartsOn: 1` rather than counting backwards from the weekday index by
+  // hand, which is where the old version's `(getUTCDay() + 6) % 7` came from.
+  return [
+    toDay(startOfWeek(date, { weekStartsOn: 1 })),
+    toDay(endOfWeek(date, { weekStartsOn: 1 })),
+  ];
 }
 
 /** The calendar month containing `day`. */
 export function monthRange(day: string): [string, string] {
-  const date = new Date(`${day}T12:00:00Z`);
-  const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 12));
-  const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 12));
-  return [first.toISOString().slice(0, 10), last.toISOString().slice(0, 10)];
+  const date = parseDay(day);
+  return [toDay(startOfMonth(date)), toDay(endOfMonth(date))];
 }
