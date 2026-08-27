@@ -37,6 +37,17 @@ const Calendar = dynamic(() => import("@/components/ui/calendar").then((m) => m.
  * strip answers "which days have I tracked", and the figure for the selected
  * day is right below it in full.
  */
+/**
+ * The chevrons either side of the strip.
+ *
+ * Declared above the component, not below it. Below, the production build was
+ * fine — module evaluation finishes long before React renders anything — but
+ * Fast Refresh re-evaluates the module and can reach the component while a
+ * `const` further down is still in its temporal dead zone, which is a runtime
+ * ReferenceError in development and nowhere else.
+ */
+const ARROW = "tappable grid size-8 shrink-0 place-items-center rounded-full";
+
 export function DayPicker({
   day,
   today,
@@ -200,9 +211,6 @@ export function DayPicker({
     </div>
   );
 }
-
-/** The chevrons either side of the strip. */
-const ARROW = "tappable grid size-8 shrink-0 place-items-center rounded-full";
 
 /** Today is the bare route; any other day carries it in the URL. */
 function href(date: string, today: string) {

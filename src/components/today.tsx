@@ -165,8 +165,26 @@ export function Today({
       channelRef.current = channel;
     })();
 
+    /**
+     * Keep Realtime's copy of the token current.
+     *
+     * The token handed over above is the one that was valid at subscribe time,
+     * and access tokens expire in an hour. Realtime holds its own connection
+     * with its own copy, so a refresh that quietly fixes every REST call does
+     * nothing for the socket — it carries on presenting a token the server has
+     * stopped accepting, and the channel dies partway through a session with
+     * no failure the page can see.
+     *
+     * Cheap to prevent, and the alternative is a class of bug that only shows
+     * up an hour in, which is exactly the kind nobody reproduces on purpose.
+     */
+    const { data: auth } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) void supabase.realtime.setAuth(session.access_token);
+    });
+
     return () => {
       cancelled = true;
+      auth.subscription.unsubscribe();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
