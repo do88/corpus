@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wordmark } from "@/components/brand";
+import { Logomark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 import { RETURN_TO } from "@/lib/auth/return-to";
 import { DEV_AUTH_ENABLED, DEV_EMAIL, DEV_PASSWORD } from "@/lib/auth/dev";
@@ -93,31 +92,60 @@ export default function Login() {
   }, []);
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <Wordmark size={30} />
-          </CardTitle>
-          <CardDescription>Photo, a sentence, macros.</CardDescription>
-        </CardHeader>
+    /*
+      The one screen that gets to be loud.
+      
+      Everywhere else the ground is deliberately quiet — the app is read at a
+      glance, many times a day, and a background competing with the figures
+      would be a background winning an argument it should not be in. This
+      screen has no figures. It is seen once, and its whole job is to look
+      like something worth signing in to, so the accent hues that appear as
+      thin rings elsewhere get to be the entire surface here.
+    */
+    <main className="relative flex min-h-full w-full flex-1 flex-col items-center justify-center overflow-hidden px-6">
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SPLASH }} />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ opacity: 0.05, backgroundImage: GRAIN, backgroundSize: "200px 200px" }} />
 
-        <CardContent className="space-y-4">
-          <Button onClick={signIn} disabled={busy} className="w-full">
-            {busy ? "Redirecting…" : DEV_AUTH_ENABLED ? "Signing in locally…" : "Continue with Google"}
-          </Button>
+      <div className="relative flex w-full max-w-sm flex-col items-center">
+        <Logomark size={148} accent="var(--accent-protein)" />
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        <h1 className="mt-8 text-[3.5rem] font-bold leading-none tracking-[-0.045em]">
+          do<span style={{ color: "var(--accent-protein)" }}>.</span>fit
+        </h1>
 
-          <p className="text-sm text-muted-foreground">
-            One account has access. Everything logged here stays in your own database.
-          </p>
-        </CardContent>
-      </Card>
+        <Button
+          onClick={signIn}
+          disabled={busy}
+          className="mt-12 w-full rounded-full"
+        >
+          {busy ? "Redirecting…" : DEV_AUTH_ENABLED ? "Signing in locally…" : "Continue with Google"}
+        </Button>
+
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </div>
     </main>
   );
 }
+
+/**
+ * The gradient behind it.
+ *
+ * Three washes rather than one: a single linear ramp reads as a template, and
+ * banding shows badly across a whole viewport. Overlapping radials in the
+ * app's own four hues bloom into each other instead, and the grain over the
+ * top hides what is left of the banding — the same trick the app's ground
+ * uses, turned up because nothing here has to stay readable through it.
+ */
+const SPLASH = [
+  "radial-gradient(120% 90% at 15% 0%, color-mix(in oklch, var(--accent-protein) 58%, transparent), transparent 62%)",
+  "radial-gradient(110% 85% at 95% 15%, color-mix(in oklch, var(--accent-weight) 52%, transparent), transparent 60%)",
+  "radial-gradient(130% 95% at 50% 105%, color-mix(in oklch, var(--accent-energy) 44%, transparent), transparent 65%)",
+  "radial-gradient(90% 70% at 80% 90%, color-mix(in oklch, var(--accent-water) 40%, transparent), transparent 62%)",
+].join(", ");
+
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")";

@@ -118,8 +118,27 @@ export function Today({
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
+    let attempt = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
 
-    (async () => {
+    /**
+     * Join, and if the join fails, join again.
+     *
+     * A failed subscribe used to be terminal. The callback logged the error and
+     * stopped, so the page carried on looking healthy while nothing arrived
+     * over the socket until something happened to re-run this effect — a
+     * reload, or changing day. Realtime being down is not itself unusual; not
+     * recovering from it is the bug.
+     *
+     * Re-subscribing on the same topic is also the likeliest cause of the
+     * failure in the first place: a leave that is still in flight when the
+     * next join arrives is a duplicate as far as the server is concerned, and
+     * a hot reload or a route being hidden and shown again produces exactly
+     * that. Which makes a short wait the right response either way.
+     */
+    const join = async () => {
+      if (cancelled) return;
+
       /**
        * Hand Realtime the access token before subscribing.
        *
@@ -137,6 +156,16 @@ export function Today({
       if (cancelled) return;
       if (session) await supabase.realtime.setAuth(session.access_token);
       if (cancelled) return;
+
+      // Anything still attached from a previous attempt goes first, and is
+      // awaited — leaving and rejoining the same topic in the same breath is
+      // the race this is recovering from.
+      if (channelRef.current) {
+        const previous = channelRef.current;
+        channelRef.current = null;
+        await supabase.removeChannel(previous);
+        if (cancelled) return;
+      }
 
       const channel = supabase
         // Day-scoped topic. A constant name meant changing date tore down and
@@ -157,13 +186,30 @@ export function Today({
         .subscribe((status, error) => {
           // Previously `.subscribe()` took no callback, so a channel that never
           // joined was indistinguishable from one with nothing to say.
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            console.error(`[realtime] ${status} on meal_log:${day}`, error ?? "");
+          if (status === "SUBSCRIBED") {
+            attempt = 0;
+            return;
           }
+          if (status !== "CHANNEL_ERROR" && status !== "TIMED_OUT") return;
+          if (cancelled) return;
+
+          // Backed off, and capped. Five tries covers a hot reload racing its
+          // own teardown; past that it is not a race and hammering the socket
+          // will not help.
+          if (attempt >= 5) {
+            console.error(`[realtime] ${status} on meal_log:${day}, giving up`, error ?? "");
+            return;
+          }
+          const wait = 500 * 2 ** attempt;
+          attempt += 1;
+          console.warn(`[realtime] ${status} on meal_log:${day}, retrying in ${wait}ms`);
+          retry = setTimeout(() => void join(), wait);
         });
 
       channelRef.current = channel;
-    })();
+    };
+
+    void join();
 
     /**
      * Keep Realtime's copy of the token current.
@@ -184,6 +230,7 @@ export function Today({
 
     return () => {
       cancelled = true;
+      clearTimeout(retry);
       auth.subscription.unsubscribe();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
