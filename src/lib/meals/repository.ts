@@ -246,3 +246,25 @@ export function totalsForDay(meals: MealRow[]) {
     failed: meals.filter((m) => m.status === "failed").length,
   };
 }
+
+/**
+ * The most recent meals, for building a speech vocabulary from.
+ *
+ * Only the two columns that carry product names, and capped — this runs on the
+ * path where someone is stood waiting for their words to appear, so it is a
+ * cheap read or it does not belong there. Failure is not fatal to the caller:
+ * a transcription without hints is worse, not broken.
+ */
+export async function recentMealNames(
+  supabase: SupabaseClient,
+  limit = 200,
+): Promise<Array<{ note: string | null; items: MealEstimate["items"] | null }>> {
+  const { data, error } = await supabase
+    .from("meal_log")
+    .select("note, items")
+    .order("logged_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Could not load recent meals: ${error.message}`);
+  return (data ?? []) as Array<{ note: string | null; items: MealEstimate["items"] | null }>;
+}

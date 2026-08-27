@@ -216,6 +216,10 @@ export function Advisor() {
           }
           label="What do you have in?"
           rows={2}
+          onTranscript={(text) =>
+            setOptions((current) => (current.trim() ? `${current.trim()} ${text}` : text))
+          }
+          onDictationError={setError}
         />
         <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
           {pending !== null ? "Thinking…" : started ? "Ask again" : "Ask"}

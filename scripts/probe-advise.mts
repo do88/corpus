@@ -22,7 +22,7 @@
  *
  *   pnpm probe:advice
  */
-import { adviseMeal, type DayState, type Turn } from "../src/lib/meal/advise.ts";
+import { adviseMeal, type DayState, type Turn } from "../src/lib/meal/advise";
 
 const DAY: DayState = {
   consumed: { kcal: 694, protein_g: 58, carbs_g: 61, fat_g: 27 },
@@ -36,9 +36,11 @@ const DAY: DayState = {
       bmrFormula: "katch-mcardle",
       tdee: 2694,
       activityFactor: 1.51,
-      deficit: 400,
+      deficitKcal: 400,
+      weeklyLossKg: 0.36,
+      weeksToGoal: 14,
     },
-  } as DayState["targets"],
+  },
   time: "20:15",
 };
 

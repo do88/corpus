@@ -22,6 +22,7 @@
     "check:access:hosted": "node --env-file=.env.hosted scripts/check-access.mjs",
     "compare:models": "tsx --env-file=.env.local scripts/compare-models.mts",
     "probe:advice": "tsx --env-file=.env.local scripts/probe-advise.mts",
+    "probe:transcribe": "tsx --env-file=.env.local scripts/probe-transcribe.mts",
     "reconcile:now": "tsx --env-file=.env.local --env-file=.env.hosted scripts/reconcile-now.mts"
   },
   "dependencies": {

@@ -148,7 +148,10 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           // one would leave the composer two lines tall while empty.
           placeholder="e.g. 2 eggs and a slice of toast"
           label="What did you eat?"
-          className="min-h-11"
+          onTranscript={(text) =>
+            setNote((current) => (current.trim() ? `${current.trim()} ${text}` : text))
+          }
+          onDictationError={setError}
         />
 
       {/*

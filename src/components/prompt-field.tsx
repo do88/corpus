@@ -1,3 +1,4 @@
+import { DictateButton } from "@/components/dictate-button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,11 @@ import { cn } from "@/lib/utils";
  * Enter submits and Shift+Enter makes a new line — the convention every
  * messaging app has already taught everyone, and worth stating in one place so
  * the two screens cannot disagree about it.
+ *
+ * Dictation lives here for the same reason. Both screens ask you to describe
+ * food out loud; neither should have its own idea of what that looks like, and
+ * a microphone that turned up on only one of them would be an accident rather
+ * than a decision.
  */
 export function PromptField({
   value,
@@ -26,6 +32,8 @@ export function PromptField({
   label,
   rows = 1,
   className,
+  onTranscript,
+  onDictationError,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -36,8 +44,14 @@ export function PromptField({
   label: string;
   rows?: number;
   className?: string;
+  /**
+   * Given, a microphone appears in the field, and what was said arrives here.
+   * Adding to the text rather than replacing it is the caller's decision.
+   */
+  onTranscript?: (text: string) => void;
+  onDictationError?: (message: string) => void;
 }) {
-  return (
+  const field = (
     <Textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -46,6 +60,12 @@ export function PromptField({
       aria-label={label}
       className={cn(
         "max-h-40 w-full resize-none bg-[var(--elevated)] px-3.5 py-2.5 leading-normal focus-visible:ring-0",
+        // Room for the microphone down the right, so text wraps beside it
+        // rather than under it. Reserved on the side rather than the bottom
+        // deliberately: padding underneath would add a mic's height to an
+        // empty composer, and the composer has already been shrunk once for
+        // sitting taller than it needed to.
+        onTranscript && "min-h-[3.25rem] pr-15",
         className,
       )}
       style={{
@@ -63,5 +83,16 @@ export function PromptField({
         }
       }}
     />
+  );
+
+  if (!onTranscript) return field;
+
+  return (
+    <div className="relative">
+      {field}
+      <div className="absolute bottom-1.5 right-1.5">
+        <DictateButton onTranscript={onTranscript} onError={onDictationError} />
+      </div>
+    </div>
   );
 }
