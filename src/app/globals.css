@@ -412,18 +412,6 @@
     z-index: -1;
     pointer-events: none;
   }
-  /*
-     Named, so a view transition leaves them alone.
-
-     Without a name of their own these fall into the root snapshot, and every
-     navigation cross-fades a full-viewport bitmap that includes the grain
-     against an identical one. The browser cannot know they match: it blends
-     two noise textures, and blended noise shimmers. The gradient behind it is
-     fixed and unchanged across every route, so there was never anything to
-     animate here — only cost.
-  */
-  body::before { view-transition-name: app-ground; }
-  body::after { view-transition-name: app-grain; }
   body::before {
     background: var(--ground);
   }
@@ -599,11 +587,6 @@
   to { filter: blur(0); opacity: 1; }
 }
 
-@keyframes vt-slide-y {
-  from { transform: translateY(var(--slide-y-offset, 10px)); }
-  to { transform: translateY(0); }
-}
-
 ::view-transition-old(.fade-out) {
   animation: var(--duration-exit) ease-in vt-fade reverse;
 }
@@ -645,32 +628,36 @@
     var(--duration-move) ease-in-out both vt-slide-x reverse;
 }
 
-/* The Suspense reveal: content lifts into place as it fades in. */
-::view-transition-old(.slide-down) {
-  animation:
-    var(--duration-exit) ease-out both vt-fade reverse,
-    var(--duration-exit) ease-out both vt-slide-y reverse;
-}
-::view-transition-new(.slide-up) {
-  animation:
-    var(--duration-enter) ease-in var(--duration-exit) both vt-fade,
-    var(--duration-move) ease-in both vt-slide-y;
-}
-
 /*
-   The tab bar is on screen before and after every navigation, so it is lifted
-   out of the transition and left alone. `display: none` on the old snapshot
-   rather than `animation: none` because the bar is `backdrop-filter`ed, and a
-   blurred snapshot cross-fading over the live blurred element flashes.
+   The root does not animate; only the boundaries that asked to.
+
+   `::view-transition-old(root)` and `new(root)` carry the browser's default
+   cross-fade, and that covers everything not lifted into a group of its own —
+   which is most of the page. So a navigation ran two fades over the same
+   pixels: the one the page boundary asked for, and the root's underneath it.
+   Two fades of the same content, slightly out of step, is a double flash.
+
+   Suppressing the root leaves the named boundaries in sole charge, which is
+   what `default="none"` on them was already trying to express.
+
+   This also removes the reason to name the fixed ground and its grain. Naming
+   them was worse than the problem: a `view-transition-name` promotes an
+   element into the transition overlay, which paints above the page, so a
+   background sitting at `z-index: -1` was lifted over the content for the
+   length of every transition.
 */
-::view-transition-group(app-ground),
-::view-transition-group(app-grain) {
-  animation: none;
+::view-transition-old(root) {
+  /*
+     Hidden rather than merely un-animated. The UA stylesheet composites the
+     default cross-fade with `mix-blend-mode: plus-lighter`, which is only
+     correct while the two are fading past each other — stop the animation and
+     both sit at full opacity, added together, which is a bright flash rather
+     than no transition at all. Dropping the outgoing snapshot leaves the
+     incoming one to paint on its own.
+  */
+  display: none;
 }
-::view-transition-old(app-ground),
-::view-transition-old(app-grain),
-::view-transition-new(app-ground),
-::view-transition-new(app-grain) {
+::view-transition-new(root) {
   animation: none;
 }
 
