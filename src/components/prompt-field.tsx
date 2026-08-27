@@ -65,7 +65,7 @@ export function PromptField({
         // deliberately: padding underneath would add a mic's height to an
         // empty composer, and the composer has already been shrunk once for
         // sitting taller than it needed to.
-        onTranscript && "min-h-[3.25rem] pr-15",
+        onTranscript && "min-h-13 pr-13",
         className,
       )}
       style={{
@@ -90,7 +90,9 @@ export function PromptField({
   return (
     <div className="relative">
       {field}
-      <div className="absolute bottom-1.5 right-1.5">
+      {/* Eight from each edge, which centres it exactly while the field is one
+          line tall and keeps it off the corner once the text has grown it. */}
+      <div className="absolute bottom-2 right-2">
         <DictateButton onTranscript={onTranscript} onError={onDictationError} />
       </div>
     </div>

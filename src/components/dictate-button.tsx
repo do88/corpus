@@ -116,10 +116,10 @@ export function DictateButton({
     }
   }
 
-  if (!supported) return null;
-
   const recording = state === "recording";
   const working = state === "working";
+
+  if (!supported) return null;
 
   return (
     <button
@@ -129,7 +129,14 @@ export function DictateButton({
       aria-label={recording ? `Stop recording, ${seconds} seconds` : "Record what you ate"}
       aria-pressed={recording}
       className={cn(
-        "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 transition-colors",
+        "tappable relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full transition-colors",
+        recording ? "px-3" : "w-9",
+        // The circle is 36px; the thing you actually hit is 44. Sized the other
+        // way round it was as tall as the field it sits in, which is what a
+        // control looks like when it has been given a minimum rather than a
+        // size. The hit area is grown with a pseudo-element instead, so the
+        // target rule is met without the button having to look like it.
+        "after:absolute after:-inset-1 after:content-['']",
         "disabled:opacity-60",
         className,
       )}
@@ -143,9 +150,8 @@ export function DictateButton({
           ? {
               background: "color-mix(in oklch, var(--accent-energy) 16%, transparent)",
               color: "var(--ink-energy)",
-              minWidth: 44,
             }
-          : { background: "var(--muted)", color: "var(--muted-foreground)", minWidth: 44 }
+          : { background: "var(--muted)", color: "var(--muted-foreground)" }
       }
     >
       {working ? (
