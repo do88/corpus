@@ -77,6 +77,32 @@ export function kcalByDay(meals: MealRow[]): Record<string, number> {
   return totals;
 }
 
+/**
+ * The first day anything was ever logged, or `null` on an empty log.
+ *
+ * The floor for navigating backwards. Before this date there is no history to
+ * look at — only empty weeks going back to 1970 — and a picker that scrolls
+ * forever into nothing is offering something it cannot deliver.
+ *
+ * A floor rather than a per-day test, deliberately. A day *inside* your
+ * history with nothing on it is worth being able to open: it is a day you did
+ * not log, which is information, and it is what Progress counts when it says
+ * "3 of 7 days". Only the void before the first entry is closed off.
+ */
+export async function earliestLoggedDay(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("meal_log")
+    .select("local_date")
+    .order("local_date", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  // A failure here should cost the floor, not the screen: without it the
+  // picker simply behaves as it did before.
+  if (error || !data) return null;
+  return data.local_date as string;
+}
+
 /** The seven dates of the week containing `day`, Monday first. */
 export function weekOf(day: string): string[] {
   const monday = startOfWeek(parseDay(day), { weekStartsOn: 1 });

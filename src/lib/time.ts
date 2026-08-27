@@ -53,3 +53,25 @@ export function parseDay(day: string): TZDate {
 export function toDay(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
+
+/**
+ * The day a `?d=` parameter should actually show.
+ *
+ * Bounded at both ends, and the URL gets the same bounds the picker does —
+ * otherwise typing a date is a way around them. Forward stops at today, which
+ * has not finished; backward stops at the first day ever logged, because
+ * behind that there is nothing but empty weeks going back forever.
+ *
+ * Anything unparseable falls back to today rather than throwing. A mistyped
+ * URL should show the app, not a stack trace.
+ */
+export function clampDay(
+  requested: string | undefined,
+  today: string,
+  earliest: string | null,
+): string {
+  if (!requested || !/^\d{4}-\d{2}-\d{2}$/.test(requested)) return today;
+  if (requested > today) return today;
+  if (earliest && requested < earliest) return earliest;
+  return requested;
+}

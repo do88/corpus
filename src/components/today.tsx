@@ -35,12 +35,15 @@ export function Today({
   day,
   today,
   logged,
+  earliest,
   targets,
 }: {
   initialMeals: MealRow[];
   day: string;
   today: string;
   logged: Record<string, number>;
+  /** First day ever logged; navigation stops here. Null on an empty log. */
+  earliest: string | null;
   /** Computed server-side from the latest weigh-in — see lib/meals/targets.ts. */
   targets: DailyTargets;
 }) {
@@ -245,7 +248,7 @@ export function Today({
 
   return (
     <div className="mt-5 space-y-5">
-      <DayPicker day={day} today={today} logged={logged} />
+      <DayPicker day={day} today={today} logged={logged} earliest={earliest} />
       <Totals totals={totals} queued={queued.length} targets={targets} />
       {/* Logging always applies to now, so it only shows on today. Offering it
           on a past day would imply back-dating, which the 04:00 rule already

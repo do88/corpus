@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { localDay, parseDay, toDay } from "./time";
+import { clampDay, localDay, parseDay, toDay } from "./time";
 
 /**
  * The day boundary, checked against the database's own answer.
@@ -60,5 +60,42 @@ describe("parseDay / toDay", () => {
     // wrong day. Anchored in the app's zone, it does not.
     expect(toDay(parseDay("2027-03-28"))).toBe("2027-03-28");
     expect(toDay(parseDay("2026-10-25"))).toBe("2026-10-25");
+  });
+});
+
+describe("clampDay", () => {
+  const today = "2026-08-27";
+  const earliest = "2026-08-26";
+
+  it("refuses a day before anything was ever logged", () => {
+    // The reported case: a hand-typed URL a month before the first entry,
+    // which showed an empty screen with no indication why.
+    expect(clampDay("2026-07-27", today, earliest)).toBe(earliest);
+    expect(clampDay("1999-01-01", today, earliest)).toBe(earliest);
+  });
+
+  it("refuses a day that has not happened", () => {
+    expect(clampDay("2026-08-28", today, earliest)).toBe(today);
+    expect(clampDay("2030-01-01", today, earliest)).toBe(today);
+  });
+
+  it("allows every day in between, logged or not", () => {
+    // A gap inside your history is worth opening — it is a day you did not
+    // log, which is information, and it is what Progress counts.
+    expect(clampDay("2026-08-26", today, earliest)).toBe("2026-08-26");
+    expect(clampDay("2026-08-27", today, earliest)).toBe("2026-08-27");
+  });
+
+  it("falls back to today rather than throwing", () => {
+    expect(clampDay(undefined, today, earliest)).toBe(today);
+    expect(clampDay("not-a-date", today, earliest)).toBe(today);
+    expect(clampDay("2026-8-2", today, earliest)).toBe(today);
+  });
+
+  it("has no floor on an empty log", () => {
+    // Nothing logged yet: there is no history to be outside of, so only the
+    // future is refused.
+    expect(clampDay("2026-07-27", today, null)).toBe("2026-07-27");
+    expect(clampDay("2026-08-28", today, null)).toBe(today);
   });
 });

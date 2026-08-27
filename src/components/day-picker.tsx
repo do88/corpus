@@ -1,39 +1,29 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { addDays, format, subDays } from "date-fns";
-import { ZONE, parseDay, toDay } from "@/lib/time";
+import { addDays, format } from "date-fns";
+import { parseDay, toDay } from "@/lib/time";
 import Link from "next/link";
 import { weekOf } from "@/lib/meals/repository";
 
 /**
- * The month grid, loaded when it is opened rather than with the page.
- *
- * react-day-picker and its date-fns dependencies were landing on the logging
- * screen — the one that has to be fast, on a phone, possibly on no signal — to
- * serve a popover that most sessions never open. The week strip below needs
- * none of it.
- */
-const Calendar = dynamic(() => import("@/components/ui/calendar").then((m) => m.Calendar), {
-  ssr: false,
-  loading: () => <div className="h-72 w-64 animate-pulse bg-muted/40" />,
-});
-
-/**
  * Move between days.
  *
- * A week strip rather than a month grid: on a phone you are almost always
+ * A week strip, and only a week strip. On a phone you are almost always
  * looking at today or the last few days, and seven taps beat a grid of
- * thirty-one. The full calendar is one tap away for the rarer case of jumping
- * back — react-day-picker via shadcn, rather than a hand-built grid, because
- * keyboard navigation and locale-correct week starts are exactly the sort of
- * thing that looks easy and is not.
+ * thirty-one.
  *
- * A dot under a day means something is logged. Deliberately not a number: the
+ * There used to be a month grid behind a popover for the rarer case of
+ * jumping back. It went: it was the wrong tool for how this is actually used,
+ * it was the only reason react-day-picker was in the bundle at all, and the
+ * button that opened it occupied the one place a way back to today could
+ * live. Its replacement does the job the grid was mostly being opened for.
+ *
+ * Navigation is bounded at both ends. Forward stops at today, which has not
+ * finished; backward stops at the first day ever logged, because behind that
+ * there is nothing but empty weeks going back forever.
+ *
+ * A tint under a day means something is logged. Deliberately not a number: the
  * strip answers "which days have I tracked", and the figure for the selected
  * day is right below it in full.
  */
@@ -52,13 +42,19 @@ export function DayPicker({
   day,
   today,
   logged,
+  earliest,
 }: {
   day: string;
   today: string;
   /** Dates with at least one analysed meal. */
   logged: Record<string, number>;
+  /**
+   * The first day ever logged. Days before it are not offered — there is
+   * nothing behind them but empty weeks going back forever. Null on an empty
+   * log, where only today exists.
+   */
+  earliest: string | null;
 }) {
-  const router = useRouter();
   const week = weekOf(day);
 
   // A week either side. Computed at render, so these are links as well —
@@ -66,49 +62,66 @@ export function DayPicker({
   const lastWeek = toDay(addDays(parseDay(day), -7));
   const nextWeek = toDay(addDays(parseDay(day), 7));
 
+  // Nothing behind the first entry but empty weeks, so the strip stops there.
+  const floor = earliest ?? today;
+  const atFloor = week[0] <= floor;
+
   return (
     // The chevrons flank the strip rather than sitting in a bar above it. The
     // separate nav row duplicated what the discs already say, and two rows of
     // date chrome above the day's actual figures is one row too many.
     <div className="flex items-center gap-0.5">
-      <Link
-        href={href(lastWeek, today)}
-        transitionTypes={["day-back"]}
-        aria-label="Previous week"
-        className={`${ARROW} text-muted-foreground`}
-      >
-        <ChevronLeft className="size-4" />
-      </Link>
+      {/* Same rule as the forward arrow: a control with nowhere to go is not
+          offered, rather than offered and refused. */}
+      {atFloor ? (
+        <span
+          aria-disabled
+          aria-label="Previous week"
+          className={`${ARROW} text-muted-foreground opacity-25`}
+        >
+          <ChevronLeft className="size-4" />
+        </span>
+      ) : (
+        <Link
+          href={href(lastWeek, today)}
+          transitionTypes={["day-back"]}
+          aria-label="Previous week"
+          className={`${ARROW} text-muted-foreground`}
+        >
+          <ChevronLeft className="size-4" />
+        </Link>
+      )}
 
       <div className="min-w-0 flex-1">
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mx-auto mb-0.5 flex h-6 gap-1.5 rounded-full px-2 text-xs font-medium text-muted-foreground"
-              >
-                <CalendarDays className="size-3.5" aria-hidden />
-                {formatHeading(day, today)}
-              </Button>
-            }
-          />
-          <PopoverContent className="w-auto p-0" align="center">
-            <Calendar
-              mode="single"
-              required
-              // The calendar is told the zone rather than being handed dates
-              // pinned to UTC noon: it does that anchoring itself, correctly,
-              // and hand-anchoring on top of it was two workarounds stacked.
-              timeZone={ZONE}
-              selected={parseDay(day)}
-              defaultMonth={parseDay(day)}
-              disabled={{ after: parseDay(today) }}
-              onSelect={(date) => date && router.push(href(toDay(date), today))}
-            />
-          </PopoverContent>
-        </Popover>
+        {/*
+          A way back, shown only when you need one.
+
+          This slot used to hold a button that opened a month grid. The grid
+          was the wrong tool — on a phone you are nearly always looking at
+          today or the last few days, which the strip below covers in one tap
+          — and it left the screen with no way home at all: after a few weeks
+          back, the only route to today was tapping the arrow until you got
+          there. Its label read "Today" while you were already on today, which
+          is the one moment it is no use.
+
+          So the slot is empty on today and carries the way out on any other
+          day. It also takes react-day-picker and its popover off the logging
+          screen, which is the screen that has to be fast on a bad connection.
+        */}
+        {day !== today && (
+          <Link
+            href="/"
+            transitionTypes={["day-forward"]}
+            className="tappable mx-auto mb-0.5 flex h-6 w-fit items-center gap-1.5 rounded-full px-2.5 text-xs font-medium"
+            style={{
+              background: "color-mix(in oklch, var(--accent-protein) 14%, transparent)",
+              color: "var(--ink-protein)",
+            }}
+          >
+            <CalendarDays className="size-3.5" aria-hidden />
+            Back to today
+          </Link>
+        )}
 
       {/*
         A day is a disc, not a cell — the shape iOS uses for dates, and it gives
@@ -119,7 +132,7 @@ export function DayPicker({
         <div className="grid grid-cols-7 gap-0.5">
         {week.map((date) => {
           const selected = date === day;
-          const future = date > today;
+          const outOfRange = date > today || date < floor;
           const isToday = date === today;
           const hasLog = Boolean(logged[date]);
 
@@ -157,7 +170,7 @@ export function DayPicker({
           // A day you cannot go to is not a link. Rendering it as one and
           // refusing the click would still offer it to a keyboard and a
           // screen reader as somewhere to go.
-          if (future) {
+          if (outOfRange) {
             return (
               <span key={date} aria-disabled className={`${shared} opacity-25`} aria-label={longDate(date)}>
                 {label}
@@ -222,8 +235,3 @@ function longDate(date: string) {
 }
 
 
-function formatHeading(day: string, today: string) {
-  if (day === today) return "Today";
-  if (day === toDay(subDays(parseDay(today), 1))) return "Yesterday";
-  return longDate(day);
-}

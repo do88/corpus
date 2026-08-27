@@ -1,8 +1,8 @@
 import { Screen } from "@/components/screen";
 import { differenceInCalendarDays, format, subDays } from "date-fns";
-import { localDay, parseDay, toDay } from "@/lib/time";
+import { clampDay, localDay, parseDay, toDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
-import { kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
+import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { AppHeader } from "@/components/app-header";
@@ -26,9 +26,9 @@ export default async function Home({
   const today = localDay();
 
   const { d } = await searchParams;
-  // Anything unparseable falls back to today rather than erroring — a mistyped
-  // URL should show the app, not a stack trace.
-  const day = d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today ? d : today;
+  const earliest = await earliestLoggedDay(supabase);
+
+  const day = clampDay(d, today, earliest);
 
   // One query covers the day being shown and the dots on the week strip.
   const week = weekOf(day);
@@ -69,6 +69,7 @@ export default async function Home({
         day={day}
         today={today}
         logged={kcalByDay(meals)}
+        earliest={earliest}
         targets={targets}
       />
     </Screen>
