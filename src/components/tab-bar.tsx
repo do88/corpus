@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, CircleUser, Dumbbell, House } from "lucide-react";
+import { ChartColumn, CircleUser, Dumbbell, House, Salad } from "lucide-react";
 import { Logomark } from "@/components/brand";
 import { TabPending } from "@/components/tab-pending";
 
@@ -14,7 +14,7 @@ import { TabPending } from "@/components/tab-pending";
  * home indicator via `safe-area-inset`; without that inset the labels sit under
  * the gesture bar on any modern iPhone.
  *
- * **On a desktop** the same three destinations become a floating rail down the
+ * **On a desktop** the same destinations become a floating rail down the
  * left. A bottom bar on a 1440px screen is wrong twice over: the controls are
  * a mouse-journey away from the content, and pinning anything to the bottom
  * edge of a large window is a phone idiom that reads as a mistake. The rail
@@ -27,6 +27,9 @@ import { TabPending } from "@/components/tab-pending";
  */
 const TABS = [
   { href: "/", label: "Today", icon: House },
+  // Next to Today because the two are both about right now — one records the
+  // hour just gone, the other decides the next one.
+  { href: "/advisor", label: "Advisor", icon: Salad },
   { href: "/progress", label: "Progress", icon: ChartColumn },
   { href: "/training", label: "Training", icon: Dumbbell },
   { href: "/account", label: "Account", icon: CircleUser },
@@ -122,9 +125,9 @@ export function TabBar() {
                 // rather than sliding. See `page-transition.tsx`.
                 transitionTypes={["tab"]}
                 aria-current={active ? "page" : undefined}
-                // The label is a tooltip rather than always-on: three icons in a
-                // 56px rail read fine, and permanent labels would make it a
-                // sidebar competing with the content for width.
+                // The label is a tooltip rather than always-on: a column of
+                // icons in a 56px rail reads fine, and permanent labels would
+                // make it a sidebar competing with the content for width.
                 title={tab.label}
                 className="tappable relative grid size-11 place-items-center rounded-2xl transition-colors"
                 style={

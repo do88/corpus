@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { HelpCircle, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,18 +13,17 @@ import type { Advice, Turn } from "@/lib/meal/advise";
 /**
  * "I have these three things — which one?"
  *
- * Collapsed to a single line until asked for, because it is not the reason the
- * screen exists: logging is. It sits under the composer for the same reason.
+ * A screen rather than a disclosure on Today. It began as a collapsed row
+ * under the composer, which undersold it: deciding what to eat is a different
+ * activity from recording what you ate, it takes a conversation rather than a
+ * tap, and it wants the day's remaining numbers on screen while you think.
+ * None of that fits in a row that has to stay out of the way.
  *
  * It remembers the exchange, and only the exchange. You can say "not the fish"
- * or "I've also got eggs" and it keeps up, and closing the panel throws the lot
- * away. That is the whole intended lifetime — the question is about what is in
- * the kitchen right now, and an answer built on what was in the kitchen on
- * Tuesday is worse than no answer. Nothing is written down anywhere.
- *
- * The answer offers to log itself. Deciding on the mackerel and then having to
- * type "tin of mackerel" into the box above is the sort of small stupidity that
- * stops a feature being used, and the text is already known.
+ * or "I've also got eggs" and it keeps up; leaving the screen throws the lot
+ * away. That is the intended lifetime, not a limitation — the question is
+ * about what is in the kitchen right now, and an answer built on what was
+ * there on Tuesday is worse than no answer. Nothing is written down anywhere.
  */
 
 /** Ten exchanges, matching the route's cap. Nobody deliberates this long. */
@@ -31,8 +31,8 @@ const MAX_EXCHANGES = 10;
 
 type Exchange = { asked: string; advice: Advice };
 
-export function Advisor({ onQueued }: { onQueued: () => void }) {
-  const [open, setOpen] = useState(false);
+export function Advisor() {
+  const router = useRouter();
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [options, setOptions] = useState("");
   const [busy, setBusy] = useState(false);
@@ -89,67 +89,32 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
         attempts: 0,
       };
       await enqueue(meal);
-      close();
-      onQueued();
+      // Back to Today, where the meal it just queued will appear. Staying here
+      // would leave you looking at advice you have already taken.
+      router.push("/");
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not log it");
-    } finally {
       setBusy(false);
     }
-  }
-
-  function close() {
-    setOpen(false);
-    setExchanges([]);
-    setOptions("");
-    setError(null);
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="tappable surface flex w-full items-center gap-2 px-5 py-3.5 text-left"
-      >
-        <HelpCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="text-sm text-muted-foreground">What should I have?</span>
-      </button>
-    );
   }
 
   const started = exchanges.length > 0;
 
   return (
-    <div className="surface space-y-3.5 p-5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Say what you have in. It picks one, against what is left today.
-        </p>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={close}
-          aria-label="Close"
-          className="-mr-1 -mt-1 size-7 shrink-0"
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
-
+    <div className="mt-5 space-y-3">
       {started && (
         <ol className="space-y-3">
           {exchanges.map((exchange, index) => (
             <li key={index} className="space-y-1.5">
-              <p className="text-xs text-muted-foreground">
+              <p className="px-1 text-xs text-muted-foreground">
                 <span className="sr-only">You asked: </span>
                 {exchange.asked}
               </p>
-              <div className="rounded-2xl border border-[var(--rule)] p-4">
+              <div className="surface p-5">
                 <p className="text-[1.125rem] font-semibold tracking-[-0.01em]">
                   {exchange.advice.pick}
                 </p>
-                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                   {/* Approximate, and said so: logging it runs the real
                       estimator, which is allowed to disagree. */}
                   ≈ {exchange.advice.kcal.toLocaleString("en-GB")} kcal ·{" "}
@@ -157,7 +122,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
                     {exchange.advice.protein_g}g protein
                   </span>
                 </p>
-                <p className="mt-2 text-sm leading-normal">{exchange.advice.why}</p>
+                <p className="mt-2.5 text-sm leading-normal">{exchange.advice.why}</p>
                 {exchange.advice.instead.trim() && (
                   <p className="mt-1.5 text-xs leading-normal text-muted-foreground">
                     {exchange.advice.instead}
@@ -167,10 +132,9 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
                     in the conversation, not a standing offer. */}
                 {index === exchanges.length - 1 && (
                   <Button
-                    size="sm"
                     onClick={() => logPick(exchange.advice)}
                     disabled={busy}
-                    className="mt-3 w-full"
+                    className="mt-3.5 w-full"
                   >
                     Log it
                   </Button>
@@ -181,7 +145,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
         </ol>
       )}
 
-      <div>
+      <div className="surface space-y-3 p-5">
         <Textarea
           value={options}
           onChange={(event) => setOptions(event.target.value)}
@@ -191,18 +155,33 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
               : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
           }
           rows={2}
-          className="min-h-0 w-full resize-none"
+          aria-label="What do you have in?"
+          className="recessed min-h-0 w-full resize-none border-0 px-3.5 py-2.5 leading-normal focus-visible:ring-0"
+          style={{ borderRadius: 18 }}
         />
+        <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
+          {busy ? "Thinking…" : started ? "Ask again" : "Ask"}
+        </Button>
       </div>
 
-      <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
-        {busy ? "Thinking…" : started ? "Ask again" : "Ask"}
-      </Button>
-
       {started && (
-        <p className="text-xs text-muted-foreground">
-          Remembered until you close this, then forgotten. Nothing is saved.
-        </p>
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-xs text-muted-foreground">
+            Remembered while you are here, then forgotten. Nothing is saved.
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setExchanges([]);
+              setOptions("");
+              setError(null);
+            }}
+            className="shrink-0 text-muted-foreground"
+          >
+            <RotateCcw className="size-3.5" /> Start over
+          </Button>
+        </div>
       )}
 
       {error && (

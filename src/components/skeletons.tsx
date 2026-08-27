@@ -126,3 +126,15 @@ export function AccountSkeleton() {
     </div>
   );
 }
+
+export function AdvisorSkeleton() {
+  return (
+    <div aria-hidden className="animate-in fade-in duration-300">
+      <HeaderSkeleton wide="w-40" />
+      <div className="mt-5 space-y-3">
+        <CardSkeleton className="h-32 w-full" />
+        <CardSkeleton className="h-40 w-full" />
+      </div>
+    </div>
+  );
+}
