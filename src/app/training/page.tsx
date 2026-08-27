@@ -1,3 +1,4 @@
+import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { getDashboardData } from "@/lib/training/dashboard";
 import { TrainingSections } from "@/components/training-sections";
@@ -25,12 +26,14 @@ export default async function Training() {
   const { headline } = data;
 
   return (
-    <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-      <AppHeader
-        title="Training"
-        caption={`${headline.total_workouts} sessions since ${headline.first_date.slice(0, 4)}`}
-      />
-      <TrainingSections data={data} />
-    </main>
+    <PageTransition>
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
+        <AppHeader
+          title="Training"
+          caption={`${headline.total_workouts} sessions since ${headline.first_date.slice(0, 4)}`}
+        />
+        <TrainingSections data={data} />
+      </main>
+    </PageTransition>
   );
 }

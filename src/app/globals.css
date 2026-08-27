@@ -554,3 +554,97 @@
     box-shadow: var(--shadow-pressed);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   View transitions.
+
+   Recipes taken from the React View Transitions guidance rather than written
+   here: the timings, the motion blur on the fade, and the reduced-motion
+   escape are the parts that are easy to get subtly wrong.
+
+   What each one is for is a deliberate decision, not decoration:
+
+   - Moving between tabs is *lateral*. Today, Progress, Training and Account
+     are peers, so a directional slide would imply a hierarchy that does not
+     exist. They cross-fade.
+   - A skeleton giving way to its content is not navigation at all — it is the
+     data arriving — so it lifts slightly as it fades in. That is why the page
+     transition is keyed on a `tab` transition type: the same boundary can then
+     fade on navigation and lift on a Suspense reveal, because those two fire
+     at different moments.
+   - The tab bar persists across every route, so it is pulled out of the page
+     snapshot entirely and does not animate.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --duration-exit: 150ms;
+  --duration-enter: 210ms;
+  --duration-move: 400ms;
+}
+
+@keyframes vt-fade {
+  from { filter: blur(3px); opacity: 0; }
+  to { filter: blur(0); opacity: 1; }
+}
+
+@keyframes vt-slide-y {
+  from { transform: translateY(var(--slide-y-offset, 10px)); }
+  to { transform: translateY(0); }
+}
+
+::view-transition-old(.fade-out) {
+  animation: var(--duration-exit) ease-in vt-fade reverse;
+}
+::view-transition-new(.fade-in) {
+  animation: var(--duration-enter) ease-out var(--duration-exit) both vt-fade;
+}
+
+/* The Suspense reveal: content lifts into place as it fades in. */
+::view-transition-old(.slide-down) {
+  animation:
+    var(--duration-exit) ease-out both vt-fade reverse,
+    var(--duration-exit) ease-out both vt-slide-y reverse;
+}
+::view-transition-new(.slide-up) {
+  animation:
+    var(--duration-enter) ease-in var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in both vt-slide-y;
+}
+
+/*
+   The tab bar is on screen before and after every navigation, so it is lifted
+   out of the transition and left alone. `display: none` on the old snapshot
+   rather than `animation: none` because the bar is `backdrop-filter`ed, and a
+   blurred snapshot cross-fading over the live blurred element flashes.
+*/
+::view-transition-group(persistent-nav),
+::view-transition-group(persistent-rail) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(persistent-nav),
+::view-transition-old(persistent-rail) {
+  display: none;
+}
+::view-transition-new(persistent-nav),
+::view-transition-new(persistent-rail) {
+  animation: none;
+}
+
+/* Same bargain as everywhere else: motion is a preference. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+/* The pending bar under a tapped tab: a sweep rather than a spinner, so it
+   occupies the tab's own width instead of introducing a new object. */
+@keyframes tab-pending {
+  0%   { transform: scaleX(0); opacity: 0.35; }
+  50%  { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(0); opacity: 0.35; transform-origin: right; }
+}

@@ -1,3 +1,4 @@
+import { LoadingTransition } from "@/components/page-transition";
 import { AccountSkeleton } from "@/components/skeletons";
 
 /**
@@ -6,8 +7,10 @@ import { AccountSkeleton } from "@/components/skeletons";
  */
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-      <AccountSkeleton />
-    </main>
+    <LoadingTransition>
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
+        <AccountSkeleton />
+      </main>
+    </LoadingTransition>
   );
 }

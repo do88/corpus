@@ -1,3 +1,4 @@
+import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { ProgressView } from "@/components/progress-view";
 import { createClient } from "@/lib/supabase/server";
@@ -46,18 +47,20 @@ export default async function Progress({
       : `${DAY_MONTH.format(new Date(`${from}T12:00:00Z`))} – ${DAY_MONTH.format(new Date(`${to}T12:00:00Z`))}`;
 
   return (
-    <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-      <AppHeader
-        title="Progress"
-        caption={`Averaged across the days you logged`}
-      />
-      <ProgressView
-        summary={summary}
-        targets={targets}
-        range={range}
-        label={label}
-        day={day}
-      />
-    </main>
+    <PageTransition>
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
+        <AppHeader
+          title="Progress"
+          caption={`Averaged across the days you logged`}
+        />
+        <ProgressView
+          summary={summary}
+          targets={targets}
+          range={range}
+          label={label}
+          day={day}
+        />
+      </main>
+    </PageTransition>
   );
 }

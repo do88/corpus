@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { kcalByDay, listMealsInRange, localDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
+import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
 import { Today } from "@/components/today";
@@ -38,17 +39,19 @@ export default async function Home({
     // pb-28 clears the phone tab bar; lg:pl-24 clears the desktop rail, and the
     // column widens to hold four metric cards side by side rather than leaving
     // a 440px strip marooned in the middle of a 1440px window.
-    <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-      <AppHeader title="Today" caption={caption(day, today)} streak={streak(kcalByDay(meals), today)} />
-      <RestoreDestination />
-      <Today
-        initialMeals={meals.filter((m) => m.local_date === day)}
-        day={day}
-        today={today}
-        logged={kcalByDay(meals)}
-        targets={targets}
-      />
-    </main>
+    <PageTransition>
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
+        <AppHeader title="Today" caption={caption(day, today)} streak={streak(kcalByDay(meals), today)} />
+        <RestoreDestination />
+        <Today
+          initialMeals={meals.filter((m) => m.local_date === day)}
+          day={day}
+          today={today}
+          logged={kcalByDay(meals)}
+          targets={targets}
+        />
+      </main>
+    </PageTransition>
   );
 }
 
