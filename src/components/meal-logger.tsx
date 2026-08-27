@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Mic, Send, Square, X } from "lucide-react";
+import { Camera, Send, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { compressForEstimate } from "@/lib/meal/compress";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
-import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
 
 /**
  * Log a meal: say what you ate, optionally attach a photo.
@@ -26,20 +25,11 @@ import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voic
  */
 export function MealLogger({ onQueued }: { onQueued: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const dictation = useRef<Dictation | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [note, setNote] = useState("");
-  const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Whether the browser can transcribe never changes, so subscribe does
-  // nothing. The server snapshot is false: it has no idea what the browser
-  // supports, and rendering the button then removing it is a visible flicker.
-  const canDictate = useSyncExternalStore(() => () => {}, isDictationAvailable, () => false);
-
-  useEffect(() => () => dictation.current?.stop(), []);
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -68,22 +58,6 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
     });
     setPhoto(null);
     if (fileInput.current) fileInput.current.value = "";
-  }
-
-  function toggleDictation() {
-    if (listening) {
-      dictation.current?.stop();
-      return;
-    }
-    setError(null);
-    setListening(true);
-    dictation.current = startDictation(
-      (text) => setNote(text),
-      (failure) => {
-        setListening(false);
-        if (failure) setError(`Dictation stopped: ${failure}`);
-      },
-    );
   }
 
   async function save() {
@@ -150,25 +124,30 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
       )}
 
       {/*
-        One pill, iMessage-shaped: the field and its actions share a single
-        rounded container rather than sitting as separate controls in a row.
-        That is what makes it read as a composer instead of a form.
+        The field owns a row; the actions sit under it.
+
+        They used to share one line inside a pill, which was fine for "2 eggs
+        on toast" and bad for anything longer: the buttons ate about 140px, so
+        a real sentence wrapped early and the pill grew into a lozenge with
+        text crammed down its left side. Giving the field the full width means
+        a long entry wraps where the card ends rather than where the buttons
+        start, and the shape stays a card as it grows instead of a stretched
+        pill.
       */}
-      <div className="surface flex items-end gap-0.5 p-1.5" style={{ borderRadius: 999 }}>
+      <div className="surface p-2.5" style={{ borderRadius: 26 }}>
         <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          // Short on purpose. The field is `field-sizing-content`, so it grows
-          // to fit its contents — and a placeholder counts, which meant the
-          // longer example wrapped and left the composer sitting two lines tall
-          // while empty. Three buttons take about 140px of the pill, so the
-          // example has to fit what is left of a phone's width, not of the
-          // page's.
-          placeholder="e.g. 2 eggs on toast"
+          // Room for a proper example again: nothing shares this row, so the
+          // placeholder is bounded by the card rather than by what three
+          // buttons left over. It still has to fit one line on a phone —
+          // the field is `field-sizing-content`, so a wrapped placeholder
+          // would leave the composer two lines tall while empty.
+          placeholder="e.g. 2 eggs and a slice of toast"
           rows={1}
           aria-label="What did you eat?"
-          className="recessed max-h-32 min-h-10 flex-1 resize-none border-0 px-3 py-2 focus-visible:ring-0"
-          style={{ borderRadius: 999 }}
+          className="recessed max-h-40 min-h-11 w-full resize-none border-0 px-3.5 py-2.5 leading-normal focus-visible:ring-0"
+          style={{ borderRadius: 18 }}
           onKeyDown={(e) => {
             // Enter sends, Shift+Enter makes a new line — the convention every
             // messaging app already taught everyone.
@@ -179,50 +158,39 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           }}
         />
 
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => fileInput.current?.click()}
-          aria-label="Add a photo"
-          className="tappable size-10 shrink-0 rounded-full"
-        >
-          <Camera className="size-5" />
-        </Button>
-
-        {canDictate && (
+        <div className="mt-2 flex items-center justify-between">
           <Button
             size="icon"
-            variant={listening ? "destructive" : "ghost"}
-            onClick={toggleDictation}
-            aria-pressed={listening}
-            aria-label={listening ? "Stop dictating" : "Dictate"}
+            variant="ghost"
+            onClick={() => fileInput.current?.click()}
+            aria-label="Add a photo"
             className="tappable size-10 shrink-0 rounded-full"
           >
-            {listening ? <Square className="size-4" /> : <Mic className="size-5" />}
+            <Camera className="size-5" />
           </Button>
-        )}
 
-        <Button
-          size="icon"
-          onClick={save}
-          disabled={busy || empty}
-          aria-label="Log it"
-          className="tappable size-10 shrink-0 rounded-full"
-          style={
-            empty
-              ? undefined
-              : {
-                  // A lit button: brighter at the top, with its own coloured
-                  // shadow so it sits above the pill rather than in it.
-                  background:
-                    "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
-                  boxShadow:
-                    "0 1px 2px color-mix(in oklch, var(--ink-protein) 45%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-                }
-          }
-        >
-          <Send className="size-4" />
-        </Button>
+          <Button
+            size="icon"
+            onClick={save}
+            disabled={busy || empty}
+            aria-label="Log it"
+            className="tappable size-10 shrink-0 rounded-full"
+            style={
+              empty
+                ? undefined
+                : {
+                    // A lit button: brighter at the top, with its own coloured
+                    // shadow so it sits above the card rather than in it.
+                    background:
+                      "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
+                    boxShadow:
+                      "0 1px 2px color-mix(in oklch, var(--ink-protein) 45%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+                  }
+            }
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
       </div>
 
       {error && (

@@ -18,9 +18,8 @@ import { Moon, Sun, SunMoon } from "lucide-react";
  * flicker on every load. An empty box of the same size holds the space.
  *
  * Via `useSyncExternalStore` rather than `useState` in an effect — the server
- * snapshot is `false` and the client's is `true`, which is the same shape the
- * dictation check uses, and it keeps React 19's ban on setting state from an
- * effect intact.
+ * snapshot is `false` and the client's is `true`, which keeps React 19's ban
+ * on setting state from an effect intact.
  */
 const ORDER = ["system", "light", "dark"] as const;
 

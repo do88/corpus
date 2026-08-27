@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles, Mic, Square } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { correctMacros, deleteMeal, redescribeMeal, type MealRow } from "@/lib/meals/repository";
-import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
 import type { MealEstimate } from "@/lib/meal/schema";
 import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
@@ -162,37 +161,14 @@ function Editor({
   const [error, setError] = useState<string | null>(null);
 
   // Re-describing: say what it actually was and let the model estimate that.
-  const dictation = useRef<Dictation | null>(null);
   const [describe, setDescribe] = useState("");
-  const [listening, setListening] = useState(false);
   const [proposed, setProposed] = useState<{
     note: string;
     estimate: MealEstimate;
     model: string;
   } | null>(null);
 
-  const canDictate = typeof window !== "undefined" && isDictationAvailable();
-
-  useEffect(() => () => dictation.current?.stop(), []);
-
-  function toggleDictation() {
-    if (listening) {
-      dictation.current?.stop();
-      return;
-    }
-    setError(null);
-    setListening(true);
-    dictation.current = startDictation(
-      (text) => setDescribe(text),
-      (failure) => {
-        setListening(false);
-        if (failure) setError(`Dictation stopped: ${failure}`);
-      },
-    );
-  }
-
   async function redo() {
-    dictation.current?.stop();
     const note = describe.trim();
     if (!note) return;
     setBusy(true);
@@ -330,17 +306,6 @@ function Editor({
           }}
           className="flex-1"
         />
-        {canDictate && (
-          <Button
-            size="icon"
-            variant={listening ? "destructive" : "secondary"}
-            onClick={toggleDictation}
-            aria-label={listening ? "Stop dictation" : "Dictate"}
-            className="size-9 shrink-0 rounded-full"
-          >
-            {listening ? <Square className="size-3.5" /> : <Mic className="size-4" />}
-          </Button>
-        )}
         <Button
           size="icon"
           variant="secondary"

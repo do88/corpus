@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { HelpCircle, Mic, Square, X } from "lucide-react";
+import { useState } from "react";
+import { HelpCircle, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
-import { isDictationAvailable, startDictation, type Dictation } from "@/lib/voice/dictation";
 import type { Advice, Turn } from "@/lib/meal/advise";
 
 /**
@@ -33,36 +32,13 @@ const MAX_EXCHANGES = 10;
 type Exchange = { asked: string; advice: Advice };
 
 export function Advisor({ onQueued }: { onQueued: () => void }) {
-  const dictation = useRef<Dictation | null>(null);
   const [open, setOpen] = useState(false);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [options, setOptions] = useState("");
-  const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canDictate = useSyncExternalStore(() => () => {}, isDictationAvailable, () => false);
-
-  useEffect(() => () => dictation.current?.stop(), []);
-
-  function toggleDictation() {
-    if (listening) {
-      dictation.current?.stop();
-      return;
-    }
-    setError(null);
-    setListening(true);
-    dictation.current = startDictation(
-      (text) => setOptions(text),
-      (failure) => {
-        setListening(false);
-        if (failure) setError(`Dictation stopped: ${failure}`);
-      },
-    );
-  }
-
   async function ask() {
-    dictation.current?.stop();
     const asked = options.trim();
     if (!asked) return;
     setBusy(true);
@@ -123,7 +99,6 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
   }
 
   function close() {
-    dictation.current?.stop();
     setOpen(false);
     setExchanges([]);
     setOptions("");
@@ -206,7 +181,7 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
         </ol>
       )}
 
-      <div className="flex items-end gap-2">
+      <div>
         <Textarea
           value={options}
           onChange={(event) => setOptions(event.target.value)}
@@ -216,19 +191,8 @@ export function Advisor({ onQueued }: { onQueued: () => void }) {
               : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
           }
           rows={2}
-          className="min-h-0 flex-1 resize-none"
+          className="min-h-0 w-full resize-none"
         />
-        {canDictate && (
-          <Button
-            size="icon"
-            variant={listening ? "destructive" : "secondary"}
-            onClick={toggleDictation}
-            aria-label={listening ? "Stop dictation" : "Dictate"}
-            className="size-10 shrink-0 rounded-full"
-          >
-            {listening ? <Square className="size-4" /> : <Mic className="size-5" />}
-          </Button>
-        )}
       </div>
 
       <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
