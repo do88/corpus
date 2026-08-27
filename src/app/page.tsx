@@ -1,8 +1,9 @@
-import { format, subDays } from "date-fns";
+import { differenceInCalendarDays, format, subDays } from "date-fns";
 import { localDay, parseDay, toDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
-import { kcalByDay, listMealsInRange, weekOf } from "@/lib/meals/repository";
+import { kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
+import type { DailyTargets } from "@/lib/meals/targets";
 import { PageTransition } from "@/components/page-transition";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
@@ -36,6 +37,8 @@ export default async function Home({
     loadTargets(supabase),
   ]);
 
+  const onScreen = meals.filter((m) => m.local_date === day);
+
   return (
     // pb-28 clears the fixed tab bar; without it the last meal hides behind it.
     // pb-28 clears the phone tab bar; lg:pl-24 clears the desktop rail, and the
@@ -43,10 +46,27 @@ export default async function Home({
     // a 440px strip marooned in the middle of a 1440px window.
     <PageTransition>
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8">
-        <AppHeader title="Today" caption={caption(day, today)} streak={streak(kcalByDay(meals), today)} />
+        <AppHeader
+          title={
+            /*
+              The month is dropped on a phone. The badges leave the title about
+              204px on a 360px screen and "Thursday 27 August" wants 305 —
+              measured, after the first attempt wrapped it onto two lines of
+              34px type. The weekday is the half worth keeping: a food log is
+              read as "what did I have on Tuesday", and the month is on the
+              caption's own screen anyway.
+            */
+            <>
+              <span className="lg:hidden">{format(parseDay(day), "EEEE d")}</span>
+              <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
+            </>
+          }
+          caption={caption(day, today, totalsForDay(onScreen), targets)}
+          streak={streak(kcalByDay(meals), today)}
+        />
         <RestoreDestination />
         <Today
-          initialMeals={meals.filter((m) => m.local_date === day)}
+          initialMeals={onScreen}
           day={day}
           today={today}
           logged={kcalByDay(meals)}
@@ -58,10 +78,39 @@ export default async function Home({
 }
 
 
-/** The title says "Today"; this says which day that actually is. */
-function caption(day: string, today: string): string {
-  const date = format(parseDay(day), "EEEE d MMMM");
-  return day === today ? date : `${date} · not today`;
+/**
+ * The line under the date.
+ *
+ * The title used to be the word "Today" with the date beneath it, which spent
+ * the largest type on the screen restating the tab you are already standing
+ * on. The date is the part that is actually information, so it takes the
+ * title, and this line does something the metric cards below cannot.
+ *
+ * What they cannot do is subtraction. They show 1,582 against 2,294 as a ring
+ * and a fraction; what you want at a glance is the 712. So on today this says
+ * what is left, and on any other day it says how long ago that was — because
+ * "to go" is meaningless for a day that has already finished.
+ */
+function caption(
+  day: string,
+  today: string,
+  totals: { kcal: number; protein_g: number },
+  targets: DailyTargets,
+): string {
+  if (day !== today) {
+    const ago = differenceInCalendarDays(parseDay(today), parseDay(day));
+    return ago === 1 ? "Yesterday" : `${ago} days ago`;
+  }
+
+  const kcal = Math.max(0, targets.kcal - totals.kcal);
+  const protein = Math.max(0, targets.protein_g - totals.protein_g);
+
+  // Protein is a floor and energy a ceiling, so "met" means different things
+  // and each is said in its own terms rather than both as "done".
+  if (kcal === 0 && protein === 0) return "Protein hit, and at your calorie ceiling";
+  if (protein === 0) return `${kcal.toLocaleString("en-GB")} kcal left · protein hit`;
+  if (kcal === 0) return `${protein}g protein short · at your calorie ceiling`;
+  return `${kcal.toLocaleString("en-GB")} kcal and ${protein}g protein to go`;
 }
 
 /**

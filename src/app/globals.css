@@ -599,6 +599,40 @@
   animation: var(--duration-enter) ease-out var(--duration-exit) both vt-fade;
 }
 
+/*
+   Day to day: an ordered sequence, so the direction says which way you moved.
+   Reserved for the day strip — the tabs are peers and get a fade instead.
+*/
+@keyframes vt-slide-x {
+  from { translate: var(--slide-offset); }
+  to { translate: 0; }
+}
+
+::view-transition-new(.slide-from-right) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in-out both vt-slide-x;
+}
+::view-transition-old(.slide-to-left) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-exit) ease-in both vt-fade reverse,
+    var(--duration-move) ease-in-out both vt-slide-x reverse;
+}
+::view-transition-new(.slide-from-left) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
+    var(--duration-move) ease-in-out both vt-slide-x;
+}
+::view-transition-old(.slide-to-right) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-exit) ease-in both vt-fade reverse,
+    var(--duration-move) ease-in-out both vt-slide-x reverse;
+}
+
 /* The Suspense reveal: content lifts into place as it fades in. */
 ::view-transition-old(.slide-down) {
   animation:

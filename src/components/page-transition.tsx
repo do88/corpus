@@ -11,12 +11,16 @@ import { ViewTransition } from "react";
  * the browser's default cross-fade, and the screen flickers at moments that
  * have nothing to do with navigation.
  *
- * The `tab` key is what lets one boundary serve two purposes. Tab links tag
- * their navigation with that transition type, so:
+ * The transition types are what let one boundary serve several purposes. Each
+ * link tags its own navigation, so:
  *
  *   - navigating between tabs cross-fades, because Today, Progress, Training
  *     and Account are peers and a slide would imply a hierarchy that is not
  *     there;
+ *   - moving a day at a time *does* slide, and directionally, because the
+ *     days are an ordered sequence: tomorrow comes from the right, yesterday
+ *     from the left. This is the one place in the app where direction carries
+ *     meaning rather than implying a hierarchy;
  *   - a skeleton giving way to its content carries no type, falls through to
  *     `default`, and lifts as it fades — which reads as data arriving rather
  *     than as a page changing.
@@ -26,8 +30,18 @@ import { ViewTransition } from "react";
 export function PageTransition({ children }: { children: React.ReactNode }) {
   return (
     <ViewTransition
-      enter={{ tab: "fade-in", default: "slide-up" }}
-      exit={{ tab: "fade-out", default: "none" }}
+      enter={{
+        tab: "fade-in",
+        "day-forward": "slide-from-right",
+        "day-back": "slide-from-left",
+        default: "slide-up",
+      }}
+      exit={{
+        tab: "fade-out",
+        "day-forward": "slide-to-left",
+        "day-back": "slide-to-right",
+        default: "none",
+      }}
       default="none"
     >
       {children}

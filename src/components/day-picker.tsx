@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addDays, format, subDays } from "date-fns";
 import { ZONE, parseDay, toDay } from "@/lib/time";
+import Link from "next/link";
 import { weekOf } from "@/lib/meals/repository";
 
 /**
@@ -49,9 +50,11 @@ export function DayPicker({
   const router = useRouter();
   const week = weekOf(day);
 
-  const go = (date: string) => router.push(date === today ? "/" : `/?d=${date}`);
-
-  const shift = (days: number) => go(toDay(addDays(parseDay(day), days)));
+  // The week arrows still navigate imperatively: they move by a week, so
+  // their target is computed rather than fixed, and there is nothing for Next
+  // to prefetch until you press one.
+  const shift = (days: number) =>
+    router.push(href(toDay(addDays(parseDay(day), days)), today));
 
   return (
     // The chevrons flank the strip rather than sitting in a bar above it. The
@@ -93,7 +96,7 @@ export function DayPicker({
               selected={parseDay(day)}
               defaultMonth={parseDay(day)}
               disabled={{ after: parseDay(today) }}
-              onSelect={(date) => date && go(toDay(date))}
+              onSelect={(date) => date && router.push(href(toDay(date), today))}
             />
           </PopoverContent>
         </Popover>
@@ -111,16 +114,8 @@ export function DayPicker({
           const isToday = date === today;
           const hasLog = Boolean(logged[date]);
 
-          return (
-            <button
-              key={date}
-              type="button"
-              disabled={future}
-              onClick={() => go(date)}
-              aria-current={selected ? "date" : undefined}
-              aria-label={longDate(date)}
-              className="tappable flex flex-col items-center gap-1 py-0.5 disabled:opacity-25"
-            >
+          const label = (
+            <>
               <span className="text-[0.8125rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
                 {format(parseDay(date), "EEEEE")}
               </span>
@@ -145,7 +140,41 @@ export function DayPicker({
               >
                 {Number(date.slice(8))}
               </span>
-            </button>
+            </>
+          );
+
+          const shared = "tappable flex flex-col items-center gap-1 py-0.5";
+
+          // A day you cannot go to is not a link. Rendering it as one and
+          // refusing the click would still offer it to a keyboard and a
+          // screen reader as somewhere to go.
+          if (future) {
+            return (
+              <span key={date} aria-disabled className={`${shared} opacity-25`} aria-label={longDate(date)}>
+                {label}
+              </span>
+            );
+          }
+
+          return (
+            <Link
+              key={date}
+              href={href(date, today)}
+              // Prefetched, because it is a link. These used to be buttons
+              // calling `router.push`, which Next cannot see ahead of time —
+              // so every day change was a cold round trip, measured at 803ms
+              // against a 1ms local database.
+              //
+              // An ordered sequence, so direction means something here in a
+              // way it does not between tabs: later days arrive from the
+              // right, earlier ones from the left.
+              transitionTypes={[date > day ? "day-forward" : "day-back"]}
+              aria-current={selected ? "date" : undefined}
+              aria-label={longDate(date)}
+              className={shared}
+            >
+              {label}
+            </Link>
           );
         })}
         </div>
@@ -163,6 +192,11 @@ export function DayPicker({
       </Button>
     </div>
   );
+}
+
+/** Today is the bare route; any other day carries it in the URL. */
+function href(date: string, today: string) {
+  return date === today ? "/" : `/?d=${date}`;
 }
 
 function longDate(date: string) {
