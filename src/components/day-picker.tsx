@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { parseDay, toDay } from "@/lib/time";
 import Link from "next/link";
@@ -15,9 +15,9 @@ import { weekOf } from "@/lib/meals/repository";
  *
  * There used to be a month grid behind a popover for the rarer case of
  * jumping back. It went: it was the wrong tool for how this is actually used,
- * it was the only reason react-day-picker was in the bundle at all, and the
- * button that opened it occupied the one place a way back to today could
- * live. Its replacement does the job the grid was mostly being opened for.
+ * and it was the only reason react-day-picker was in the bundle at all. The
+ * way back to today it was standing in front of now lives in the header,
+ * beside the date it returns you from.
  *
  * Navigation is bounded at both ends. Forward stops at today, which has not
  * finished; backward stops at the first day ever logged, because behind that
@@ -92,44 +92,13 @@ export function DayPicker({
         </Link>
       )}
 
-      <div className="min-w-0 flex-1">
-        {/*
-          A way back, shown only when you need one.
-
-          This slot used to hold a button that opened a month grid. The grid
-          was the wrong tool — on a phone you are nearly always looking at
-          today or the last few days, which the strip below covers in one tap
-          — and it left the screen with no way home at all: after a few weeks
-          back, the only route to today was tapping the arrow until you got
-          there. Its label read "Today" while you were already on today, which
-          is the one moment it is no use.
-
-          So the slot is empty on today and carries the way out on any other
-          day. It also takes react-day-picker and its popover off the logging
-          screen, which is the screen that has to be fast on a bad connection.
-        */}
-        {day !== today && (
-          <Link
-            href="/"
-            transitionTypes={["day-forward"]}
-            className="tappable mx-auto mb-0.5 flex h-6 w-fit items-center gap-1.5 rounded-full px-2.5 text-xs font-medium"
-            style={{
-              background: "color-mix(in oklch, var(--accent-protein) 14%, transparent)",
-              color: "var(--ink-protein)",
-            }}
-          >
-            <CalendarDays className="size-3.5" aria-hidden />
-            Back to today
-          </Link>
-        )}
-
       {/*
         A day is a disc, not a cell — the shape iOS uses for dates, and it gives
         the selected state somewhere solid to live. A logged day is filled in
         its own tint; today is ringed rather than filled, so "where I am" and
         "what I have done" never compete for the same visual.
       */}
-        <div className="grid grid-cols-7 gap-0.5">
+      <div className="grid min-w-0 flex-1 grid-cols-7 gap-0.5">
         {week.map((date) => {
           const selected = date === day;
           const outOfRange = date > today || date < floor;
@@ -199,7 +168,6 @@ export function DayPicker({
             </Link>
           );
         })}
-        </div>
       </div>
 
       {/*

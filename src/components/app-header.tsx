@@ -12,11 +12,21 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export function AppHeader({
   title,
   caption,
+  action,
   streak,
 }: {
   /** A node, not a string, so a screen can shorten its own title on a phone. */
   title: React.ReactNode;
   caption?: string;
+  /**
+   * A screen-specific control, beside the persistent ones.
+   *
+   * Today uses it for the way back to the current day. It lives up here
+   * rather than above the day strip because the header is where the screen
+   * already says which day you are on — putting the escape beside that
+   * statement is one idea in one place, and it costs no row of its own.
+   */
+  action?: React.ReactNode;
   /** Days in a row with something logged. Hidden at zero rather than shown as 0. */
   streak?: number;
 }) {
@@ -28,6 +38,7 @@ export function AppHeader({
         </h1>
 
         <div className="flex shrink-0 items-center gap-2">
+          {action}
           {streak !== undefined && streak > 0 && (
             <div
               className="surface flex h-9 shrink-0 items-center gap-1 px-3"

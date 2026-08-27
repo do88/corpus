@@ -30,7 +30,7 @@ export default async function AdvisorScreen() {
   const today = summarise(meals, [day], targets).days[0];
 
   return (
-    <Screen width="narrow">
+    <Screen>
       <AppHeader title="What now?" caption="Say what you have in — it picks one" />
       <Remaining consumed={today} targets={targets} />
       <Advisor />

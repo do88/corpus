@@ -7,7 +7,7 @@ import { AdvisorSkeleton } from "@/components/skeletons";
  */
 export default function Loading() {
   return (
-    <LoadingScreen width="narrow">
+    <LoadingScreen>
       <AdvisorSkeleton />
     </LoadingScreen>
   );

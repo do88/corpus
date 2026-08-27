@@ -12,30 +12,23 @@ import { LoadingTransition, PageTransition } from "@/components/page-transition"
  * `pb-28` clears the phone's tab bar; without it the last card hides behind
  * it. `lg:pl-24` clears the desktop rail.
  */
-const WIDTH = {
-  /** Four metric cards side by side, or a chart worth the room. */
-  wide: "lg:max-w-4xl",
-  /** A single column of prose and controls, which 4xl would strand. */
-  narrow: "lg:max-w-2xl",
-} as const;
-
-type Width = keyof typeof WIDTH;
-
-function column(width: Width) {
-  return `mx-auto w-full max-w-md px-5 pb-28 pt-4 ${WIDTH[width]} lg:pb-12 lg:pl-24 lg:pt-8`;
-}
+/**
+ * One width for every screen.
+ *
+ * There were two — a wide one for the screens with four metric cards and a
+ * narrower one for the screens without — and on a desktop the difference just
+ * read as pages that could not agree how big they were. Moving between tabs
+ * resized the column under you, which is a worse cost than a little extra room
+ * around a single column of prose.
+ */
+const COLUMN =
+  "mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8";
 
 /** A page: the column, inside the boundary that animates between routes. */
-export function Screen({
-  children,
-  width = "wide",
-}: {
-  children: React.ReactNode;
-  width?: Width;
-}) {
+export function Screen({ children }: { children: React.ReactNode }) {
   return (
     <PageTransition>
-      <main className={column(width)}>{children}</main>
+      <main className={COLUMN}>{children}</main>
     </PageTransition>
   );
 }
@@ -44,16 +37,10 @@ export function Screen({
  * A page's skeleton. Same column, so nothing shifts when the real content
  * replaces it — which is the whole job of a loading state.
  */
-export function LoadingScreen({
-  children,
-  width = "wide",
-}: {
-  children: React.ReactNode;
-  width?: Width;
-}) {
+export function LoadingScreen({ children }: { children: React.ReactNode }) {
   return (
     <LoadingTransition>
-      <main className={column(width)}>{children}</main>
+      <main className={COLUMN}>{children}</main>
     </LoadingTransition>
   );
 }

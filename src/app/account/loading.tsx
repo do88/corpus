@@ -7,7 +7,7 @@ import { AccountSkeleton } from "@/components/skeletons";
  */
 export default function Loading() {
   return (
-    <LoadingScreen width="narrow">
+    <LoadingScreen>
       <AccountSkeleton />
     </LoadingScreen>
   );

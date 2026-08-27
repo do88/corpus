@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Screen } from "@/components/screen";
 import { differenceInCalendarDays, format, subDays } from "date-fns";
 import { clampDay, localDay, parseDay, toDay } from "@/lib/time";
@@ -61,6 +62,25 @@ export default async function Home({
           </>
         }
         caption={caption(day, today, totalsForDay(onScreen), targets)}
+        action={
+          /*
+            The way back, and only when there is somewhere to come back from.
+            A plain word rather than a tinted pill with an icon: it sits beside
+            the streak chip and the theme control, and a third shape competing
+            with those for attention would be louder than an escape hatch needs
+            to be. This is what iOS puts in the same corner of Calendar.
+          */
+          day !== today ? (
+            <Link
+              href="/"
+              transitionTypes={["day-forward"]}
+              className="tappable flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-medium"
+              style={{ color: "var(--ink-protein)" }}
+            >
+              Today
+            </Link>
+          ) : undefined
+        }
         streak={streak(kcalByDay(meals), today)}
       />
       <RestoreDestination />
