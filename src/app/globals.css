@@ -556,134 +556,30 @@
 }
 
 /* ---------------------------------------------------------------------------
-   View transitions.
+   No view transitions, and why.
 
-   Recipes taken from the React View Transitions guidance rather than written
-   here: the timings, the motion blur on the fade, and the reduced-motion
-   escape are the parts that are easy to get subtly wrong.
+   They were here, they flashed, and the flashing was them. Every navigation
+   fired two — the route change, then the Suspense reveal when the data lands —
+   and under Cache Components both aborted: `InvalidStateError: Transition was
+   aborted because of invalid state`, measured on every tab change.
 
-   What each one is for is a deliberate decision, not decoration:
+   The cause is that Cache Components keeps visited routes mounted through
+   React's `<Activity>` rather than unmounting them. Three `<main>` elements
+   were alive in the document at once, each inside its own `<ViewTransition>`,
+   each handed the same auto-generated `view-transition-name` — and duplicate
+   names abort a transition outright. An aborted transition does not fall back
+   to no animation; it snaps, mid-capture. Two of those in a row is precisely
+   what a double flash looks like.
 
-   - Moving between tabs is *lateral*. Today, Progress, Training and Account
-     are peers, so a directional slide would imply a hierarchy that does not
-     exist. They cross-fade.
-   - A skeleton giving way to its content is not navigation at all — it is the
-     data arriving — so it lifts slightly as it fades in. That is why the page
-     transition is keyed on a `tab` transition type: the same boundary can then
-     fade on navigation and lift on a Suspense reveal, because those two fire
-     at different moments.
-   - The tab bar persists across every route, so it is pulled out of the page
-     snapshot entirely and does not animate.
+   A single boundary in the root layout avoids the duplicate names and does not
+   fire at all, because the layout is the part that does not change.
+
+   So: nothing. Navigation is instant, which is honest — the shell is
+   prerendered and the data streams, so there is genuinely nothing to cover.
+   The pieces that worked are recorded in the commit if this is picked up
+   again: `:active-view-transition-type()` is supported here and does animate
+   the root correctly when a transition survives to run.
    --------------------------------------------------------------------------- */
-
-:root {
-  --duration-exit: 150ms;
-  --duration-enter: 210ms;
-  --duration-move: 400ms;
-}
-
-@keyframes vt-fade {
-  from { filter: blur(3px); opacity: 0; }
-  to { filter: blur(0); opacity: 1; }
-}
-
-::view-transition-old(.fade-out) {
-  animation: var(--duration-exit) ease-in vt-fade reverse;
-}
-::view-transition-new(.fade-in) {
-  animation: var(--duration-enter) ease-out var(--duration-exit) both vt-fade;
-}
-
-/*
-   Day to day: an ordered sequence, so the direction says which way you moved.
-   Reserved for the day strip — the tabs are peers and get a fade instead.
-*/
-@keyframes vt-slide-x {
-  from { translate: var(--slide-offset); }
-  to { translate: 0; }
-}
-
-::view-transition-new(.slide-from-right) {
-  --slide-offset: 60px;
-  animation:
-    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
-    var(--duration-move) ease-in-out both vt-slide-x;
-}
-::view-transition-old(.slide-to-left) {
-  --slide-offset: -60px;
-  animation:
-    var(--duration-exit) ease-in both vt-fade reverse,
-    var(--duration-move) ease-in-out both vt-slide-x reverse;
-}
-::view-transition-new(.slide-from-left) {
-  --slide-offset: -60px;
-  animation:
-    var(--duration-enter) ease-out var(--duration-exit) both vt-fade,
-    var(--duration-move) ease-in-out both vt-slide-x;
-}
-::view-transition-old(.slide-to-right) {
-  --slide-offset: 60px;
-  animation:
-    var(--duration-exit) ease-in both vt-fade reverse,
-    var(--duration-move) ease-in-out both vt-slide-x reverse;
-}
-
-/*
-   The root does not animate; only the boundaries that asked to.
-
-   `::view-transition-old(root)` and `new(root)` carry the browser's default
-   cross-fade, and that covers everything not lifted into a group of its own —
-   which is most of the page. So a navigation ran two fades over the same
-   pixels: the one the page boundary asked for, and the root's underneath it.
-   Two fades of the same content, slightly out of step, is a double flash.
-
-   Suppressing the root leaves the named boundaries in sole charge, which is
-   what `default="none"` on them was already trying to express.
-
-   This also removes the reason to name the fixed ground and its grain. Naming
-   them was worse than the problem: a `view-transition-name` promotes an
-   element into the transition overlay, which paints above the page, so a
-   background sitting at `z-index: -1` was lifted over the content for the
-   length of every transition.
-*/
-::view-transition-old(root) {
-  /*
-     Hidden rather than merely un-animated. The UA stylesheet composites the
-     default cross-fade with `mix-blend-mode: plus-lighter`, which is only
-     correct while the two are fading past each other — stop the animation and
-     both sit at full opacity, added together, which is a bright flash rather
-     than no transition at all. Dropping the outgoing snapshot leaves the
-     incoming one to paint on its own.
-  */
-  display: none;
-}
-::view-transition-new(root) {
-  animation: none;
-}
-
-::view-transition-group(persistent-nav),
-::view-transition-group(persistent-rail) {
-  animation: none;
-  z-index: 100;
-}
-::view-transition-old(persistent-nav),
-::view-transition-old(persistent-rail) {
-  display: none;
-}
-::view-transition-new(persistent-nav),
-::view-transition-new(persistent-rail) {
-  animation: none;
-}
-
-/* Same bargain as everywhere else: motion is a preference. */
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(*),
-  ::view-transition-new(*),
-  ::view-transition-group(*) {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
-  }
-}
 
 /* The pending bar under a tapped tab: a sweep rather than a spinner, so it
    occupies the tab's own width instead of introducing a new object. */

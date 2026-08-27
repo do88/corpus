@@ -84,7 +84,6 @@ export function DayPicker({
       ) : (
         <Link
           href={href(lastWeek, today)}
-          transitionTypes={["day-back"]}
           aria-label="Previous week"
           className={`${ARROW} text-muted-foreground`}
         >
@@ -156,10 +155,6 @@ export function DayPicker({
               // so every day change was a cold round trip, measured at 803ms
               // against a 1ms local database.
               //
-              // An ordered sequence, so direction means something here in a
-              // way it does not between tabs: later days arrive from the
-              // right, earlier ones from the left.
-              transitionTypes={[date > day ? "day-forward" : "day-back"]}
               aria-current={selected ? "date" : undefined}
               aria-label={longDate(date)}
               className={shared}
@@ -182,7 +177,6 @@ export function DayPicker({
       ) : (
         <Link
           href={href(nextWeek, today)}
-          transitionTypes={["day-forward"]}
           aria-label="Next week"
           className={`${ARROW} text-muted-foreground`}
         >

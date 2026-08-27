@@ -73,7 +73,6 @@ export default async function Home({
           day !== today ? (
             <Link
               href="/"
-              transitionTypes={["day-forward"]}
               className="tappable flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-medium"
               style={{ color: "var(--ink-protein)" }}
             >

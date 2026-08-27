@@ -69,9 +69,6 @@ export function TabBar() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                // Lateral: these four are peers, so the page cross-fades
-                // rather than sliding. See `page-transition.tsx`.
-                transitionTypes={["tab"]}
                 aria-current={active ? "page" : undefined}
                 className="tappable relative flex flex-1 flex-col items-center gap-1 py-2 pt-2.5"
                 style={{ color: active ? "var(--ink-protein)" : "var(--muted-foreground)" }}
@@ -121,9 +118,6 @@ export function TabBar() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                // Lateral: these four are peers, so the page cross-fades
-                // rather than sliding. See `page-transition.tsx`.
-                transitionTypes={["tab"]}
                 aria-current={active ? "page" : undefined}
                 // The label is a tooltip rather than always-on: a column of
                 // icons in a 56px rail reads fine, and permanent labels would

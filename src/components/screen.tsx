@@ -1,5 +1,3 @@
-import { LoadingTransition, PageTransition } from "@/components/page-transition";
-
 /**
  * The column every screen is poured into.
  *
@@ -24,23 +22,24 @@ import { LoadingTransition, PageTransition } from "@/components/page-transition"
 const COLUMN =
   "mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8";
 
-/** A page: the column, inside the boundary that animates between routes. */
+/**
+ * A page: the column.
+ *
+ * There used to be a React `<ViewTransition>` around this, and it never once
+ * fired. Cache Components keeps visited routes mounted through React's
+ * `<Activity>` — measured, three `<main>` elements in the document at the same
+ * time — so a boundary wrapped around a page is never inserted or removed. Its
+ * `enter` and `exit` are for mounting, and nothing here mounts.
+ *
+ * The animation lives in CSS instead, keyed to the transition type with
+ * `:active-view-transition-type()`. That matches on the transition rather than
+ * on a component's lifecycle, which is the only thing that still happens.
+ */
 export function Screen({ children }: { children: React.ReactNode }) {
-  return (
-    <PageTransition>
-      <main className={COLUMN}>{children}</main>
-    </PageTransition>
-  );
+  return <main className={COLUMN}>{children}</main>;
 }
 
-/**
- * A page's skeleton. Same column, so nothing shifts when the real content
- * replaces it — which is the whole job of a loading state.
- */
+/** A page's skeleton. Same column, so nothing shifts when content replaces it. */
 export function LoadingScreen({ children }: { children: React.ReactNode }) {
-  return (
-    <LoadingTransition>
-      <main className={COLUMN}>{children}</main>
-    </LoadingTransition>
-  );
+  return <main className={COLUMN}>{children}</main>;
 }

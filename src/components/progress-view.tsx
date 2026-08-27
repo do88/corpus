@@ -56,9 +56,6 @@ export function ProgressView({
             <Link
               key={option}
               href={`/progress?range=${option}&d=${day}`}
-              // Lateral, like the tabs: week and month are two views of the
-              // same thing, so the page cross-fades rather than sliding.
-              transitionTypes={["tab"]}
               aria-current={active ? "page" : undefined}
               className="tappable flex-1 rounded-full py-2 text-center text-sm font-medium capitalize transition-colors"
               style={
