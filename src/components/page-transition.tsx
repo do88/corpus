@@ -22,10 +22,19 @@ import { ViewTransition } from "react";
  *     from the left. This is the one place in the app where direction carries
  *     meaning rather than implying a hierarchy;
  *   - a skeleton giving way to its content carries no type, falls through to
- *     `default`, and lifts as it fades — which reads as data arriving rather
- *     than as a page changing.
+ *     `default`, and is not animated at all.
  *
- * The two never collide because they happen at different moments.
+ * That last one used to lift as it fades, and it was wrong. A tab tap fires
+ * two transitions, not one: the navigation, and then the Suspense reveal when
+ * the data lands a moment later. Animating both meant the page faded in and
+ * then immediately slid again — read as a stutter, because it was one.
+ *
+ * Only a navigation carries a transition type, so keying every animation to a
+ * type and leaving `default` at `none` means only navigation animates. The
+ * reveal swaps the content in place, which is what it should have been doing:
+ * the skeleton and the content occupy the same box by construction, and there
+ * is nothing to communicate about a box whose contents were always going to
+ * arrive.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   return (
@@ -34,7 +43,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
         tab: "fade-in",
         "day-forward": "slide-from-right",
         "day-back": "slide-from-left",
-        default: "slide-up",
+        default: "none",
       }}
       exit={{
         tab: "fade-out",
@@ -52,14 +61,14 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
 /**
  * The skeleton's side of the same swap.
  *
- * It only has an exit: the fallback is already on screen when the content
- * arrives, so it sinks and fades as the content lifts into its place. On a tab
- * navigation it fades instead, matching the page it belongs to — otherwise
- * changing tab would slide the skeleton downward for no reason.
+ * It only has an exit, and only on a navigation: leaving a tab should take the
+ * skeleton with it the same way it takes the page. When the content simply
+ * arrives underneath it, the fallback is replaced rather than animated away —
+ * see above for why animating that read as a stutter.
  */
 export function LoadingTransition({ children }: { children: React.ReactNode }) {
   return (
-    <ViewTransition exit={{ tab: "fade-out", default: "slide-down" }} default="none">
+    <ViewTransition exit={{ tab: "fade-out", default: "none" }} default="none">
       {children}
     </ViewTransition>
   );

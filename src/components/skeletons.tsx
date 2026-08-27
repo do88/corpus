@@ -16,6 +16,12 @@ import { Skeleton } from "@/components/ui/skeleton";
  *
  * `aria-hidden` throughout, with the live region left to the page itself —
  * a screen reader announcing a dozen decorative blocks is worse than silence.
+ *
+ * They carry no entrance animation of their own. They used to fade in over
+ * 300ms, which ran at the same moment the view transition was snapshotting
+ * them for a navigation — two animations on one element, each unaware of the
+ * other. The blocks already pulse; arriving is not a third thing they need to
+ * do.
  */
 
 function Line({ w, h = "h-4" }: { w: string; h?: string }) {
@@ -52,7 +58,7 @@ export function CardSkeleton({
 
 export function TodaySkeleton() {
   return (
-    <div aria-hidden className="animate-in fade-in duration-300">
+    <div aria-hidden>
       <HeaderSkeleton />
 
       {/* The week strip. */}
@@ -90,7 +96,7 @@ export function TodaySkeleton() {
 
 export function ProgressSkeleton() {
   return (
-    <div aria-hidden className="animate-in fade-in duration-300">
+    <div aria-hidden>
       <HeaderSkeleton wide="w-44" />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-12 w-full" />
@@ -103,7 +109,7 @@ export function ProgressSkeleton() {
 
 export function TrainingSkeleton() {
   return (
-    <div aria-hidden className="animate-in fade-in duration-300">
+    <div aria-hidden>
       <HeaderSkeleton wide="w-44" />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-32 w-full" />
@@ -116,7 +122,7 @@ export function TrainingSkeleton() {
 
 export function AccountSkeleton() {
   return (
-    <div aria-hidden className="animate-in fade-in duration-300">
+    <div aria-hidden>
       <HeaderSkeleton wide="w-36" />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-28 w-full" />
@@ -129,7 +135,7 @@ export function AccountSkeleton() {
 
 export function AdvisorSkeleton() {
   return (
-    <div aria-hidden className="animate-in fade-in duration-300">
+    <div aria-hidden>
       <HeaderSkeleton wide="w-40" />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-32 w-full" />

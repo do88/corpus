@@ -412,6 +412,18 @@
     z-index: -1;
     pointer-events: none;
   }
+  /*
+     Named, so a view transition leaves them alone.
+
+     Without a name of their own these fall into the root snapshot, and every
+     navigation cross-fades a full-viewport bitmap that includes the grain
+     against an identical one. The browser cannot know they match: it blends
+     two noise textures, and blended noise shimmers. The gradient behind it is
+     fixed and unchanged across every route, so there was never anything to
+     animate here — only cost.
+  */
+  body::before { view-transition-name: app-ground; }
+  body::after { view-transition-name: app-grain; }
   body::before {
     background: var(--ground);
   }
@@ -651,6 +663,17 @@
    rather than `animation: none` because the bar is `backdrop-filter`ed, and a
    blurred snapshot cross-fading over the live blurred element flashes.
 */
+::view-transition-group(app-ground),
+::view-transition-group(app-grain) {
+  animation: none;
+}
+::view-transition-old(app-ground),
+::view-transition-old(app-grain),
+::view-transition-new(app-ground),
+::view-transition-new(app-grain) {
+  animation: none;
+}
+
 ::view-transition-group(persistent-nav),
 ::view-transition-group(persistent-rail) {
   animation: none;
