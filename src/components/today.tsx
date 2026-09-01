@@ -8,7 +8,7 @@ import { MetricCard } from "@/components/metric-card";
 import { createClient } from "@/lib/supabase/client";
 import { formatTime, mealBand } from "@/lib/meal/format";
 import type { DailyTargets } from "@/lib/meals/targets";
-import { totalsForDay, type MealRow } from "@/lib/meals/repository";
+import { listMealsInRange, totalsForDay, type MealRow } from "@/lib/meals/repository";
 import {
   getServerSnapshot,
   getSnapshot,
@@ -83,19 +83,47 @@ export function Today({
     });
   }, []);
 
-  /** Send whatever is waiting, re-read what's left, and nudge anything stuck. */
+  /** Send whatever is waiting, re-read the day, and nudge anything stuck. */
   const sync = useCallback(async () => {
     await flushOutbox();
     await refresh();
 
-    // A meal whose worker never ran would otherwise sit saying "analysing"
-    // until the hourly sweep. Opening the app is the moment you would notice,
-    // so it is also the moment to retry.
     const supabase = createClient();
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (session) await retryStalePending(supabase, session.access_token, day);
+    if (!session) return;
+
+    /*
+      Re-read the day from the database.
+
+      This list arrived as server-rendered props and, until now, nothing ever
+      replaced it. `refresh` above re-reads the outbox, which is a different
+      thing entirely, and realtime only delivers changes that happen while its
+      channel is actually connected — which a backgrounded phone's is not.
+
+      So a page that was stale when it painted stayed stale for as long as it
+      was open. Log a meal on a laptop, pick up a phone whose PWA has been
+      sitting in the background, and it shows a day with nothing in it, for
+      ever, because there was no path by which it could ever learn otherwise.
+
+      Read through PostgREST rather than by refreshing the route, and that is
+      deliberate: `/rest/v1/` is NetworkOnly in the service worker, while
+      navigations and RSC payloads are NetworkFirst with a three-second
+      timeout. Refreshing the route on a slow connection could answer a
+      staleness problem with a cached copy of the same stale page.
+    */
+    try {
+      setMeals(await listMealsInRange(supabase, day, day));
+    } catch {
+      // A failed re-read leaves what is on screen. It is the same list as a
+      // moment ago, not a worse one, and the next visibility change tries again.
+    }
+
+    // A meal whose worker never ran would otherwise sit saying "analysing"
+    // until the hourly sweep. Opening the app is the moment you would notice,
+    // so it is also the moment to retry.
+    await retryStalePending(supabase, session.access_token, day);
   }, [day]);
 
   // Three triggers, because none is reliable alone. Background Sync (in the
