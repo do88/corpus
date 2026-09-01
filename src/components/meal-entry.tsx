@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,9 @@ export function MealEntry({
 }) {
   const [editing, setEditing] = useState(false);
 
+  /** Still being estimated: nothing to show yet, and nothing to open. */
+  const pending = meal.status === "pending";
+
   const summary =
     // `?.length` rather than `?.`: an empty items array joins to "", which is
     // not nullish and would have swallowed the note behind an empty title.
@@ -57,33 +60,60 @@ export function MealEntry({
     // Each meal is its own card. A divided list reads as a table; separate
     // cards read as objects you can act on — which these are, since tapping one
     // opens its numbers for correction.
-    <article className="surface tappable overflow-hidden">
+    /*
+      While it is being analysed the card steps back and stops behaving like a
+      button: no press response, no full-strength ink. There is nothing to open
+      yet — the numbers it would show do not exist — and a card that presses in
+      under your thumb and then does nothing is a card that looks broken.
+    */
+    <article
+      className={`surface overflow-hidden ${pending ? "opacity-60" : "tappable"}`}
+      aria-busy={pending || undefined}
+    >
       <button
         type="button"
         onClick={() => setEditing((v) => !v)}
-        disabled={meal.status === "pending"}
+        disabled={pending}
         className="w-full px-5 py-4 text-left disabled:opacity-100"
         aria-expanded={editing}
       >
-        <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 text-[1rem] font-medium leading-snug">
-            {summary}
-          </span>
-          <span className="shrink-0 text-right">
-            {meal.status === "analyzed" ? (
-              <>
-                <span className="text-[1.125rem] font-bold tabular-nums tracking-[-0.02em]">
-                  {meal.kcal?.toLocaleString("en-GB")}
-                </span>
-                <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
-              </>
-            ) : meal.status === "failed" ? (
-              <Badge variant="destructive" className="rounded-full">failed</Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground animate-pulse">analysing…</span>
-            )}
-          </span>
-        </div>
+        {/*
+          A figure on the right earns its column: the whole list is scanned
+          down that edge for calories. "analysing…" is not a figure, it is a
+          state, and putting it there split a small card into two columns to
+          hold one short word — squeezing the description into half the width
+          for the one status where the description is all there is to read.
+
+          So while it is analysing the state goes on its own line above, and
+          the card stays a single column at every width.
+        */}
+        {pending ? (
+          <div className="space-y-1.5">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+              analysing…
+            </span>
+            <span className="block text-[1rem] font-medium leading-snug">{summary}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-[1rem] font-medium leading-snug">
+              {summary}
+            </span>
+            <span className="shrink-0 text-right">
+              {meal.status === "analyzed" ? (
+                <>
+                  <span className="text-[1.125rem] font-bold tabular-nums tracking-[-0.02em]">
+                    {meal.kcal?.toLocaleString("en-GB")}
+                  </span>
+                  <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
+                </>
+              ) : (
+                <Badge variant="destructive" className="rounded-full">failed</Badge>
+              )}
+            </span>
+          </div>
+        )}
 
         {/*
           Two lines, not one. Cramming the time, the protein, a badge and a
