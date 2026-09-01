@@ -88,6 +88,32 @@ const serwist = new Serwist({
     },
     ...defaultCache,
   ],
+  /*
+   * Something to answer a navigation with when nothing else can.
+   *
+   * Live threw `no-response` on the root and the browser showed its own error
+   * page. The reason is visible in the caches: the precache holds forty-eight
+   * entries and not one of them is a document. So a navigation that missed the
+   * network and found nothing in `pages` — a first visit, a URL not opened
+   * before, a dead connection — left `NetworkFirst` with no response to give,
+   * and a strategy with no response to give throws.
+   *
+   * That made the claim above only half true. The app opened with no signal
+   * for pages already opened with signal, and showed a browser error for the
+   * rest, which on a home-screen icon reads as the app being broken.
+   *
+   * `/offline` is static and precached, so it can always be served. It is a
+   * last resort and stays behind the runtime cache: a real page already on
+   * disk is a better answer than a message about not having one.
+   */
+  fallbacks: {
+    entries: [
+      {
+        url: "/offline",
+        matcher: ({ request }) => request.destination === "document",
+      },
+    ],
+  },
 });
 
 /**

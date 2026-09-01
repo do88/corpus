@@ -11,6 +11,14 @@ import type { NextConfig } from "next";
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
+  /*
+   * The offline document has to be in the precache to be a fallback, and it
+   * only gets there if it is named. Serwist's manifest is built from static
+   * assets; an App Router route is not one of those, so without this the
+   * fallback would point at a URL the worker had never stored and fail in
+   * exactly the situation it exists for.
+   */
+  additionalPrecacheEntries: [{ url: "/offline", revision: null }],
   disable: process.env.NODE_ENV !== "production",
 });
 

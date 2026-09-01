@@ -61,10 +61,18 @@ export async function proxy(request: NextRequest) {
   // requests them without credentials, and a redirect to /login reads as a
   // broken manifest. None of them expose anything: they are three coloured
   // shapes and a caching policy.
+  //
+  // `/offline` joins them for the same reason. It is the page the service
+  // worker shows when a navigation cannot reach the network, so gating it on a
+  // session is a contradiction: the check needs the network the page exists to
+  // apologise for. It is also precached at install, and precaching a redirect
+  // to /login would mean the fallback served the sign-in screen to someone
+  // already signed in. It says there is no connection and nothing else.
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/icons/") ||
+    path === "/offline" ||
     path === "/manifest.webmanifest" ||
     path === "/sw.js";
 
