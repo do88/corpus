@@ -22,12 +22,19 @@ import { cn } from "@/lib/utils";
 export function DictateButton({
   onTranscript,
   onError,
+  onBusyChange,
   disabled,
   className,
 }: {
   /** Called with what was said, once. */
   onTranscript: (text: string) => void;
   onError?: (message: string) => void;
+  /**
+   * True while recording or transcribing, so the field around it can make
+   * room: the control is a circle at rest and a timer pill in use, and the
+   * space reserved for the circle is not enough for the pill.
+   */
+  onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
   className?: string;
 }) {
@@ -49,6 +56,14 @@ export function DictateButton({
   const peak = useRef(0);
   const audio = useRef<{ context: AudioContext; analyser: AnalyserNode } | null>(null);
   const [meter, setMeter] = useState(0);
+
+  // Kept current in an effect rather than assigned during render: a ref
+  // written while rendering is a value React is entitled to discard, and the
+  // lint rule that says so is right.
+  const onBusyChangeRef = useRef(onBusyChange);
+  useEffect(() => {
+    onBusyChangeRef.current = onBusyChange;
+  }, [onBusyChange]);
 
   // Whether this browser can record at all.
   //
@@ -168,6 +183,12 @@ export function DictateButton({
 
   const recording = state === "recording";
   const working = state === "working";
+
+  // Reported from an effect rather than from each transition, so there is one
+  // place this can be got wrong instead of four.
+  useEffect(() => {
+    onBusyChangeRef.current?.(recording || working);
+  }, [recording, working]);
 
   if (!supported) return null;
 

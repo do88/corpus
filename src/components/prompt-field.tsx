@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { DictateButton } from "@/components/dictate-button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -51,11 +54,25 @@ export function PromptField({
   onTranscript?: (text: string) => void;
   onDictationError?: (message: string) => void;
 }) {
+  /*
+    The microphone is a circle at rest and a timer pill in use, and the pill is
+    about half again as wide. The field reserved room for the circle, so the
+    moment recording started the timer sat on top of whatever was at the end of
+    the first line — usually the placeholder, since dictating is what you do
+    instead of typing.
+
+    Widening the gutter while it is in use fixes it for text as well as for the
+    placeholder, which the placeholder trick alone would not have.
+  */
+  const [dictating, setDictating] = useState(false);
+
   const field = (
     <Textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
+      // An example of what to type is the wrong thing to say to someone who
+      // is already talking, quite apart from being what the timer covers.
+      placeholder={dictating ? "" : placeholder}
       rows={rows}
       aria-label={label}
       className={cn(
@@ -65,7 +82,8 @@ export function PromptField({
         // deliberately: padding underneath would add a mic's height to an
         // empty composer, and the composer has already been shrunk once for
         // sitting taller than it needed to.
-        onTranscript && "min-h-13 pr-13",
+        onTranscript && "min-h-13 transition-[padding] duration-150",
+        onTranscript && (dictating ? "pr-24" : "pr-13"),
         className,
       )}
       style={{
@@ -93,7 +111,11 @@ export function PromptField({
       {/* Eight from each edge, which centres it exactly while the field is one
           line tall and keeps it off the corner once the text has grown it. */}
       <div className="absolute bottom-2 right-2">
-        <DictateButton onTranscript={onTranscript} onError={onDictationError} />
+        <DictateButton
+          onTranscript={onTranscript}
+          onError={onDictationError}
+          onBusyChange={setDictating}
+        />
       </div>
     </div>
   );
