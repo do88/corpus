@@ -12,6 +12,28 @@ export type EstimateInput = {
   imageMediaType?: "image/jpeg" | "image/png" | "image/webp";
   /** Typed or voice-transcribed description. */
   note?: string;
+  /**
+   * The user's own saved figures, as candidate authority.
+   *
+   * Passed as text rather than matched in code on purpose. Deciding whether
+   * "my usual shake" refers to a saved food is a language problem, and the
+   * model is already reading the sentence; a string match here would miss
+   * every phrasing that is not the saved name verbatim, and a fuzzy one would
+   * confidently price a tuna sandwich as a saved chicken one. The prompt is
+   * told to use them only on a clear reference and to estimate normally
+   * otherwise.
+   */
+  savedFoods?: SavedFoodFacts[];
+};
+
+/** One saved food, flattened to the lines the prompt needs. */
+export type SavedFoodFacts = {
+  name: string;
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  items: { name: string; qty: string }[];
 };
 
 export type EstimateResult = {
@@ -30,6 +52,27 @@ export type EstimateResult = {
  * Medium thinking is a deliberate quality-first production choice. The
  * published comparison remains the lower-cost, low-thinking baseline.
  */
+/**
+ * The saved list, as a block the model can quote from.
+ *
+ * Only the totals and the portion lines: enough to recognise a reference and
+ * copy a figure, without spending tokens on per-item macros the model is being
+ * told not to recompute anyway.
+ */
+export function describeSavedFoods(foods: SavedFoodFacts[] | undefined): string | null {
+  if (!foods?.length) return null;
+  const lines = foods.slice(0, 25).map((food) => {
+    const parts = food.items.map((item) => `${item.name} — ${item.qty}`).join("; ");
+    return `- "${food.name}": ${food.kcal} kcal, ${food.protein_g}g protein, ${food.carbs_g}g carbs, ${food.fat_g}g fat${parts ? ` (${parts})` : ""}`;
+  });
+  return [
+    "This user's own saved figures, for foods they eat often and have already checked.",
+    "Use these exactly when the description clearly refers to one of them; otherwise ignore them.",
+    "",
+    ...lines,
+  ].join("\n");
+}
+
 export async function estimateMeal(
   input: EstimateInput,
 ): Promise<EstimateResult> {
@@ -72,6 +115,10 @@ export async function estimateMeal(
       text: `Published nutrition information found online for this product:\n\n${lookup.facts}`,
     });
   }
+  // After the label, because the prompt ranks them that way and a reader of
+  // this file should be able to see the ranking in the order of the parts.
+  const savedFacts = describeSavedFoods(input.savedFoods);
+  if (savedFacts) parts.push({ text: savedFacts });
 
   let response;
   try {

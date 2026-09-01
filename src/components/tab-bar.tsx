@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, CircleUser, Dumbbell, House, Salad } from "lucide-react";
+import { Bookmark, ChartColumn, CircleUser, Dumbbell, House, Salad } from "lucide-react";
 import { Logomark } from "@/components/brand";
 import { TabPending } from "@/components/tab-pending";
 
@@ -30,6 +30,9 @@ const TABS = [
   // Next to Today because the two are both about right now — one records the
   // hour just gone, the other decides the next one.
   { href: "/advisor", label: "Advisor", icon: Salad },
+  // Beside the advisor rather than under Account: this is a logging tool, not
+  // a setting. The one-tap path lives on Today; this is where the list is kept.
+  { href: "/foods", label: "Foods", icon: Bookmark },
   { href: "/progress", label: "Progress", icon: ChartColumn },
   { href: "/training", label: "Training", icon: Dumbbell },
   { href: "/account", label: "Account", icon: CircleUser },

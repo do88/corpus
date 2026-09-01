@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { MealEstimate } from "@/lib/meal/schema";
 
 /**
  * The outbox: meals captured on the phone that have not reached the server yet.
@@ -22,6 +23,20 @@ export type OutboxMeal = {
   photo?: Blob;
   attempts: number;
   lastError?: string;
+  /**
+   * A saved food, already priced.
+   *
+   * Present only when the meal came from the saved list, and it changes what
+   * sending means: the numbers travel with the meal, so the row lands
+   * `analyzed` and the estimator is never asked. That is what makes logging a
+   * repeat instant, free, and possible with no signal at all — the outbox
+   * already worked offline, but until now everything it held still owed a
+   * model call before it meant anything.
+   *
+   * No IndexedDB version bump: a store holds whatever shape it is given, and
+   * every meal queued before this simply has no `saved` and behaves as it did.
+   */
+  saved?: { id: string; timesUsed: number; estimate: MealEstimate };
 };
 
 interface OutboxDB extends DBSchema {

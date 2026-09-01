@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { estimateMeal } from "@/lib/meal/estimate";
 import { recordFailure, saveEstimate, type MealRow } from "./repository";
+import { listSavedFoods } from "./saved";
 
 /**
  * Turn one pending meal into macros.
@@ -49,9 +50,38 @@ export async function processMeal(
       imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
     }
 
+    /*
+      The user's own figures go in with the meal.
+
+      Only when there is a description to match them against: a photo alone
+      cannot "clearly refer" to a saved food, and passing the list anyway would
+      invite the model to recognise a shake in a picture of a glass.
+
+      Failing to read them is not failing to estimate. The list is an
+      improvement to the guess, not a precondition for it, so a broken read
+      leaves the meal estimated the way it always was rather than sending it
+      back to the retry queue.
+    */
+    let savedFoods;
+    if (meal.note?.trim()) {
+      try {
+        savedFoods = (await listSavedFoods(supabase)).map((food) => ({
+          name: food.name,
+          kcal: food.kcal,
+          protein_g: food.protein_g,
+          carbs_g: food.carbs_g,
+          fat_g: food.fat_g,
+          items: food.items.map((item) => ({ name: item.name, qty: item.qty })),
+        }));
+      } catch {
+        savedFoods = undefined;
+      }
+    }
+
     const { estimate, model } = await estimateMeal({
       imageBase64,
       note: meal.note ?? undefined,
+      savedFoods,
     });
     await saveEstimate(supabase, mealId, estimate, model);
     return { ok: true };

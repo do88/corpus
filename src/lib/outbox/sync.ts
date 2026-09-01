@@ -2,6 +2,7 @@ import { localDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/client";
 import { requestEstimate } from "@/lib/meals/enqueue";
 import { type MealRow } from "@/lib/meals/repository";
+import { recordSavedFoodUse } from "@/lib/meals/saved";
 import { markFailed, pending, remove, type OutboxMeal } from "./store";
 
 /**
@@ -93,9 +94,33 @@ async function send(meal: OutboxMeal, accessToken: string, userId: string) {
         client_id: meal.clientId,
         logged_at: meal.loggedAt,
         local_date: meal.localDate || localDay(new Date(meal.loggedAt)),
-        status: "pending",
         note: meal.note.trim() || null,
         photo_path: photoPath,
+        /*
+         * A meal from the saved list arrives finished.
+         *
+         * Its macros were established once, by an estimate a person read and
+         * accepted, and copying them is the entire point of saving it — the
+         * same shake priced the same way every morning. So the row is written
+         * `analyzed` with the figures in place, and the worker is never asked.
+         *
+         * That also makes it the only kind of meal that is complete without a
+         * network round trip beyond this insert: no model call to wait for, no
+         * pending state to sweep up, nothing for the reconciler to find.
+         */
+        ...(meal.saved
+          ? {
+              status: "analyzed" as const,
+              saved_food_id: meal.saved.id,
+              items: meal.saved.estimate.items,
+              kcal: meal.saved.estimate.kcal,
+              protein_g: meal.saved.estimate.protein_g,
+              carbs_g: meal.saved.estimate.carbs_g,
+              fat_g: meal.saved.estimate.fat_g,
+              confidence: meal.saved.estimate.confidence,
+              assumptions: meal.saved.estimate.assumptions,
+            }
+          : { status: "pending" as const }),
       })
       .select()
       .single(),
@@ -116,6 +141,15 @@ async function send(meal: OutboxMeal, accessToken: string, userId: string) {
   if (insert.error) {
     if (insert.error.code === ALREADY_SENT) return; // landed on an earlier attempt
     throw new Error(insert.error.message);
+  }
+
+  // Priced already: there is nothing to estimate, and the counter that orders
+  // the saved list is nudged instead. Deliberately not awaited for its result —
+  // see `recordSavedFoodUse`; a meal must not fail to log because a sort key
+  // did not update.
+  if (meal.saved) {
+    await recordSavedFoodUse(supabase, meal.saved.id, meal.saved.timesUsed);
+    return;
   }
 
   await requestEstimate((insert.data as MealRow).id, accessToken);

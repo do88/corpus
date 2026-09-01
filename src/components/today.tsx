@@ -19,6 +19,8 @@ import {
 import { flushOutbox } from "@/lib/outbox/sync";
 import { retryStalePending } from "@/lib/meals/retry";
 import { MealLogger } from "./meal-logger";
+import { UsualFoods } from "./usual-foods";
+import type { SavedFoodRow } from "@/lib/meals/saved";
 import { MealEntry } from "./meal-entry";
 import { DayPicker } from "./day-picker";
 
@@ -37,6 +39,7 @@ export function Today({
   logged,
   earliest,
   targets,
+  usual,
 }: {
   initialMeals: MealRow[];
   day: string;
@@ -46,6 +49,8 @@ export function Today({
   earliest: string | null;
   /** Computed server-side from the latest weigh-in — see lib/meals/targets.ts. */
   targets: DailyTargets;
+  /** The handful of saved foods eaten most, for the one-tap row. */
+  usual: SavedFoodRow[];
 }) {
   const [meals, setMeals] = useState(initialMeals);
 
@@ -254,11 +259,22 @@ export function Today({
           on a past day would imply back-dating, which the 04:00 rule already
           decides and the composer has no way to override. */}
       {isToday && (
-        <MealLogger
-          onQueued={() => {
-            void sync();
-          }}
-        />
+        <div>
+          <MealLogger
+            onQueued={() => {
+              void sync();
+            }}
+          />
+          {/* Under the composer rather than above it: typing is still the main
+              way in, and a row of shortcuts above the box would push it down
+              the screen for the days you are not having your usual. */}
+          <UsualFoods
+            foods={usual}
+            onQueued={() => {
+              void sync();
+            }}
+          />
+        </div>
       )}
       <MealList
         meals={meals}

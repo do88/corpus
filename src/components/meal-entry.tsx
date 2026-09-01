@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Sparkles } from "lucide-react";
+import { Bookmark, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { correctMacros, deleteMeal, redescribeMeal, type MealRow } from "@/lib/meals/repository";
+import { saveFoodFromMeal } from "@/lib/meals/saved";
 import type { MealEstimate } from "@/lib/meal/schema";
 import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
@@ -161,6 +162,7 @@ export function MealEntry({
       {editing && (
         <Editor
           meal={meal}
+          summary={summary}
           onChanged={onChanged}
           onRemoved={onRemoved}
           onDone={() => setEditing(false)}
@@ -172,11 +174,14 @@ export function MealEntry({
 
 function Editor({
   meal,
+  summary,
   onChanged,
   onRemoved,
   onDone,
 }: {
   meal: MealRow;
+  /** The card's own title, passed rather than recomputed: one fallback chain. */
+  summary: string;
   onChanged: (row: MealRow) => void;
   onRemoved: (id: string) => void;
   onDone: () => void;
@@ -192,6 +197,34 @@ function Editor({
 
   // Re-describing: say what it actually was and let the model estimate that.
   const [describe, setDescribe] = useState("");
+
+  /*
+    Promoting this meal into the saved list.
+    
+    Two steps rather than one, because the name the estimator produced is a
+    good description of a meal and often a poor name for a food — "Mackerel in
+    tomato sauce, 2 × White toast, Irn-Bru (regular)" is accurate and nobody
+    wants to see it in a list they scan every morning. Prefilled, so the
+    common case is still a tap and a return.
+  */
+  const [naming, setNaming] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function keep() {
+    const name = naming?.trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveFoodFromMeal(createClient(), meal, { name });
+      setNaming(null);
+      setSaved(true);
+    } catch (thrown) {
+      setError(thrown instanceof Error ? thrown.message : "Could not save that");
+    } finally {
+      setBusy(false);
+    }
+  }
   const [proposed, setProposed] = useState<{
     note: string;
     estimate: MealEstimate;
@@ -383,6 +416,61 @@ function Editor({
           ) : (
             meal.assumptions
           )}
+        </p>
+      )}
+
+      {/*
+        Something you eat again.
+
+        Only offered once there are numbers to keep: a pending or failed meal
+        has nothing worth saving, and a saved food whose macros are null is a
+        trap rather than a shortcut.
+      */}
+      {meal.status === "analyzed" && !saved && (
+        naming === null ? (
+          <Button
+            variant="outline"
+            onClick={() => setNaming(summary)}
+            disabled={busy}
+            className="w-full"
+          >
+            <Bookmark className="size-4" /> Save to your foods
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              value={naming}
+              onChange={(event) => setNaming(event.target.value)}
+              placeholder="what to call it…"
+              aria-label="Name for your saved food"
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void keep();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button onClick={keep} disabled={busy || !naming.trim()} className="shrink-0">
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setNaming(null)}
+              disabled={busy}
+              className="shrink-0"
+            >
+              Cancel
+            </Button>
+          </div>
+        )
+      )}
+
+      {saved && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Bookmark className="size-3.5" aria-hidden />
+          Saved. Logging it again will copy these numbers rather than guess them.
         </p>
       )}
 
