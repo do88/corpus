@@ -83,6 +83,15 @@ export function TabBar() {
                   strokeWidth={active ? 2.4 : 1.9}
                   aria-hidden
                 />
+                {/*
+                  An explicit 13px rather than `text-xs`, which this app has
+                  lifted to 14 as a floor for *content* type. A tab label is
+                  not content: it is two or three repeated words under an icon
+                  that also carries the meaning, and at six across a 320px
+                  phone the difference is between fitting and not. Left as its
+                  own size so that raising the content floor again does not
+                  silently overflow the bar.
+                */}
                 <span className="text-[0.8125rem] font-medium tracking-[0.01em]">
                   {tab.label}
                 </span>
@@ -93,8 +102,22 @@ export function TabBar() {
         </div>
       </nav>
 
-      {/* Desktop: a floating rail, vertically centred so it sits with the
-          content rather than at the top of an empty column. */}
+      {/*
+        Desktop: a floating rail, vertically centred so it sits with the
+        content rather than at the top of an empty column.
+
+        The labels used to be `title` tooltips, on the reasoning that a column
+        of icons reads fine and permanent labels would turn the rail into a
+        sidebar competing for width. Half of that was wrong: a tooltip requires
+        a hover and a wait to answer "which one is this", which is not a
+        question a primary navigation should ask you to work for — and there is
+        no hover at all on the phone-sized version of the same problem. Six
+        destinations is also past the point where an icon carries a name on its
+        own; a bowl and a bookmark are not self-evidently Advisor and Foods.
+
+        The width it costs is real but small, and it comes out of a gutter that
+        was empty. `Screen` reserves the extra.
+      */}
       <nav
         className="fixed left-5 top-1/2 z-50 hidden -translate-y-1/2 lg:block"
         // Its own name, not the phone bar's: two elements may not share a
@@ -103,16 +126,16 @@ export function TabBar() {
         style={{ viewTransitionName: "persistent-rail" }}
         aria-label="Main"
       >
-        <div className="surface flex flex-col items-center gap-1 p-2" style={{ borderRadius: 26 }}>
+        <div className="surface flex flex-col items-center gap-0.5 p-2" style={{ borderRadius: 26 }}>
           <Link
             href="/"
             aria-label="do.fit — Today"
-            className="tappable mb-1 grid size-11 place-items-center rounded-2xl"
+            className="tappable mb-1 grid size-11 w-16 place-items-center rounded-2xl"
           >
             <Logomark size={22} accent="var(--accent-protein)" />
           </Link>
 
-          <span aria-hidden className="mb-1 h-px w-7 bg-[var(--rule)]" />
+          <span aria-hidden className="mb-1 h-px w-8 bg-[var(--rule)]" />
 
           {TABS.map((tab) => {
             const active = isActive(tab.href);
@@ -122,11 +145,7 @@ export function TabBar() {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                // The label is a tooltip rather than always-on: a column of
-                // icons in a 56px rail reads fine, and permanent labels would
-                // make it a sidebar competing with the content for width.
-                title={tab.label}
-                className="tappable relative grid size-11 place-items-center rounded-2xl transition-colors"
+                className="tappable relative flex w-16 flex-col items-center gap-1 rounded-2xl py-2 transition-colors"
                 style={
                   active
                     ? {
@@ -138,7 +157,9 @@ export function TabBar() {
                 }
               >
                 <Icon className="size-[1.3rem]" strokeWidth={active ? 2.4 : 1.9} aria-hidden />
-                <span className="sr-only">{tab.label}</span>
+                <span className="text-[0.6875rem] font-medium leading-none tracking-[0.01em]">
+                  {tab.label}
+                </span>
                 <TabPending />
               </Link>
             );

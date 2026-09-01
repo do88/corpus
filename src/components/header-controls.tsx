@@ -40,7 +40,7 @@ export async function HeaderControls() {
     <div aria-hidden={false} className="pointer-events-none absolute inset-x-0 top-0 z-40">
       {/* The same column the pages use, so this lands exactly where the old
           in-header version did rather than approximately. */}
-      <div className="mx-auto flex w-full max-w-md justify-end px-5 pt-6 lg:max-w-4xl lg:pl-24 lg:pt-10">
+      <div className="mx-auto flex w-full max-w-md justify-end px-5 pt-6 lg:max-w-4xl lg:pl-28 lg:pt-10">
         <div className="pointer-events-auto flex items-center gap-2">
           {streak > 0 && (
             <div

@@ -44,7 +44,7 @@ export default async function Home({
 
   return (
     // pb-28 clears the fixed tab bar; without it the last meal hides behind it.
-    // pb-28 clears the phone tab bar; lg:pl-24 clears the desktop rail, and the
+    // pb-28 clears the phone tab bar; lg:pl-28 clears the desktop rail, and the
     // column widens to hold four metric cards side by side rather than leaving
     // a 440px strip marooned in the middle of a 1440px window.
     <Screen>

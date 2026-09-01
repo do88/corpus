@@ -8,7 +8,8 @@
  * the ordinary cost of a copied class list, and the reason to name it once.
  *
  * `pb-28` clears the phone's tab bar; without it the last card hides behind
- * it. `lg:pl-24` clears the desktop rail.
+ * it. `lg:pl-28` clears the desktop rail, which carries labels and is
+ * therefore wider than the icons alone would need.
  */
 /**
  * One width for every screen.
@@ -20,7 +21,7 @@
  * around a single column of prose.
  */
 const COLUMN =
-  "mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-24 lg:pt-8";
+  "mx-auto w-full max-w-md px-5 pb-28 pt-4 lg:max-w-4xl lg:pb-12 lg:pl-28 lg:pt-8";
 
 /**
  * A page: the column.
