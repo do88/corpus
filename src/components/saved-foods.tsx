@@ -112,8 +112,17 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                 />
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    {/*
+                      A floor on the text column so the *actions* wrap to
+                      their own row when space runs out, rather than the
+                      figures wrapping under them. Labelling the two buttons
+                      cost the left column about 80px, which was enough to
+                      break "125 kcal · 25g protein · logged 41×" across two
+                      lines on a phone — the row still fitted, it just read
+                      like it had not.
+                    */}
+                    <div className="min-w-[13rem] flex-1">
                       <p className="text-[1rem] font-medium leading-snug">{food.name}</p>
                       <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                         {food.kcal.toLocaleString("en-GB")} kcal ·{" "}
@@ -123,31 +132,38 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                         {food.times_used > 0 && ` · logged ${food.times_used}×`}
                       </p>
                     </div>
+                    {/*
+                      Named, not just drawn. A pencil is about as close to
+                      universal as an icon gets and still lost to a box with a
+                      lid on it — nobody should have to work out whether that
+                      one archives, deletes or downloads before pressing it on
+                      a list of their own food.
+                    */}
                     <div className="flex shrink-0 items-center gap-1">
                       {!food.archived_at && (
                         <Button
-                          size="icon"
+                          size="sm"
                           variant="ghost"
                           onClick={() => setEditing(food.id)}
-                          aria-label={`Edit ${food.name}`}
-                          className="size-9"
+                          className="text-muted-foreground"
                         >
-                          <Pencil className="size-4" />
+                          <Pencil className="size-4" /> Edit
                         </Button>
                       )}
                       <Button
-                        size="icon"
+                        size="sm"
                         variant="ghost"
                         onClick={() => toggleArchive(food)}
-                        aria-label={
-                          food.archived_at ? `Restore ${food.name}` : `Archive ${food.name}`
-                        }
-                        className="size-9"
+                        className="text-muted-foreground"
                       >
                         {food.archived_at ? (
-                          <ArchiveRestore className="size-4" />
+                          <>
+                            <ArchiveRestore className="size-4" /> Restore
+                          </>
                         ) : (
-                          <Archive className="size-4" />
+                          <>
+                            <Archive className="size-4" /> Archive
+                          </>
                         )}
                       </Button>
                     </div>

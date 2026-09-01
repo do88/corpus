@@ -83,7 +83,20 @@ export function UsualFoods({
         are reachable without the block growing tall enough to push the day's
         meals off the screen.
       */}
-      <ul className="-mx-5 mt-2 flex snap-x gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/*
+        The padding is holding the shadow, not spacing the chips.
+
+        `overflow-x-auto` is not only horizontal: a box that scrolls on one
+        axis clips on both, so the card shadow — which falls 16px down and
+        blurs 32 — was being cut off square along the bottom of the row. The
+        4px of padding that used to be here was for looks and nowhere near
+        enough for it.
+
+        So the scroller carries enough room for the shadow inside it and the
+        negative margin takes the same amount back out of the layout, leaving
+        the spacing exactly where it was and the shadow whole.
+      */}
+      <ul className="-mx-5 -mb-5 flex snap-x gap-2 overflow-x-auto px-5 pb-6 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {foods.map((food) => (
           <li key={food.id} className="snap-start">
             <button
