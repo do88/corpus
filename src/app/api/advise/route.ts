@@ -6,7 +6,8 @@ import { z } from "zod";
 import { isOwner } from "@/lib/auth/owner";
 import { adviseMeal } from "@/lib/meal/advise";
 import { createClient } from "@/lib/supabase/server";
-import { listMealsInRange } from "@/lib/meals/repository";
+import { listMealsInRange, weekOf } from "@/lib/meals/repository";
+import { allowanceFor, rolloverFor } from "@/lib/meals/rollover";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { summarise } from "@/lib/meals/summary";
 
@@ -59,14 +60,21 @@ export async function POST(request: Request) {
 
   try {
     const day = localDay();
+    // The week, because the calorie ceiling the advice reasons against is the
+    // day's goal plus whatever was left unspent earlier in it. Reading only
+    // today would have the model recommending against a tighter budget than
+    // the screen in front of the person is showing.
+    const week = weekOf(day);
     const [meals, targets] = await Promise.all([
-      listMealsInRange(supabase, day, day),
+      listMealsInRange(supabase, week[0], week[6]),
       loadTargets(supabase),
     ]);
     // Reuses the day rollup rather than re-summing here, so "what has been
     // eaten" means the same thing on this screen as on Progress — pending and
     // failed meals excluded alike.
     const today = summarise(meals, [day], targets).days[0];
+
+    const rollover = rolloverFor(day, targets.kcal, meals);
 
     const advice = await adviseMeal(body.turns, {
       consumed: {
@@ -75,7 +83,10 @@ export async function POST(request: Request) {
         carbs_g: today.carbs_g,
         fat_g: today.fat_g,
       },
-      targets,
+      // The ceiling for today, spare included. `adviseMeal` describes this as
+      // "of N kcal", so handing it the flat goal would understate the room by
+      // exactly the amount that has been banked.
+      targets: { ...targets, kcal: allowanceFor(targets.kcal, rollover) },
       time: format(inZone(), "HH:mm"),
     });
 

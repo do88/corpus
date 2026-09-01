@@ -23,8 +23,10 @@ export type BodyInput = {
   age: number;
   /** Where this is heading. Used for the fat floor, not for the deficit. */
   goalWeightKg: number;
-  /** Sessions in the last 28 days — read from the training log, not a dropdown. */
+  /** Sessions in the last 28 days. Informs the maintenance estimate only. */
   sessionsLast28: number;
+  /** The fixed daily goal. Defaults to `DAILY_KCAL_TARGET` when not set. */
+  dailyKcalTarget?: number;
 };
 
 export type DailyTargets = {
@@ -88,16 +90,16 @@ function activityFactor(sessionsLast28: number): number {
   return 1.55;
 }
 
-/**
- * A percentage of maintenance, not a fixed number of calories.
- *
- * 20% is the middle of the range that holds without wrecking training or sleep.
- * A fixed −500 is the more common advice and gets progressively more aggressive
- * as bodyweight falls: 500 off 2900 is 17%, but 500 off 2300 is 22%, so a plan
- * that starts comfortable ends up punishing at exactly the point it gets hard.
- * A percentage keeps the pressure constant as the numbers move.
- */
-const DEFICIT_SHARE = 0.2;
+/*
+  The deficit used to be 20% of estimated maintenance, and the reasoning was
+  that a percentage keeps the pressure constant as bodyweight falls where a
+  fixed −500 gets harsher the lighter you get. That still holds as arithmetic.
+  It stopped being what this app does when the goal became a fixed number, and
+  a constant nothing reads is worse than no constant, so it is gone rather than
+  left commented out. `basis.deficitKcal` still reports the real gap between
+  estimated maintenance and the goal, which is the figure that argument was
+  ever about.
+*/
 
 /**
  * Protein, and this is the "protein first" part.
@@ -126,12 +128,31 @@ const FAT_G_PER_KG_GOAL = 0.8;
 /** A kilo of body fat is about 7,700 kcal. Used only to project a timeline. */
 const KCAL_PER_KG_FAT = 7700;
 
+/**
+ * The daily calorie goal, and it is a decision now rather than a derivation.
+ *
+ * It used to fall out of estimated maintenance times a deficit share, with
+ * maintenance scaled by how much training was logged in the trailing 28 days.
+ * That was defensible arithmetic and poor to live with: the activity bands step
+ * rather than slide, and the lowest step is the widest — crossing it took the
+ * goal from 2,294 to 2,002 overnight because one session had aged out of the
+ * window. A target that moves by 292 kcal for reasons in the past is not a
+ * target, and it makes every earlier day's adherence rewrite itself.
+ *
+ * So it is a number. Maintenance is still estimated and still shown on the
+ * account screen, because knowing roughly what you burn is useful — it just no
+ * longer moves the goalposts.
+ */
+export const DAILY_KCAL_TARGET = 2300;
+
 export function computeTargets(input: BodyInput): DailyTargets {
   const { bmr, formula } = restingBurn(input);
   const factor = activityFactor(input.sessionsLast28);
   const tdee = Math.round(bmr * factor);
 
-  const kcal = Math.round(tdee * (1 - DEFICIT_SHARE));
+  const kcal = input.dailyKcalTarget ?? DAILY_KCAL_TARGET;
+  // Still worth reporting: it is the gap the plan is actually running, and it
+  // is the number that predicts the weekly loss below.
   const deficitKcal = tdee - kcal;
 
   // Protein first, from lean mass. Falls back to goal bodyweight at 1.9 g/kg —
@@ -155,6 +176,8 @@ export function computeTargets(input: BodyInput): DailyTargets {
     ),
   );
 
+  // A deeper goal than maintenance predicts loss; a shallower one predicts
+  // none, and saying "0 weeks to goal" would be worse than saying nothing.
   const weeklyLossKg = (deficitKcal * 7) / KCAL_PER_KG_FAT;
   const toLose = input.weightKg - input.goalWeightKg;
 

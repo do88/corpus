@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { listSavedFoods } from "@/lib/meals/saved";
+import { allowanceFor, rolloverFor, type Rollover } from "@/lib/meals/rollover";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
@@ -42,6 +43,10 @@ export default async function Home({
 
   const onScreen = meals.filter((m) => m.local_date === day);
 
+  // The week's meals are already loaded for the day strip, and the rollover
+  // needs exactly the same rows — Monday to the day before this one.
+  const rollover = rolloverFor(day, targets.kcal, meals);
+
   return (
     // pb-28 clears the fixed tab bar; without it the last meal hides behind it.
     // pb-28 clears the phone tab bar; lg:pl-24 clears the desktop rail, and the
@@ -63,7 +68,7 @@ export default async function Home({
             <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
           </>
         }
-        caption={caption(day, today, totalsForDay(onScreen), targets)}
+        caption={caption(day, today, totalsForDay(onScreen), targets, rollover)}
         action={
           /*
             The way back, and only when there is somewhere to come back from.
@@ -94,6 +99,7 @@ export default async function Home({
         // Six is about what fits before the row stops being a glance and
         // starts being a list; the rest are a tap away on /foods.
         usual={saved.slice(0, 6)}
+        rollover={rollover}
       />
     </Screen>
   );
@@ -118,13 +124,16 @@ function caption(
   today: string,
   totals: { kcal: number; protein_g: number },
   targets: DailyTargets,
+  rollover: Rollover,
 ): string {
   if (day !== today) {
     const ago = differenceInCalendarDays(parseDay(today), parseDay(day));
     return ago === 1 ? "Yesterday" : `${ago} days ago`;
   }
 
-  const kcal = Math.max(0, targets.kcal - totals.kcal);
+  // Against the allowance, like the card below it. Two figures for "how much
+  // is left" that disagree by the amount banked would be worse than either.
+  const kcal = Math.max(0, allowanceFor(targets.kcal, rollover) - totals.kcal);
   const protein = Math.max(0, targets.protein_g - totals.protein_g);
 
   // Protein is a floor and energy a ceiling, so "met" means different things

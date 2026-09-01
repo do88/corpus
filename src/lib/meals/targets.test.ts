@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTargets, KCAL_PER_G, type BodyInput } from "./targets";
+import { DAILY_KCAL_TARGET, KCAL_PER_G, computeTargets, type BodyInput } from "./targets";
 
 /**
  * These decide what someone eats every day, so the properties that matter are
@@ -39,13 +39,29 @@ describe("computeTargets", () => {
     expect(heavier.basis.bmr).toBe(computeTargets(OWNER).basis.bmr);
   });
 
-  it("scales the activity factor with sessions actually logged", () => {
+  it("estimates a higher maintenance for someone who trains more", () => {
     const idle = computeTargets({ ...OWNER, sessionsLast28: 0 });
     const some = computeTargets({ ...OWNER, sessionsLast28: 7 });
     const lots = computeTargets({ ...OWNER, sessionsLast28: 24 });
     expect(idle.basis.activityFactor).toBeLessThan(some.basis.activityFactor);
     expect(some.basis.activityFactor).toBeLessThan(lots.basis.activityFactor);
-    expect(idle.kcal).toBeLessThan(lots.kcal);
+    expect(idle.basis.tdee).toBeLessThan(lots.basis.tdee);
+  });
+
+  it("does not let training move the goal itself", () => {
+    // The old behaviour, deliberately removed. Sessions ageing out of a
+    // trailing window took the target from 2,294 to 2,002 overnight and
+    // rewrote how every earlier day had scored. Maintenance may move; the
+    // number you are trying to hit may not.
+    const targets = [0, 4, 7, 12, 20, 28].map((sessionsLast28) =>
+      computeTargets({ ...OWNER, sessionsLast28 }).kcal,
+    );
+    expect(new Set(targets).size).toBe(1);
+    expect(targets[0]).toBe(DAILY_KCAL_TARGET);
+  });
+
+  it("takes an explicit goal when one is set", () => {
+    expect(computeTargets({ ...OWNER, dailyKcalTarget: 2000 }).kcal).toBe(2000);
   });
 
   it("keeps the macros summing to the calorie target", () => {
@@ -61,13 +77,13 @@ describe("computeTargets", () => {
     }
   });
 
-  it("holds protein steady as the deficit deepens — protein first, literally", () => {
-    const active = computeTargets({ ...OWNER, sessionsLast28: 20 });
-    const idle = computeTargets({ ...OWNER, sessionsLast28: 0 });
-    expect(idle.kcal).toBeLessThan(active.kcal);
+  it("holds protein steady as the goal tightens — protein first, literally", () => {
+    const generous = computeTargets({ ...OWNER, dailyKcalTarget: 2600 });
+    const tight = computeTargets({ ...OWNER, dailyKcalTarget: 2000 });
+    expect(tight.kcal).toBeLessThan(generous.kcal);
     // Fewer calories, same protein: the cut comes out of carbs and fat.
-    expect(idle.protein_g).toBe(active.protein_g);
-    expect(idle.carbs_g).toBeLessThan(active.carbs_g);
+    expect(tight.protein_g).toBe(generous.protein_g);
+    expect(tight.carbs_g).toBeLessThan(generous.carbs_g);
   });
 
   it("anchors the fat floor to goal weight, so it does not fall as you do", () => {

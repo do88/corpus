@@ -89,7 +89,7 @@ describe("adviseMeal", () => {
     const body = JSON.parse(String((request.mock.calls[0] as [string, RequestInit])[1].body));
     const prompt = body.contents[0].parts[0].text;
     // The gap is what the answer turns on, so it has to be in the prompt.
-    expect(prompt).toContain("1211 of 2294 kcal");
+    expect(prompt).toContain("1211 of 2300 kcal");
     expect(prompt).toContain("95 short");
     expect(prompt).toContain("20:15");
     expect(body.generationConfig.responseJsonSchema.required).toContain("pick");
@@ -131,7 +131,7 @@ describe("adviseMeal", () => {
     // so a mid-conversation set of numbers can never go stale.
     expect(body.contents[0].parts[0].text).toBe(OPTIONS);
     expect(body.contents[0].parts[0].text).not.toContain("kcal");
-    expect(body.contents[2].parts[0].text).toContain("1211 of 2294 kcal");
+    expect(body.contents[2].parts[0].text).toContain("1211 of 2300 kcal");
     expect(body.contents[2].parts[0].text).toContain("They now say");
   });
 
