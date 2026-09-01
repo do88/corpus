@@ -21,7 +21,6 @@ import { retryStalePending } from "@/lib/meals/retry";
 import { MealLogger } from "./meal-logger";
 import { UsualFoods } from "./usual-foods";
 import type { SavedFoodRow } from "@/lib/meals/saved";
-import { allowanceFor, type Rollover } from "@/lib/meals/rollover";
 import { MealEntry } from "./meal-entry";
 import { DayPicker } from "./day-picker";
 
@@ -41,7 +40,6 @@ export function Today({
   earliest,
   targets,
   usual,
-  rollover,
 }: {
   initialMeals: MealRow[];
   day: string;
@@ -53,8 +51,6 @@ export function Today({
   targets: DailyTargets;
   /** The handful of saved foods eaten most, for the one-tap row. */
   usual: SavedFoodRow[];
-  /** Calories left unspent earlier this week. */
-  rollover: Rollover;
 }) {
   const [meals, setMeals] = useState(initialMeals);
 
@@ -286,7 +282,7 @@ export function Today({
   return (
     <div className="mt-5 space-y-5">
       <DayPicker day={day} today={today} logged={logged} earliest={earliest} />
-      <Totals totals={totals} queued={queued.length} targets={targets} rollover={rollover} />
+      <Totals totals={totals} queued={queued.length} targets={targets} />
       {/* Logging always applies to now, so it only shows on today. Offering it
           on a past day would imply back-dating, which the 04:00 rule already
           decides and the composer has no way to override. */}
@@ -338,13 +334,10 @@ function Totals({
   totals,
   queued,
   targets,
-  rollover,
 }: {
   totals: ReturnType<typeof totalsForDay>;
   queued: number;
   targets: DailyTargets;
-  /** Unspent calories from earlier in the week. */
-  rollover: Rollover;
 }) {
   const inFlight = queued > 0 || totals.pending > 0 || totals.failed > 0;
 
@@ -353,28 +346,13 @@ function Totals({
       {/* Two-up on a phone, four-across once there is room — the four are one
           set and only split into rows because a phone cannot hold them. */}
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {/*
-          Calories count against the allowance, not the flat goal — and the
-          caption says so. A bare "/ 2,800" on a day whose goal is 2,300 is a
-          number with no explanation, and the first thing you would do is
-          wonder whether the target had moved again.
-
-          Only calories roll over. Protein is a floor rather than a ceiling, so
-          "banking" it would mean carrying forward a shortfall as though it
-          were credit, and the other two are whatever is left of the day.
-        */}
         <MetricCard
           label="Calories"
           icon={<Flame className="size-4" />}
           value={totals.kcal}
-          target={allowanceFor(targets.kcal, rollover)}
+          target={targets.kcal}
           unit="kcal"
           metric="energy"
-          caption={
-            rollover.banked > 0
-              ? `/ ${targets.kcal.toLocaleString("en-GB")} + ${rollover.banked.toLocaleString("en-GB")} spare`
-              : undefined
-          }
         />
         <MetricCard
           label="Protein"

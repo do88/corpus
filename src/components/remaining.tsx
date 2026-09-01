@@ -1,7 +1,6 @@
 import { Flame, Utensils } from "lucide-react";
 import type { DaySummary } from "@/lib/meals/summary";
 import type { DailyTargets } from "@/lib/meals/targets";
-import { allowanceFor, NO_ROLLOVER, type Rollover } from "@/lib/meals/rollover";
 
 /**
  * What is left of the day, in the two numbers the advice turns on.
@@ -22,21 +21,11 @@ import { allowanceFor, NO_ROLLOVER, type Rollover } from "@/lib/meals/rollover";
 export function Remaining({
   consumed,
   targets,
-  rollover = NO_ROLLOVER,
 }: {
   consumed: Pick<DaySummary, "kcal" | "protein_g">;
   targets: DailyTargets;
-  /**
-   * Unspent calories from earlier in the week.
-   *
-   * The advice turns entirely on the headroom, so this screen has to agree
-   * with Today about how much there is. Showing 400 left here while the home
-   * screen shows 900 would not read as two views of one day — it would read
-   * as one of them being broken, and the pick would be wrong besides.
-   */
-  rollover?: Rollover;
 }) {
-  const kcalLeft = Math.max(0, allowanceFor(targets.kcal, rollover) - consumed.kcal);
+  const kcalLeft = Math.max(0, targets.kcal - consumed.kcal);
   const proteinShort = Math.max(0, targets.protein_g - consumed.protein_g);
 
   return (
@@ -50,17 +39,7 @@ export function Remaining({
           metric="energy"
           value={kcalLeft}
           unit="kcal"
-          // The denominator has to be the same ceiling the numerator was
-          // measured against. "2,800 of 2,300" is not a rounding quibble, it
-          // is a sentence that cannot be true, and it invites exactly the
-          // question the fixed goal was meant to stop being asked.
-          note={
-            kcalLeft === 0
-              ? "at your ceiling"
-              : rollover.banked > 0
-                ? `of ${targets.kcal.toLocaleString("en-GB")} + ${rollover.banked.toLocaleString("en-GB")} spare`
-                : `of ${targets.kcal.toLocaleString("en-GB")}`
-          }
+          note={kcalLeft === 0 ? "at your ceiling" : `of ${targets.kcal.toLocaleString("en-GB")}`}
         />
         <Figure
           icon={<Utensils className="size-4" />}
