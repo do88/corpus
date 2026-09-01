@@ -62,6 +62,10 @@ const REQUIRED = {
   "--time-morning": { need: 3, on: ["ground"] },
   "--time-afternoon": { need: 3, on: ["ground"] },
   "--time-evening": { need: 3, on: ["ground"] },
+  // Used for the over-target ring and its figure, which is type on a card and
+  // therefore held to the type threshold rather than the graphic one — the
+  // stricter of the two covers both uses.
+  "--destructive": { need: 4.5, on: ["card"] },
   "--rule": { need: 1.5, on: ["card"] },
   "--border": { need: 1.5, on: ["card"] },
   "--input": { need: 1.5, on: ["card"] },

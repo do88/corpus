@@ -353,6 +353,9 @@ function Totals({
           target={targets.kcal}
           unit="kcal"
           metric="energy"
+          // The only ceiling on this row. See the prop's own note for why the
+          // other three are left alone when they go past their targets.
+          overIsProblem
         />
         <MetricCard
           label="Protein"

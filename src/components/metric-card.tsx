@@ -22,6 +22,7 @@ export function MetricCard({
   unit,
   metric,
   caption,
+  overIsProblem = false,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -32,9 +33,21 @@ export function MetricCard({
   metric: "energy" | "protein" | "water" | "weight";
   /** Overrides the "/ target" line — used where a target is not a ceiling. */
   caption?: string;
+  /**
+   * Whether going past this target is a bad thing.
+   *
+   * Only true for calories, and the asymmetry is the point. Protein is a floor
+   * — 130% of it is the day that went well — and fat's target is a health
+   * minimum rather than a limit, while carbs are simply whatever the calorie
+   * budget had left. Colouring all four red past 100% would call a good
+   * protein day a failure, which is the opposite of what this app is for.
+   */
+  overIsProblem?: boolean;
 }) {
   const accent = `var(--accent-${metric})`;
   const ink = `var(--ink-${metric})`;
+  const over = target > 0 && value > target;
+  const alarmed = over && overIsProblem;
 
   return (
     <div className="surface p-4.5">
@@ -58,7 +71,14 @@ export function MetricCard({
           </span>
           <span className="text-[1rem] font-semibold tracking-[-0.01em]">{label}</span>
         </div>
-        <Ring value={value} target={target} colour={accent} size={52} width={5} />
+        <Ring
+          value={value}
+          target={target}
+          colour={accent}
+          overColour={overIsProblem ? "var(--destructive)" : undefined}
+          size={52}
+          width={5}
+        />
       </div>
 
       {/* Wraps for the same reason the header does: at 320px "1,582" and "kcal"
@@ -70,8 +90,19 @@ export function MetricCard({
         </span>
         <span className="text-xs font-medium text-muted-foreground">{unit}</span>
       </div>
-      <div className="mt-1 truncate text-xs text-muted-foreground tabular-nums">
-        {caption ?? `/ ${target.toLocaleString("en-GB")}`}
+      {/*
+        How far over, in the unit rather than only as a percentage. "101%" is
+        a shape; "20 over" is the number you would act on, and on a ceiling the
+        amount is the whole question.
+      */}
+      <div
+        className="mt-1 truncate text-xs tabular-nums"
+        style={{ color: alarmed ? "var(--destructive)" : "var(--muted-foreground)" }}
+      >
+        {caption ??
+          (alarmed
+            ? `${(value - target).toLocaleString("en-GB")} over ${target.toLocaleString("en-GB")}`
+            : `/ ${target.toLocaleString("en-GB")}`)}
       </div>
     </div>
   );
