@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect } from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { parseDay, toDay } from "@/lib/time";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { weekOf } from "@/lib/meals/repository";
 
 /**
@@ -43,6 +44,7 @@ export function DayPicker({
   today,
   logged,
   earliest,
+  onPending,
 }: {
   day: string;
   today: string;
@@ -54,6 +56,16 @@ export function DayPicker({
    * log, where only today exists.
    */
   earliest: string | null;
+  /**
+   * Told when a day is on its way, and when it has arrived or been abandoned.
+   *
+   * Changing the day changes only the search param, and `loading.tsx` answers
+   * route changes, not those — so a tap on a disc produced nothing at all
+   * until the new day's HTML landed. The disc itself now shows the wait (see
+   * `DayDisc`); this lets the screen that owns the figures below dim them
+   * too, so the whole page reads as "changing" rather than "stuck".
+   */
+  onPending?: (pending: boolean) => void;
 }) {
   const week = weekOf(day);
 
@@ -87,7 +99,7 @@ export function DayPicker({
           aria-label="Previous week"
           className={`${ARROW} text-muted-foreground`}
         >
-          <ChevronLeft className="size-4" />
+          <ArrowIcon icon={ChevronLeft} onPending={onPending} />
         </Link>
       )}
 
@@ -105,32 +117,13 @@ export function DayPicker({
           const hasLog = Boolean(logged[date]);
 
           const label = (
-            <>
-              <span className="text-[0.8125rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                {format(parseDay(date), "EEEEE")}
-              </span>
-
-              <span
-                className="grid size-9 place-items-center rounded-full text-[1rem] font-semibold tabular-nums transition-colors"
-                style={
-                  selected
-                    ? {
-                        background:
-                          "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
-                        color: "oklch(0.99 0 0)",
-                        boxShadow:
-                          "0 2px 6px color-mix(in oklch, var(--ink-protein) 40%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
-                      }
-                    : hasLog
-                      ? { background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)", color: "var(--ink-protein)" }
-                      : isToday
-                        ? { boxShadow: "inset 0 0 0 1.5px var(--rule)" }
-                        : undefined
-                }
-              >
-                {Number(date.slice(8))}
-              </span>
-            </>
+            <DayDisc
+              date={date}
+              selected={selected}
+              hasLog={hasLog}
+              isToday={isToday}
+              onPending={onPending}
+            />
           );
 
           const shared = "tappable flex flex-col items-center gap-1 py-0.5";
@@ -180,11 +173,100 @@ export function DayPicker({
           aria-label="Next week"
           className={`${ARROW} text-muted-foreground`}
         >
-          <ChevronRight className="size-4" />
+          <ArrowIcon icon={ChevronRight} onPending={onPending} />
         </Link>
       )}
     </div>
   );
+}
+
+/**
+ * One day of the strip: the weekday letter and the numbered disc.
+ *
+ * Reads the link's own status, which is the only honest signal there is for
+ * a search-param navigation. While the tap is in flight the disc takes the
+ * selected look early and pulses, so the thing you pressed is the thing that
+ * answers — the same acknowledgement a tab gives, in the same place your
+ * thumb already is. Held back 150ms like the tab mark, so a prefetched day
+ * that lands in a few frames never flashes it.
+ *
+ * Outside a `<Link>` (the disabled days) `useLinkStatus` reports not pending,
+ * so the same component serves both.
+ */
+function DayDisc({
+  date,
+  selected,
+  hasLog,
+  isToday,
+  onPending,
+}: {
+  date: string;
+  selected: boolean;
+  hasLog: boolean;
+  isToday: boolean;
+  onPending?: (pending: boolean) => void;
+}) {
+  const { pending } = useLinkStatus();
+  useReportPending(pending, onPending);
+
+  const lit = selected || pending;
+  return (
+    <>
+      <span className="text-[0.8125rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+        {format(parseDay(date), "EEEEE")}
+      </span>
+
+      <span
+        className="grid size-9 place-items-center rounded-full text-[1rem] font-semibold tabular-nums transition-colors"
+        style={
+          lit
+            ? {
+                background:
+                  "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
+                color: "oklch(0.99 0 0)",
+                boxShadow:
+                  "0 2px 6px color-mix(in oklch, var(--ink-protein) 40%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
+                ...(pending && !selected
+                  ? { animation: "tab-pending 900ms ease-in-out 150ms infinite", opacity: 0.85 }
+                  : {}),
+              }
+            : hasLog
+              ? { background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)", color: "var(--ink-protein)" }
+              : isToday
+                ? { boxShadow: "inset 0 0 0 1.5px var(--rule)" }
+                : undefined
+        }
+      >
+        {Number(date.slice(8))}
+      </span>
+    </>
+  );
+}
+
+/** A week arrow that becomes a spinner while its navigation is in flight. */
+function ArrowIcon({
+  icon: Icon,
+  onPending,
+}: {
+  icon: typeof ChevronLeft;
+  onPending?: (pending: boolean) => void;
+}) {
+  const { pending } = useLinkStatus();
+  useReportPending(pending, onPending);
+  return pending ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />;
+}
+
+/**
+ * Tell the parent while this link is pending, and take it back when it is
+ * not — including when the link unmounts mid-flight, which is what happens
+ * to a week arrow once the next week's strip replaces this one.
+ */
+function useReportPending(pending: boolean, onPending?: (pending: boolean) => void) {
+  useEffect(() => {
+    if (!pending) return;
+    onPending?.(true);
+    return () => onPending?.(false);
+  }, [pending, onPending]);
 }
 
 /** Today is the bare route; any other day carries it in the URL. */

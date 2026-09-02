@@ -54,6 +54,11 @@ export function Today({
 
   // The server re-renders on every date change, so the list has to follow the
   // props rather than keep the day it first mounted with.
+  // A day is on its way. Driven entirely by the picker's links reporting
+  // their own status, so it can never be left on: the link that turned it on
+  // turns it off, including by unmounting.
+  const [switching, setSwitching] = useState(false);
+
   const [shownDay, setShownDay] = useState(day);
   if (shownDay !== day) {
     setShownDay(day);
@@ -299,7 +304,29 @@ export function Today({
 
   return (
     <div className="mt-5 space-y-5">
-      <DayPicker day={day} today={today} logged={logged} earliest={earliest} />
+      <DayPicker
+        day={day}
+        today={today}
+        logged={logged}
+        earliest={earliest}
+        onPending={setSwitching}
+      />
+      {/*
+        The figures and the list step back while a different day is loading.
+        Not a skeleton: the old day's numbers dimmed say "this is changing"
+        without the layout jumping to placeholders and back. Delayed to match
+        the disc, so a prefetched day that arrives in a few frames never
+        flickers it.
+      */}
+      <div
+        aria-busy={switching || undefined}
+        className="space-y-5 transition-opacity duration-200"
+        style={
+          switching
+            ? { opacity: 0.45, pointerEvents: "none", transitionDelay: "150ms" }
+            : { transitionDelay: "0ms" }
+        }
+      >
       <Totals totals={totals} queued={queued.length} targets={targets} />
       {/* Logging always applies to now, so it only shows on today. Offering it
           on a past day would imply back-dating, which the 04:00 rule already
@@ -317,6 +344,7 @@ export function Today({
         onChanged={upsert}
         onRemoved={(id) => setMeals((c) => c.filter((m) => m.id !== id))}
       />
+      </div>
     </div>
   );
 }
