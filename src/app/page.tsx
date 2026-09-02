@@ -5,7 +5,6 @@ import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
-import { listSavedFoods } from "@/lib/meals/saved";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
@@ -34,10 +33,9 @@ export default async function Home({
 
   // One query covers the day being shown and the dots on the week strip.
   const week = weekOf(day);
-  const [meals, targets, saved] = await Promise.all([
+  const [meals, targets] = await Promise.all([
     listMealsInRange(supabase, week[0], week[6]),
     loadTargets(supabase),
-    listSavedFoods(supabase),
   ]);
 
   const onScreen = meals.filter((m) => m.local_date === day);
@@ -91,9 +89,6 @@ export default async function Home({
         logged={kcalByDay(meals)}
         earliest={earliest}
         targets={targets}
-        // Six is about what fits before the row stops being a glance and
-        // starts being a list; the rest are a tap away on /foods.
-        usual={saved.slice(0, 6)}
       />
     </Screen>
   );

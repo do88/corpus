@@ -147,13 +147,12 @@ export function MealEntry({
         </div>
 
         {/*
-          Collapsed only. The editor below prints the same sentence in full,
-          and showing both put a truncated copy directly above the complete
-          one — the same text twice, the first cut off mid-word.
+          No assumptions sentence here. It used to run under every card, cut
+          off at one line — "Assumed standard UK nutrition for a single 20g
+          packet of…" — which is a lot of grey text to say very little at a
+          glance, and the one time it matters (a number looks wrong) you open
+          the card anyway, where the editor prints it in full.
         */}
-        {!editing && !meal.edited && meal.assumptions && meal.status === "analyzed" && (
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{meal.assumptions}</p>
-        )}
         {meal.error && (
           <p className="mt-1 line-clamp-2 text-xs text-destructive">{meal.error}</p>
         )}

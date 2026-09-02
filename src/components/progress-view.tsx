@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Flame, Utensils } from "lucide-react";
+import { Droplet, Flame, Utensils, Wheat } from "lucide-react";
+import { MetricCard } from "@/components/metric-card";
 import type { DailyTargets } from "@/lib/meals/targets";
 import type { PeriodSummary } from "@/lib/meals/summary";
 import { BarsChart } from "@/components/charts-lazy";
@@ -75,107 +76,80 @@ export function ProgressView({
         })}
       </div>
 
-      <div className="surface p-5">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-[1rem] font-semibold tracking-[-0.01em]">{label}</h2>
-          {/*
-            Coverage sits beside the averages and is never folded into them. A
-            day you did not open the app is not a day you ate nothing, so it is
-            excluded from the mean — which makes saying how many days the mean
-            covers part of reporting it honestly, not a footnote.
-          */}
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {summary.loggedDays} of {summary.totalDays} days · {coverage}%
-          </span>
-        </div>
+      {/*
+        The same four cards as Today, showing averages instead of a day.
 
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <Average
-            icon={<Flame className="size-4" />}
-            label="Calories a day"
-            value={summary.average.kcal}
-            target={targets.kcal}
-            unit="kcal"
-            metric="energy"
-            hint={`${summary.onTarget.kcal}/${summary.loggedDays} under target`}
-          />
-          <Average
-            icon={<Utensils className="size-4" />}
-            label="Protein a day"
-            value={summary.average.protein_g}
-            target={targets.protein_g}
-            unit="g"
-            metric="protein"
-            hint={`${summary.onTarget.protein}/${summary.loggedDays} hit target`}
-          />
-        </div>
+        They were a bespoke block: two big figures each followed by a signed
+        delta ("−120 vs 2,300") and a hit-rate ("5/7 under target"), then two
+        small ones with their targets in a caption. Four different ways of
+        relating a number to its target on one card, and reading it meant
+        parsing a minus sign, a fraction and a slash in turn. The ring already
+        does that job on the home screen, and the eye already knows it — so
+        the average is drawn against its target the same way, in the same
+        place on the card, in the same colour, and the hit-rate takes the
+        caption. Consistent is scannable; nobody has to learn a second
+        notation for the same four numbers.
+      */}
+      <div className="flex items-baseline justify-between gap-3 px-1">
+        <h2 className="text-[1rem] font-semibold tracking-[-0.01em]">{label}</h2>
+        {/*
+          Coverage sits beside the averages and is never folded into them. A
+          day you did not open the app is not a day you ate nothing, so it is
+          excluded from the mean — which makes saying how many days the mean
+          covers part of reporting it honestly, not a footnote.
+        */}
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {summary.loggedDays} of {summary.totalDays} days · {coverage}%
+        </span>
+      </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[var(--rule)] pt-4">
-          <Small label="Carbs a day" value={summary.average.carbs_g} target={targets.carbs_g} />
-          <Small label="Fat a day" value={summary.average.fat_g} target={targets.fat_g} />
-        </div>
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <MetricCard
+          label="Calories"
+          icon={<Flame className="size-4" />}
+          value={summary.average.kcal}
+          target={targets.kcal}
+          unit="kcal"
+          metric="energy"
+          overIsProblem
+          caption={
+            summary.loggedDays > 0
+              ? `/ ${targets.kcal.toLocaleString("en-GB")} · ${summary.onTarget.kcal} of ${summary.loggedDays} days under`
+              : undefined
+          }
+        />
+        <MetricCard
+          label="Protein"
+          icon={<Utensils className="size-4" />}
+          value={summary.average.protein_g}
+          target={targets.protein_g}
+          unit="g"
+          metric="protein"
+          caption={
+            summary.loggedDays > 0
+              ? `/ ${targets.protein_g} · ${summary.onTarget.protein} of ${summary.loggedDays} days hit`
+              : undefined
+          }
+        />
+        <MetricCard
+          label="Carbs"
+          icon={<Wheat className="size-4" />}
+          value={summary.average.carbs_g}
+          target={targets.carbs_g}
+          unit="g"
+          metric="water"
+        />
+        <MetricCard
+          label="Fat"
+          icon={<Droplet className="size-4" />}
+          value={summary.average.fat_g}
+          target={targets.fat_g}
+          unit="g"
+          metric="weight"
+        />
       </div>
 
       <DailyBars summary={summary} targets={targets} />
-    </div>
-  );
-}
-
-function Average({
-  icon,
-  label,
-  value,
-  target,
-  unit,
-  metric,
-  hint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  target: number;
-  unit: string;
-  metric: "energy" | "protein";
-  hint: string;
-}) {
-  const delta = value - target;
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <span style={{ color: `var(--ink-${metric})` }} aria-hidden className="flex">
-          {icon}
-        </span>
-        <span className="text-xs text-muted-foreground">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-[1.75rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
-          {value.toLocaleString("en-GB")}
-        </span>
-        <span className="text-xs font-medium text-muted-foreground">{unit}</span>
-      </div>
-      <div className="mt-1 text-xs tabular-nums text-muted-foreground">
-        {/* Signed against target, because "2,180" alone makes you do the
-            subtraction every time you look at it. */}
-        {delta >= 0 ? "+" : "−"}
-        {Math.abs(delta).toLocaleString("en-GB")} vs {target.toLocaleString("en-GB")}
-      </div>
-      <div className="mt-0.5 text-xs tabular-nums" style={{ color: `var(--ink-${metric})` }}>
-        {hint}
-      </div>
-    </div>
-  );
-}
-
-function Small({ label, value, target }: { label: string; value: number; target: number }) {
-  return (
-    <div>
-      <div className="text-[1.125rem] font-semibold tabular-nums">
-        {value.toLocaleString("en-GB")}
-        <span className="ml-0.5 text-xs font-medium text-muted-foreground">g</span>
-      </div>
-      <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-        {label} · target {target}
-      </div>
     </div>
   );
 }

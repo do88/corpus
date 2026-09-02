@@ -101,24 +101,39 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
         className="sr-only"
       />
 
+      {/*
+        One photo, shown as a photo.
+
+        It was a 72px square floated at the left of the card, which read as a
+        stray avatar — small enough to look like it had been left behind rather
+        than attached. A landscape strip the width of the field says "this is
+        the picture of the meal" without needing a label, and it sits in the
+        same column as everything else rather than beside it.
+
+        One only, deliberately. The estimator takes a single image, so a second
+        pick silently replaced the first; the button is disabled while one is
+        attached and the × is the way to change it, which is at least honest
+        about what will happen.
+      */}
       {preview && (
-        <div className="relative inline-block">
+        <div className="relative">
           <Image
             src={preview}
             alt="Attached photo"
-            width={72}
-            height={72}
+            width={640}
+            height={360}
             unoptimized
-            className="size-18 rounded-2xl object-cover shadow-[var(--shadow-card)]"
+            className="h-36 w-full object-cover shadow-[var(--shadow-card)]"
+            style={{ borderRadius: 16 }}
           />
           <Button
             size="icon"
             variant="secondary"
             onClick={clearPhoto}
             aria-label="Remove photo"
-            className="absolute -right-2 -top-2 size-6 rounded-full shadow-sm"
+            className="absolute right-2 top-2 size-8 rounded-full shadow-sm"
           >
-            <X className="size-3" />
+            <X className="size-3.5" />
           </Button>
         </div>
       )}
@@ -169,10 +184,11 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           <Button
             variant="outline"
             onClick={() => fileInput.current?.click()}
+            disabled={busy || Boolean(photo)}
             className="tappable flex-1 rounded-full"
           >
             <Camera className="size-4" />
-            Photo
+            {photo ? "Photo added" : "Photo"}
           </Button>
 
           <Button

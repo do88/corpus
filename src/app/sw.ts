@@ -63,19 +63,28 @@ const serwist = new Serwist({
     },
     {
       /*
-       * Navigations and their RSC payloads, with a timeout.
+       * Navigations and their RSC payloads: the network, with the last copy
+       * seen as a fallback.
        *
        * `defaultCache`'s page entries are NetworkFirst with no
-       * `networkTimeoutSeconds` — only its API and cross-origin entries set
-       * one. Without it, "network first" means waiting out the browser's own
-       * connection timeout before falling back to a shell that is already on
-       * disk, which is tens of seconds of blank screen on a phone that has
-       * signal but no throughput.
+       * `networkTimeoutSeconds`, so "network first" meant waiting out the
+       * browser's own connection timeout before falling back — tens of seconds
+       * of blank screen on a phone with signal but no throughput. A bound is
+       * needed. The question is how tight.
        *
-       * That is the exact failure `navigationPreload: false` was turned off to
-       * avoid, so leaving it unbounded undid the reasoning below. Three seconds
-       * is longer than a working connection needs and far shorter than a broken
-       * one takes to admit it.
+       * It was three seconds, argued as "longer than a working connection
+       * needs". That was measured from a laptop on wifi against a warm edge,
+       * and it is not what a phone cold-opening a home-screen app sees: the
+       * radio waking, TLS, and a Netlify function that has to start before it
+       * can render the authenticated page. The result was a PWA that opened
+       * on yesterday — the cache won the race, and a document rendered before
+       * midnight was served as this morning.
+       *
+       * Ten seconds. On a working connection the network still answers first,
+       * every time; the cache is now genuinely a fallback for no signal rather
+       * than a shortcut taken on a slow one. The page itself also checks the
+       * date on open and re-renders if it is stale (see `Today`), so even a
+       * cached copy that does get served corrects itself.
        */
       matcher: ({ request, url, sameOrigin }) =>
         sameOrigin &&
@@ -83,7 +92,7 @@ const serwist = new Serwist({
         !url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({
         cacheName: "pages",
-        networkTimeoutSeconds: 3,
+        networkTimeoutSeconds: 10,
       }),
     },
     ...defaultCache,

@@ -5,7 +5,9 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CloudUpload, Droplet, Flame, Utensils, Wheat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/metric-card";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { localDay } from "@/lib/time";
 import { formatTime, mealBand } from "@/lib/meal/format";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { listMealsInRange, totalsForDay, type MealRow } from "@/lib/meals/repository";
@@ -19,8 +21,6 @@ import {
 import { flushOutbox } from "@/lib/outbox/sync";
 import { retryStalePending } from "@/lib/meals/retry";
 import { MealLogger } from "./meal-logger";
-import { UsualFoods } from "./usual-foods";
-import type { SavedFoodRow } from "@/lib/meals/saved";
 import { MealEntry } from "./meal-entry";
 import { DayPicker } from "./day-picker";
 
@@ -39,7 +39,6 @@ export function Today({
   logged,
   earliest,
   targets,
-  usual,
 }: {
   initialMeals: MealRow[];
   day: string;
@@ -49,9 +48,8 @@ export function Today({
   earliest: string | null;
   /** Computed server-side from the latest weigh-in — see lib/meals/targets.ts. */
   targets: DailyTargets;
-  /** The handful of saved foods eaten most, for the one-tap row. */
-  usual: SavedFoodRow[];
 }) {
+  const router = useRouter();
   const [meals, setMeals] = useState(initialMeals);
 
   // The server re-renders on every date change, so the list has to follow the
@@ -85,6 +83,26 @@ export function Today({
 
   /** Send whatever is waiting, re-read the day, and nudge anything stuck. */
   const sync = useCallback(async () => {
+    /*
+      First: is this page still about today?
+
+      A PWA left open overnight comes back in the morning exactly as it was
+      left — same date in the header, same day's meals — because nothing about
+      resuming a page changes what was rendered into it. The re-read below
+      would then faithfully fetch the meals for *yesterday*, since that is the
+      day the page believes in. The same happens when the service worker
+      answers a cold open from its cache and the cached copy is from before
+      midnight.
+
+      So the first check is against the clock, not the database. If the day
+      the server rendered is no longer the day it is, the whole page is stale
+      and is re-rendered from the server rather than patched.
+    */
+    if (localDay() !== today) {
+      router.refresh();
+      return;
+    }
+
     await flushOutbox();
     await refresh();
 
@@ -124,7 +142,7 @@ export function Today({
     // until the hourly sweep. Opening the app is the moment you would notice,
     // so it is also the moment to retry.
     await retryStalePending(supabase, session.access_token, day);
-  }, [day]);
+  }, [day, today, router]);
 
   // Three triggers, because none is reliable alone. Background Sync (in the
   // service worker) doesn't fire in every state; these two are a few lines and
@@ -287,22 +305,11 @@ export function Today({
           on a past day would imply back-dating, which the 04:00 rule already
           decides and the composer has no way to override. */}
       {isToday && (
-        <div>
-          <MealLogger
-            onQueued={() => {
-              void sync();
-            }}
-          />
-          {/* Under the composer rather than above it: typing is still the main
-              way in, and a row of shortcuts above the box would push it down
-              the screen for the days you are not having your usual. */}
-          <UsualFoods
-            foods={usual}
-            onQueued={() => {
-              void sync();
-            }}
-          />
-        </div>
+        <MealLogger
+          onQueued={() => {
+            void sync();
+          }}
+        />
       )}
       <MealList
         meals={meals}

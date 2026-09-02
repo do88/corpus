@@ -80,15 +80,18 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
     <div className="mt-5 space-y-3">
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
+        {/* Button height, not the 32px the base input ships with: it sits
+            alone on a row and read as a slot rather than a control, and the
+            app's floor for anything tappable is 44px anyway. */}
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="search your foods…"
           aria-label="Search your saved foods"
-          className="pl-9"
+          className="h-11 rounded-2xl pl-10"
         />
       </div>
 
