@@ -97,22 +97,31 @@ export function MealEntry({
             <span className="block text-[1rem] font-medium leading-snug">{summary}</span>
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-3">
+          /*
+            Two layouts for the calories, by width.
+
+            On a desktop card the figure sits on the right and every card's
+            number lines up in a column you can run your eye down. On a phone
+            that same column cost the title two thirds of the card: "Aldi egg
+            fried microwave rice, Chicken thighs, Green beans, Red pepper"
+            wrapped to four lines beside a number that needed one. So below
+            `lg` the title has the whole width and the calories open the facts
+            line underneath, where the time and the protein already are.
+          */
+          <div className="flex items-start justify-between gap-3">
             <span className="min-w-0 text-[1rem] font-medium leading-snug">
               {summary}
             </span>
-            <span className="shrink-0 text-right">
-              {meal.status === "analyzed" ? (
-                <>
-                  <span className="text-[1.125rem] font-bold tabular-nums tracking-[-0.02em]">
-                    {meal.kcal?.toLocaleString("en-GB")}
-                  </span>
-                  <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
-                </>
-              ) : (
-                <Badge variant="destructive" className="rounded-full">failed</Badge>
-              )}
-            </span>
+            {meal.status === "analyzed" ? (
+              <span className="hidden shrink-0 text-right lg:block">
+                <span className="text-[1.125rem] font-bold tabular-nums tracking-[-0.02em]">
+                  {meal.kcal?.toLocaleString("en-GB")}
+                </span>
+                <span className="ml-1 text-xs font-medium text-muted-foreground">kcal</span>
+              </span>
+            ) : (
+              <Badge variant="destructive" className="shrink-0 rounded-full">failed</Badge>
+            )}
           </div>
         )}
 
@@ -123,7 +132,12 @@ export function MealEntry({
           sentence. The facts stay on the first line where they are scannable,
           and the model's prose gets a line of its own to be cut off on.
         */}
-        <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {meal.status === "analyzed" && (
+            <span className="shrink-0 font-semibold tabular-nums text-foreground lg:hidden">
+              {meal.kcal?.toLocaleString("en-GB")} kcal
+            </span>
+          )}
           {meal.confidence && meal.status === "analyzed" && !meal.edited && (
             <span
               aria-label={`${meal.confidence} confidence`}
