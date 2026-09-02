@@ -1,14 +1,17 @@
+import Image from "next/image";
+import Link from "next/link";
 import { Flame } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { isOwner } from "@/lib/auth/owner";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { avatarUrl, readProfile } from "@/lib/auth/profile";
 import { kcalByDay, listMealsInRange } from "@/lib/meals/repository";
 import { localDay, parseDay, toDay } from "@/lib/time";
 import { subDays } from "date-fns";
 
 /**
- * The two controls that belong to the app rather than to a screen.
+ * The controls that belong to the app rather than to a screen.
  *
  * They used to live inside each page's header, which meant they were part of
  * whatever the page was doing — including not existing yet. Every navigation
@@ -35,7 +38,16 @@ export async function HeaderControls() {
   const { data } = await supabase.auth.getClaims();
   if (!isOwner(data?.claims.email)) return null;
 
-  const streak = await currentStreak(supabase);
+  // The claims carry the same metadata `getUser()` would: enough for a name
+  // and a picture without another round trip.
+  const profile = readProfile({
+    email: data?.claims.email,
+    user_metadata: data?.claims.user_metadata ?? {},
+  } as User);
+  const [streak, avatar] = await Promise.all([
+    currentStreak(supabase),
+    avatarUrl(supabase, profile),
+  ]);
 
   return (
     <div aria-hidden={false} className="pointer-events-none absolute inset-x-0 top-0 z-40">
@@ -54,6 +66,25 @@ export async function HeaderControls() {
             </div>
           )}
           <ThemeToggle />
+          {/*
+            Account, as your face. It was the sixth tab, and it is not a daily
+            destination — a display name and a sign-out do not belong beside
+            Today and the Advisor in the one bar every screen shares. Up here
+            it sits with the other app-level control and costs the bar
+            nothing, which at 320px was exactly what the bar could not spare.
+          */}
+          <Link
+            href="/account"
+            aria-label="Account"
+            className="surface tappable grid size-9 shrink-0 place-items-center overflow-hidden"
+            style={{ borderRadius: 999 }}
+          >
+            {avatar ? (
+              <Image src={avatar} alt="" width={36} height={36} unoptimized className="size-9 object-cover" />
+            ) : (
+              <span className="text-sm font-semibold">{profile.name.slice(0, 1).toUpperCase()}</span>
+            )}
+          </Link>
         </div>
       </div>
     </div>

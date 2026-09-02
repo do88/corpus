@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, ChartColumn, CircleUser, Dumbbell, House, Salad } from "lucide-react";
+import { Bookmark, ChartColumn, Dumbbell, House, Salad } from "lucide-react";
 import { Logomark } from "@/components/brand";
 import { TabPending } from "@/components/tab-pending";
 
@@ -35,7 +35,10 @@ const TABS = [
   { href: "/foods", label: "Foods", icon: Bookmark },
   { href: "/progress", label: "Progress", icon: ChartColumn },
   { href: "/training", label: "Training", icon: Dumbbell },
-  { href: "/account", label: "Account", icon: CircleUser },
+  // Account is not here. It lives behind the avatar in the header — see
+  // header-controls.tsx — which gives a phone bar five destinations instead
+  // of six, and at 320px that is the difference between labels with gaps
+  // between them and labels that touch.
 ] as const;
 
 export function TabBar() {

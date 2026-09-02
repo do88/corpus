@@ -71,12 +71,7 @@ export function TodaySkeleton() {
         ))}
       </div>
 
-      {/* Four metric cards, stacked on a phone exactly as the real ones are. */}
-      <div className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <CardSkeleton key={i} className="h-[168px] lg:h-[132px]" />
-        ))}
-      </div>
+      <MacroCardsSkeleton className="mt-5" />
 
       <CardSkeleton className="mt-3 h-13 w-full" />
       <CardSkeleton className="mt-2 h-11 w-full" />
@@ -100,7 +95,11 @@ export function ProgressSkeleton() {
       <HeaderSkeleton wide="w-44" />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-12 w-full" />
-        <CardSkeleton className="h-56 w-full" />
+        <div className="flex items-center justify-between px-1">
+          <Line w="w-44" h="h-4" />
+          <Line w="w-24" h="h-3" />
+        </div>
+        <MacroCardsSkeleton />
         <CardSkeleton className="h-60 w-full" />
       </div>
     </div>
@@ -137,9 +136,25 @@ export function AdvisorSkeleton() {
   return (
     <div aria-hidden>
       <HeaderSkeleton wide="w-40" />
-      <div className="mt-5 space-y-3">
-        <CardSkeleton className="h-32 w-full" />
-        <CardSkeleton className="h-40 w-full" />
+      <MacroCardsSkeleton className="mt-5" />
+      <div className="mt-5 space-y-2">
+        <CardSkeleton className="h-13 w-full" />
+        <CardSkeleton className="h-11 w-full" />
+      </div>
+    </div>
+  );
+}
+
+/** Two metric cards and the carbs/fat line, at the heights the real ones take. */
+function MacroCardsSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={className}>
+      <div className="grid grid-cols-2 gap-3.5">
+        <CardSkeleton className="h-[168px] lg:h-[132px]" />
+        <CardSkeleton className="h-[168px] lg:h-[132px]" />
+      </div>
+      <div className="mt-3 px-1">
+        <Line w="w-52" h="h-4" />
       </div>
     </div>
   );

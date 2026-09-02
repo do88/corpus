@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { Droplet, Flame, Utensils, Wheat } from "lucide-react";
-import { MetricCard } from "@/components/metric-card";
+import { MacroCards } from "@/components/macro-cards";
 import type { DailyTargets } from "@/lib/meals/targets";
 import type { PeriodSummary } from "@/lib/meals/summary";
 import { BarsChart } from "@/components/charts-lazy";
@@ -77,7 +76,7 @@ export function ProgressView({
       </div>
 
       {/*
-        The same four cards as Today, showing averages instead of a day.
+        The same cards as Today, showing averages instead of a day.
 
         They were a bespoke block: two big figures each followed by a signed
         delta ("−120 vs 2,300") and a hit-rate ("5/7 under target"), then two
@@ -103,51 +102,20 @@ export function ProgressView({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <MetricCard
-          label="Calories"
-          icon={<Flame className="size-4" />}
-          value={summary.average.kcal}
-          target={targets.kcal}
-          unit="kcal"
-          metric="energy"
-          overIsProblem
-          caption={
-            summary.loggedDays > 0
-              ? `/ ${targets.kcal.toLocaleString("en-GB")} · ${summary.onTarget.kcal} of ${summary.loggedDays} days under`
-              : undefined
-          }
-        />
-        <MetricCard
-          label="Protein"
-          icon={<Utensils className="size-4" />}
-          value={summary.average.protein_g}
-          target={targets.protein_g}
-          unit="g"
-          metric="protein"
-          caption={
-            summary.loggedDays > 0
-              ? `/ ${targets.protein_g} · ${summary.onTarget.protein} of ${summary.loggedDays} days hit`
-              : undefined
-          }
-        />
-        <MetricCard
-          label="Carbs"
-          icon={<Wheat className="size-4" />}
-          value={summary.average.carbs_g}
-          target={targets.carbs_g}
-          unit="g"
-          metric="water"
-        />
-        <MetricCard
-          label="Fat"
-          icon={<Droplet className="size-4" />}
-          value={summary.average.fat_g}
-          target={targets.fat_g}
-          unit="g"
-          metric="weight"
-        />
-      </div>
+      <MacroCards
+        values={summary.average}
+        targets={targets}
+        kcalCaption={
+          summary.loggedDays > 0
+            ? `/ ${targets.kcal.toLocaleString("en-GB")} · ${summary.onTarget.kcal} of ${summary.loggedDays} days under`
+            : undefined
+        }
+        proteinCaption={
+          summary.loggedDays > 0
+            ? `/ ${targets.protein_g} · ${summary.onTarget.protein} of ${summary.loggedDays} days hit`
+            : undefined
+        }
+      />
 
       <DailyBars summary={summary} targets={targets} />
     </div>

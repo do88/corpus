@@ -25,12 +25,6 @@ import { MACROS, type Macro } from "@/lib/meal/schema";
  */
 
 /** Confidence is the one thing colour is spent on. */
-const CONFIDENCE_MARK: Record<NonNullable<MealRow["confidence"]>, string> = {
-  low: "bg-destructive",
-  medium: "bg-accent-energy",
-  high: "bg-accent-protein",
-};
-
 export function MealEntry({
   meal,
   onChanged,
@@ -138,12 +132,6 @@ export function MealEntry({
               {meal.kcal?.toLocaleString("en-GB")} kcal
             </span>
           )}
-          {meal.confidence && meal.status === "analyzed" && !meal.edited && (
-            <span
-              aria-label={`${meal.confidence} confidence`}
-              className={`size-1.5 shrink-0 rounded-full ${CONFIDENCE_MARK[meal.confidence]}`}
-            />
-          )}
           <span className="shrink-0 tabular-nums">{formatTime(meal.logged_at)}</span>
           {meal.status === "analyzed" && meal.protein_g != null && (
             <span
@@ -152,6 +140,20 @@ export function MealEntry({
             >
               {meal.protein_g}g protein
             </span>
+          )}
+          {/*
+            The estimator's confidence, only when it is low.
+
+            It was a coloured dot on every card — red, amber, blue — which is a
+            key nobody was given. The only confidence that changes what you do
+            is the low one, so that is the only one that says anything, and it
+            says it in words. Hidden once you have corrected the meal, because
+            the model's guess is no longer the number on the card.
+          */}
+          {meal.status === "analyzed" && meal.confidence === "low" && !meal.edited && (
+            <Badge variant="outline" className="shrink-0 rounded-full">
+              rough guess
+            </Badge>
           )}
           {meal.edited && (
             <Badge variant="secondary" className="shrink-0 rounded-full">

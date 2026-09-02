@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { CloudUpload, Droplet, Flame, Utensils, Wheat } from "lucide-react";
+import { CloudUpload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { MetricCard } from "@/components/metric-card";
+import { MacroCards } from "@/components/macro-cards";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { localDay } from "@/lib/time";
@@ -378,45 +378,7 @@ function Totals({
 
   return (
     <div className="space-y-3">
-      {/* Two-up on a phone, four-across once there is room — the four are one
-          set and only split into rows because a phone cannot hold them. */}
-      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <MetricCard
-          label="Calories"
-          icon={<Flame className="size-4" />}
-          value={totals.kcal}
-          target={targets.kcal}
-          unit="kcal"
-          metric="energy"
-          // The only ceiling on this row. See the prop's own note for why the
-          // other three are left alone when they go past their targets.
-          overIsProblem
-        />
-        <MetricCard
-          label="Protein"
-          icon={<Utensils className="size-4" />}
-          value={totals.protein_g}
-          target={targets.protein_g}
-          unit="g"
-          metric="protein"
-        />
-        <MetricCard
-          label="Carbs"
-          icon={<Wheat className="size-4" />}
-          value={totals.carbs_g}
-          target={targets.carbs_g}
-          unit="g"
-          metric="water"
-        />
-        <MetricCard
-          label="Fat"
-          icon={<Droplet className="size-4" />}
-          value={totals.fat_g}
-          target={targets.fat_g}
-          unit="g"
-          metric="weight"
-        />
-      </div>
+      <MacroCards values={totals} targets={targets} />
 
       {inFlight && (
         <div className="flex flex-wrap items-center gap-2 px-1">
