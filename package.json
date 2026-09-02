@@ -13,6 +13,7 @@
     "db:up": "supabase migration up --local",
     "db:verify": "./scripts/verify-migrations.sh",
     "db:port": "node --disable-warning=ExperimentalWarning scripts/port-sqlite.mjs",
+    "port:garmin": "tsx scripts/port-garmin.mts",
     "db:gate": "tsx --env-file=.env.local scripts/verify-port.mts",
     "design:contrast": "node scripts/contrast.mjs",
     "test:recovery": "tsx --env-file=.env.local scripts/test-recovery.mts",
