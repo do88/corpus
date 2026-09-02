@@ -47,12 +47,25 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Nothing may run between creating the client and getUser(). Supabase is
-  // explicit about this: work in between is the documented cause of sessions
-  // dropping at random.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /*
+    `getClaims()`, not `getUser()`.
+
+    `getUser()` is a round trip to Supabase Auth, and this runs on every
+    request — so it was a network call in front of every page before a byte
+    of it could render, with a second one behind it in the header.
+    `getClaims()` verifies the access token's signature locally against the
+    project's published keys (this project signs with ES256, checked at its
+    JWKS endpoint), so the same guarantee costs a WebCrypto call instead of a
+    network one. It is Supabase's own guidance for exactly this position, and
+    were the project ever moved to symmetric keys it would fall back to
+    `getUser()` by itself rather than trust an unverified token.
+
+    Nothing may run between creating the client and this call. Supabase is
+    explicit about it: work in between is the documented cause of sessions
+    dropping at random.
+  */
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const path = request.nextUrl.pathname;
 

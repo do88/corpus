@@ -29,10 +29,11 @@ export async function HeaderControls() {
   // in. This renders from the root layout, which covers the sign-in screen
   // too — and that screen is deliberately one mark and one button.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!isOwner(user?.email)) return null;
+  // Verified locally from the token's signature rather than by asking the
+  // Auth server — see the note in proxy.ts. This renders on every page, and
+  // the proxy has already done the network-free check once.
+  const { data } = await supabase.auth.getClaims();
+  if (!isOwner(data?.claims.email)) return null;
 
   const streak = await currentStreak(supabase);
 

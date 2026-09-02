@@ -144,3 +144,18 @@ export function AdvisorSkeleton() {
     </div>
   );
 }
+
+/** Foods: the search field, then a short stack of cards. */
+export function FoodsSkeleton() {
+  return (
+    <>
+      <HeaderSkeleton wide="w-36" />
+      <div className="mt-5 space-y-3">
+        <CardSkeleton className="h-11" style={{ borderRadius: 999 }} />
+        <CardSkeleton className="h-28" />
+        <CardSkeleton className="h-28" />
+        <CardSkeleton className="h-28" />
+      </div>
+    </>
+  );
+}
