@@ -26,31 +26,38 @@ export function AppHeader({
 }) {
   return (
     <header className="px-1 pb-1 pt-2">
-      <div className="flex items-start justify-between gap-4">
+      {/*
+        The persistent controls — streak, theme, account — are drawn over this
+        row by the layout (see `header-controls.tsx`), so the title reserves
+        their full width: a streak pill, the theme toggle and the avatar come
+        to about 140px. Reserving less looked fine until a screen also had an
+        action, at which point "Today" was drawn on top of "Wednesday".
+      */}
+      <div className="flex items-start gap-4">
         <h1 className="min-w-0 text-[2.125rem] font-bold leading-tight tracking-[-0.03em]">
           {title}
         </h1>
-
-        {/*
-          The streak and the theme toggle used to sit here. They are in the
-          layout now — they belong to the app rather than to any one screen,
-          and living inside a page meant vanishing every time a page was
-          replaced by its skeleton. See `header-controls.tsx`.
-
-          The space they occupied is still reserved, so a long title wraps in
-          the same place whether or not the screen has an action of its own.
-        */}
-        <div className="flex h-9 shrink-0 items-center gap-2 pr-[5.5rem]">{action}</div>
+        <span aria-hidden className="h-9 w-[8.75rem] shrink-0" />
       </div>
 
       {/*
-        Below the row, not beside the badges. It used to share a column with
-        the title, which meant a caption competed for width with a streak chip
-        and a theme toggle it never sits next to — about 90px of a phone's
-        header, spent on nothing. Full width here, it says what it needs on
-        one line.
+        The caption and the screen's own action share the second row. The
+        action used to sit in the title row beside the persistent controls,
+        where it competed with the title for the width those controls leave —
+        on a phone, "Today" and "Wednesday" ended up in the same place. Down
+        here it sits at the end of "8 days ago", which is the sentence it
+        answers, with the whole width to itself.
       */}
-      {caption && <p className="mt-0.5 text-[1rem] text-muted-foreground">{caption}</p>}
+      {(caption || action) && (
+        <div className="mt-0.5 flex items-center justify-between gap-3">
+          {caption ? (
+            <p className="min-w-0 text-[1rem] text-muted-foreground">{caption}</p>
+          ) : (
+            <span />
+          )}
+          {action && <div className="flex shrink-0 items-center">{action}</div>}
+        </div>
+      )}
     </header>
   );
 }

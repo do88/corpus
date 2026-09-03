@@ -98,6 +98,9 @@ function Movement({ data }: { data: DashboardData }) {
         y="minutes"
         unit=" min"
         references={[{ value: 150, label: "150" }]}
+        // A heavy week reaches 350, and three digits at the default axis
+        // width lose their first one under the chart's negative margin.
+        yAxisWidth={52}
       />
     </Section>
   );

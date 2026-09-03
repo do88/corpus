@@ -57,7 +57,11 @@ export default async function Home({
             caption's own screen anyway.
           */
           <>
-            <span className="lg:hidden">{format(parseDay(day), "EEEE d")}</span>
+            {/* Under 400px the persistent controls leave about 180px, and
+                "Wednesday 26" wants 215. The abbreviated weekday still reads
+                as a day; a title on two lines does not read as a title. */}
+            <span className="min-[400px]:hidden">{format(parseDay(day), "EEE d")}</span>
+            <span className="hidden min-[400px]:inline lg:hidden">{format(parseDay(day), "EEEE d")}</span>
             <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
           </>
         }
@@ -73,7 +77,7 @@ export default async function Home({
           day !== today ? (
             <Link
               href="/"
-              className="tappable flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-medium"
+              className="tappable flex h-9 shrink-0 items-center rounded-full px-2 text-[1rem] font-medium"
               style={{ color: "var(--ink-protein)" }}
             >
               Today
