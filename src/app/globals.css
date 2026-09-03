@@ -204,8 +204,14 @@
 }
 
 :root {
-  /* iOS corner radii are larger than web instinct. 1.375rem = 22px on cards. */
-  --radius: 1.375rem;
+  /*
+    16px on cards. It was 22, on the reasoning that iOS corners are larger
+    than web instinct — true, but the shadcn Card multiplies the token by 1.4,
+    so the Body page was drawing 31px corners around 14px text, and the
+    content read as crammed into the middle of a pillow. Sixteen keeps the
+    softness and gives the corners back to the content.
+  */
+  --radius: 1rem;
 
   /* Cool grouped-table grey, the iOS settings ground. */
   --background: oklch(0.968 0.003 265);
