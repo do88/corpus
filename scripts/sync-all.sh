@@ -7,8 +7,14 @@
 #
 # The two downloads run at the same time — they talk to different services and
 # neither waits on the other — and the two loads run one after the other, since
-# both write to the same database. On a normal day this is a couple of minutes,
-# nearly all of it Garmin.
+# both write to the same database.
+#
+# Expect fifteen to twenty minutes, and know why: the Garmin *download* with
+# `--latest` is seconds, but GarminDB's import then walks every FIT file it has
+# ever fetched — fifteen thousand of them after a full history pull — before it
+# gets to the new ones. Measured at 14 minutes on this machine. It is CPU, not
+# network, and it is GarminDB's design rather than ours; the FIT files can be
+# thinned if it ever matters.
 #
 # What each half does:
 #
