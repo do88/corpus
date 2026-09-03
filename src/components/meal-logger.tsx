@@ -124,7 +124,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
             height={360}
             unoptimized
             className="h-36 w-full object-cover shadow-[var(--shadow-card)]"
-            style={{ borderRadius: 10 }}
+            style={{ borderRadius: 8 }}
           />
           <Button
             size="icon"
@@ -149,7 +149,7 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
         start, and the shape stays a card as it grows instead of a stretched
         pill.
       */}
-      <div className="surface p-2.5" style={{ borderRadius: 20 }}>
+      <div className="surface p-2.5" style={{ borderRadius: 16 }}>
         <PromptField
           value={note}
           onChange={setNote}

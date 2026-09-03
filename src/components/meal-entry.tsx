@@ -349,7 +349,7 @@ function Editor({
     <div
       className="mx-2 mb-2 space-y-3.5 p-4"
       style={{
-        borderRadius: 8,
+        borderRadius: 6,
         background: "color-mix(in oklch, var(--muted) 35%, transparent)",
       }}
     >

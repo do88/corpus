@@ -309,6 +309,7 @@ export function Today({
         today={today}
         logged={logged}
         earliest={earliest}
+        kcalTarget={targets.kcal}
         onPending={setSwitching}
       />
       {/*

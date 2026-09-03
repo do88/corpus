@@ -208,10 +208,10 @@
     16px on cards. It was 22, on the reasoning that iOS corners are larger
     than web instinct — true, but the shadcn Card multiplies the token by 1.4,
     so the Body page was drawing 31px corners around 14px text, and the
-    content read as crammed into the middle of a pillow. Sixteen keeps the
-    softness and gives the corners back to the content.
+    content read as crammed into the middle of a pillow. Twelve keeps a hint
+    of the softness and gives the corners back to the content.
   */
-  --radius: 1rem;
+  --radius: 0.75rem;
 
   /* Cool grouped-table grey, the iOS settings ground. */
   --background: oklch(0.968 0.003 265);

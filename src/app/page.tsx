@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
-import { differenceInCalendarDays, format } from "date-fns";
+import { Wordmark } from "@/components/brand";
+import { differenceInCalendarDays } from "date-fns";
 import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
@@ -49,21 +50,14 @@ export default async function Home({
       <AppHeader
         title={
           /*
-            The month is dropped on a phone. The badges leave the title about
-            204px on a 360px screen and "Thursday 27 August" wants 305 —
-            measured, after the first attempt wrapped it onto two lines of
-            34px type. The weekday is the half worth keeping: a food log is
-            read as "what did I have on Tuesday", and the month is on the
-            caption's own screen anyway.
+            The mark and the name, not the date. The date was the largest
+            thing on the screen and the least informative: the strip below
+            already shows which day is selected, in blue, with its neighbours
+            either side, and the caption says how far back it is. Thirty-four
+            point type spent restating that was the one thing on the page you
+            never needed to read.
           */
-          <>
-            {/* Under 400px the persistent controls leave about 180px, and
-                "Wednesday 26" wants 215. The abbreviated weekday still reads
-                as a day; a title on two lines does not read as a title. */}
-            <span className="min-[400px]:hidden">{format(parseDay(day), "EEE d")}</span>
-            <span className="hidden min-[400px]:inline lg:hidden">{format(parseDay(day), "EEEE d")}</span>
-            <span className="hidden lg:inline">{format(parseDay(day), "EEEE d MMMM")}</span>
-          </>
+          <Wordmark size={30} />
         }
         caption={caption(day, today, totalsForDay(onScreen), targets)}
         action={

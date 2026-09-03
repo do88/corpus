@@ -64,11 +64,15 @@ export function Logomark({
 
 /**
  * The mark beside the name, for places that need to say what the app is —
- * the sign-in screen, and anywhere outside the app's own chrome.
+ * the sign-in screen, and the top of Today.
  *
- * Inside the app the screen's own title does that job, so the wordmark stays
- * out of the way: repeating the product name above every screen is a website
- * habit, not an app one.
+ * Every other screen has a title that does that job, and repeating the
+ * product name above each of them would be a website habit rather than an app
+ * one. Today is the exception because its title was the date, and the date is
+ * already the one thing the screen states three times: the selected disc in
+ * the strip, its neighbours either side, and the caption saying how far back
+ * it is. Thirty-four point type restating it was the one line on the page
+ * nobody needed to read, so the mark takes that spot instead.
  */
 export function Wordmark({ size = 28 }: { size?: number }) {
   return (

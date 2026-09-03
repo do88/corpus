@@ -24,9 +24,10 @@ import { weekOf } from "@/lib/meals/repository";
  * finished; backward stops at the first day ever logged, because behind that
  * there is nothing but empty weeks going back forever.
  *
- * A tint under a day means something is logged. Deliberately not a number: the
- * strip answers "which days have I tracked", and the figure for the selected
- * day is right below it in full.
+ * A tint under a day means something is logged, and its colour says how the
+ * day went against the calorie goal: amber under it, red over it. Deliberately
+ * not a number — the strip answers "which days went well", and the figure for
+ * the selected day is right below it in full.
  */
 /**
  * The chevrons either side of the strip.
@@ -44,12 +45,15 @@ export function DayPicker({
   today,
   logged,
   earliest,
+  kcalTarget,
   onPending,
 }: {
   day: string;
   today: string;
-  /** Dates with at least one analysed meal. */
+  /** Calories logged per date, for the days that have any. */
   logged: Record<string, number>;
+  /** The day's calorie goal: a logged day is tinted by which side of it it landed. */
+  kcalTarget: number;
   /**
    * The first day ever logged. Days before it are not offered — there is
    * nothing behind them but empty weeks going back forever. Null on an empty
@@ -109,18 +113,20 @@ export function DayPicker({
         its own tint; today is ringed rather than filled, so "where I am" and
         "what I have done" never compete for the same visual.
       */}
-      <div className="grid min-w-0 flex-1 grid-cols-7 gap-0.5">
+      <div className="grid min-w-0 flex-1 grid-cols-7 gap-1">
         {week.map((date) => {
           const selected = date === day;
           const outOfRange = date > today || date < floor;
           const isToday = date === today;
           const hasLog = Boolean(logged[date]);
+          const over = hasLog && logged[date] > kcalTarget;
 
           const label = (
             <DayDisc
               date={date}
               selected={selected}
               hasLog={hasLog}
+              over={over}
               isToday={isToday}
               onPending={onPending}
             />
@@ -197,12 +203,15 @@ function DayDisc({
   date,
   selected,
   hasLog,
+  over,
   isToday,
   onPending,
 }: {
   date: string;
   selected: boolean;
   hasLog: boolean;
+  /** Logged, and past the calorie goal. */
+  over: boolean;
   isToday: boolean;
   onPending?: (pending: boolean) => void;
 }) {
@@ -217,7 +226,7 @@ function DayDisc({
       </span>
 
       <span
-        className="grid size-9 place-items-center rounded-full text-[1rem] font-semibold tabular-nums transition-colors"
+        className="grid size-8 place-items-center rounded-full text-[1rem] font-semibold tabular-nums transition-colors sm:size-9"
         style={
           lit
             ? {
@@ -230,9 +239,19 @@ function DayDisc({
                   ? { animation: "tab-pending 900ms ease-in-out 150ms infinite", opacity: 0.85 }
                   : {}),
               }
-            : hasLog
-              ? { background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)", color: "var(--ink-protein)" }
-              : isToday
+            : over
+              ? // Past the goal: the same red the calorie card turns, so the
+                // strip and the card agree about what a bad day looks like.
+                // The tint carries the colour; the figure stays in the
+                // foreground ink, because red-on-a-red-tint over the page
+                // ground measured 3.6:1 and the floor for type is 4.5.
+                { background: "color-mix(in oklch, var(--destructive) 22%, transparent)" }
+              : hasLog
+                ? // Under it: the calorie colour, since that is the number the
+                  // tint is reporting on. It used to be the protein blue, which
+                  // said only "something was logged". Same rule on the ink.
+                  { background: "color-mix(in oklch, var(--accent-energy) 26%, transparent)" }
+                : isToday
                 ? { boxShadow: "inset 0 0 0 1.5px var(--rule)" }
                 : undefined
         }

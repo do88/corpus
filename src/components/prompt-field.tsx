@@ -87,7 +87,7 @@ export function PromptField({
         className,
       )}
       style={{
-        borderRadius: 10,
+        borderRadius: 8,
         border: "1px solid var(--input)",
         // A hairline of shadow along the top edge — the inverse of the card's
         // specular highlight, so the field reads as set into the surface.
