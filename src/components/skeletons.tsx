@@ -106,12 +106,12 @@ export function ProgressSkeleton() {
   );
 }
 
-export function TrainingSkeleton() {
+export function BodySkeleton() {
   return (
     <div aria-hidden>
-      <HeaderSkeleton wide="w-44" />
-      <div className="mt-5 space-y-3">
-        <CardSkeleton className="h-32 w-full" />
+      <HeaderSkeleton wide="w-28" />
+      <div className="mt-6 space-y-6">
+        <CardSkeleton className="h-36 w-full" />
         <CardSkeleton className="h-64 w-full" />
         <CardSkeleton className="h-72 w-full" />
       </div>

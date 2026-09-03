@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, ChartColumn, Dumbbell, House, Salad } from "lucide-react";
+import { Bookmark, ChartColumn, HeartPulse, House, Salad } from "lucide-react";
 import { Logomark } from "@/components/brand";
 import { TabPending } from "@/components/tab-pending";
 
@@ -34,7 +34,7 @@ const TABS = [
   // a setting. The one-tap path lives on Today; this is where the list is kept.
   { href: "/foods", label: "Foods", icon: Bookmark },
   { href: "/progress", label: "Progress", icon: ChartColumn },
-  { href: "/training", label: "Training", icon: Dumbbell },
+  { href: "/body", label: "Body", icon: HeartPulse },
   // Account is not here. It lives behind the avatar in the header — see
   // header-controls.tsx — which gives a phone bar five destinations instead
   // of six, and at 320px that is the difference between labels with gaps

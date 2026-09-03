@@ -1,5 +1,5 @@
 import { LoadingScreen } from "@/components/screen";
-import { TrainingSkeleton } from "@/components/skeletons";
+import { BodySkeleton } from "@/components/skeletons";
 
 /**
  * Shown the instant a navigation starts, and replaced when the server's HTML
@@ -8,7 +8,7 @@ import { TrainingSkeleton } from "@/components/skeletons";
 export default function Loading() {
   return (
     <LoadingScreen>
-      <TrainingSkeleton />
+      <BodySkeleton />
     </LoadingScreen>
   );
 }

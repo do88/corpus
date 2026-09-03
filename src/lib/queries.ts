@@ -393,3 +393,101 @@ export async function getRecentSessions(limit = 8) {
 
   return sessions.map((s) => ({ ...s, exercises: byWorkout.get(s.id) ?? [] }));
 }
+
+/* ------------------------------------------------------------------ watch */
+
+/**
+ * The watch's tables, unlike the training ones, are keyed to the calendar
+ * rather than to the last workout — a week with no session is still a week
+ * the watch recorded — so these use `current_date` rather than `since()`.
+ */
+
+/** Weekly movement: the watch's intensity minutes beside the log's sessions. */
+export async function getWeeklyMovement(weeks = 12) {
+  const days = weeks * 7;
+  return sql<
+    { week_start: string; who_minutes: number; moderate: number; vigorous: number; sessions: number; steps: number }[]
+  >`
+    with weeks as (
+      select generate_series(
+        date_trunc('week', current_date - ${days}::int)::date + 7,
+        date_trunc('week', current_date)::date,
+        interval '1 week'
+      )::date as week_start
+    ),
+    watch as (
+      select date_trunc('week', day)::date as w,
+             sum(moderate_min)::int as moderate, sum(vigorous_min)::int as vigorous,
+             round(avg(steps))::int as steps
+      from garmin_daily where day >= current_date - ${days}::int group by 1
+    ),
+    lifted as (
+      select date_trunc('week', date)::date as w, count(*)::int as sessions
+      from workouts where date >= current_date - ${days}::int group by 1
+    )
+    select weeks.week_start::text                                         as week_start,
+           coalesce(watch.moderate, 0) + 2 * coalesce(watch.vigorous, 0)  as who_minutes,
+           coalesce(watch.moderate, 0)                                    as moderate,
+           coalesce(watch.vigorous, 0)                                    as vigorous,
+           coalesce(lifted.sessions, 0)                                   as sessions,
+           coalesce(watch.steps, 0)                                       as steps
+    from weeks
+    left join watch  on watch.w  = weeks.week_start
+    left join lifted on lifted.w = weeks.week_start
+    order by weeks.week_start
+  `;
+}
+
+/** Resting heart rate, averaged by month. A slow signal, read slowly. */
+export async function getRestingHrByMonth(months = 18) {
+  return sql<{ month: string; rhr: number; n: number }[]>`
+    select to_char(date_trunc('month', day), 'YYYY-MM') as month,
+           round(avg(resting_hr))::int                   as rhr,
+           count(*)::int                                 as n
+    from garmin_daily
+    where resting_hr > 0
+      and day >= (date_trunc('month', current_date) - interval '1 month' * ${months - 1}::int)::date
+    group by 1 order by 1
+  `;
+}
+
+/** Sleep by week: hours a night and minutes awake. Not Garmin's score. */
+export async function getWeeklySleep(weeks = 12) {
+  return sql<{ week_start: string; hours: number; awake_min: number; nights: number }[]>`
+    select date_trunc('week', day)::date::text     as week_start,
+           round(avg(total_min) / 60.0, 1)::float   as hours,
+           round(avg(awake_min))::int               as awake_min,
+           count(*)::int                            as nights
+    from garmin_sleep
+    where total_min > 0 and day >= current_date - ${weeks * 7}::int
+    group by 1 order by 1
+  `;
+}
+
+/** The last thirty days from the watch, as one row for the headline. */
+export async function getWatchSummary() {
+  const [row] = await sql<
+    {
+      steps: number | null;
+      rhr: number | null;
+      burn: number | null;
+      who_minutes_week: number | null;
+      sleep_hours: number | null;
+      awake_min: number | null;
+      days: number;
+    }[]
+  >`
+    select round(avg(d.steps))::int                                                  as steps,
+           round(avg(d.resting_hr))::int                                             as rhr,
+           round(avg(d.calories_total))::int                                         as burn,
+           round((sum(d.moderate_min) + 2 * sum(d.vigorous_min)) / (30 / 7.0))::int  as who_minutes_week,
+           (select round(avg(total_min) / 60.0, 1)::float from garmin_sleep
+             where total_min > 0 and day > current_date - 30)                        as sleep_hours,
+           (select round(avg(awake_min))::int from garmin_sleep
+             where total_min > 0 and day > current_date - 30)                        as awake_min,
+           count(*)::int                                                             as days
+    from garmin_daily d
+    where d.calories_total > 0 and d.day > current_date - 30
+  `;
+  return row;
+}

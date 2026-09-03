@@ -1,6 +1,5 @@
-import { inZone } from "../time";
 import { unstable_cache } from "next/cache";
-import { fmtPace, longDate, longQuarter, shortDay, weekOf } from "./format";
+import { longDate, longQuarter, shortDay, weekOf } from "./format";
 import {
   REFERENCE,
   bmi,
@@ -17,13 +16,15 @@ import {
   MAIN_LIFTS,
   getBodyReadings,
   getHeadline,
-  getKneeLoadByWeek,
   getLiftSummary,
   getMuscleBalance,
   getProfile,
   getRecentSessions,
-  getRuns,
+  getRestingHrByMonth,
   getStrengthByQuarter,
+  getWatchSummary,
+  getWeeklyMovement,
+  getWeeklySleep,
   getWeightHistory,
 } from "../queries";
 
@@ -52,23 +53,27 @@ export async function buildDashboardData() {
     readings,
     headline,
     lifts,
-    runs,
-    knee,
     muscles,
     weightHistory,
     strengthSeries,
     recentSessions,
+    movement,
+    restingHr,
+    sleep,
+    watch,
   ] = await Promise.all([
     getProfile(),
     getBodyReadings(),
     getHeadline(),
     getLiftSummary(),
-    getRuns(),
-    getKneeLoadByWeek(26),
     getMuscleBalance(12),
     getWeightHistory(),
     getStrengthByQuarter(),
     getRecentSessions(6),
+    getWeeklyMovement(12),
+    getRestingHrByMonth(18),
+    getWeeklySleep(12),
+    getWatchSummary(),
   ]);
 
   const heightCm = Number(profile.height_cm ?? 195);
@@ -77,17 +82,8 @@ export async function buildDashboardData() {
 
   const energy = estimateEnergy(latest.weight_kg, heightCm, age);
   const leanIndex = ffmi(latest.fat_free_mass_kg, heightCm);
-  const currentYear = String(inZone().getFullYear());
   const target = compositionTargets(latest.fat_free_mass_kg, latest.skeletal_muscle_kg);
   const round1 = (n: number) => Math.round(n * 10) / 10;
-
-  const kneeSeries = knee.map((k) => ({
-    week: shortDay(k.week_start),
-    reps: k.knee_reps,
-    fullLabel: weekOf(k.week_start),
-    detail: k.breakdown ?? (k.run_km ? "no knee-loading lifts" : ""),
-    runKm: k.run_km,
-  }));
 
   return {
     headline,
@@ -164,16 +160,6 @@ export async function buildDashboardData() {
       definitions: MAIN_LIFTS,
     },
 
-    knee: (() => {
-      const reps = kneeSeries.map((k) => k.reps).sort((a, b) => a - b);
-      return {
-        series: kneeSeries,
-        peak: reps.at(-1) ?? 0,
-        // Median, not mean — a couple of very heavy weeks skew the average.
-        median: reps.length ? reps[Math.floor(reps.length / 2)] : 0,
-      };
-    })(),
-
     muscles: {
       rows: muscles.slice(0, 10),
       max: muscles[0]?.sets ?? 1,
@@ -197,19 +183,38 @@ export async function buildDashboardData() {
     // thresholds and projected values fed a BMI chart that no section renders.
     bmi: { current: round1(bmi(latest.weight_kg, heightCm)) },
 
-    running: {
-      // A count, not the array. `check:dashboard` wants to report how many runs
-      // are logged; the page only renders the last twelve. Returning every run
-      // meant serialising all of them into the RSC payload for a number.
-      total: runs.length,
-      recent: runs.slice(-12).map((r) => ({
-        date: r.date,
-        km: r.distance_km,
-        fullLabel: longDate(r.date),
-        detail: `${Math.round(r.duration_min)} min · ${fmtPace(r.pace)} · ${r.avg_hr} bpm · ${r.calories} kcal`,
+    /*
+      What the watch adds. Three series and a thirty-day summary, all
+      calendar-keyed rather than workout-keyed, because a week you did not
+      lift is still a week you moved, slept and had a pulse.
+
+      Sleep is hours and minutes awake, deliberately not Garmin's score. With
+      a baby in the house the score will read "poor" for the foreseeable, and
+      a red panel every morning about something outside your control is
+      noise; awake minutes coming back down over months is the number worth
+      watching.
+    */
+    watch: {
+      summary: watch,
+      movement: movement.map((w) => ({
+        week: shortDay(w.week_start),
+        minutes: w.who_minutes,
+        sessions: w.sessions,
+        fullLabel: weekOf(w.week_start),
+        detail: `${w.sessions} session${w.sessions === 1 ? "" : "s"} · ${w.moderate} moderate + ${w.vigorous} vigorous min · ${w.steps.toLocaleString("en-GB")} steps a day`,
       })),
-      table: runs.slice(-6).reverse(),
-      thisYear: runs.filter((r) => r.date >= `${currentYear}-01-01`).length,
+      restingHr: restingHr.map((m) => ({
+        month: m.month,
+        bpm: m.rhr,
+        fullLabel: longQuarter(m.month).replace(/^Q\d /, "") || m.month,
+      })),
+      sleep: sleep.map((w) => ({
+        week: shortDay(w.week_start),
+        hours: w.hours,
+        awake: w.awake_min,
+        fullLabel: weekOf(w.week_start),
+        detail: `${w.awake_min} min awake · ${w.nights} nights`,
+      })),
     },
 
     sessions: recentSessions,

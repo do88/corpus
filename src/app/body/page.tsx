@@ -1,7 +1,7 @@
 import { Screen } from "@/components/screen";
 import { AppHeader } from "@/components/app-header";
 import { getDashboardData } from "@/lib/training/dashboard";
-import { TrainingSections } from "@/components/training-sections";
+import { BodySections } from "@/components/body-sections";
 
 /**
  * The Alpha 1 dashboard, ported mobile-first.
@@ -21,17 +21,17 @@ import { TrainingSections } from "@/components/training-sections";
  * any database dependency, which is the property worth protecting.
  */
 
-export default async function Training() {
+export default async function Body() {
   const data = await getDashboardData();
   const { headline } = data;
 
   return (
     <Screen>
       <AppHeader
-        title="Training"
-        caption={`${headline.total_workouts} sessions since ${headline.first_date.slice(0, 4)}`}
+        title="Body"
+        caption={`${data.watch.summary?.steps?.toLocaleString("en-GB") ?? "—"} steps a day · ${headline.last_28} sessions in 28 days`}
       />
-      <TrainingSections data={data} />
+      <BodySections data={data} />
     </Screen>
   );
 }

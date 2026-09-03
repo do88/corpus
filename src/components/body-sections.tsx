@@ -4,29 +4,29 @@ import { BarsChart, TrendChart } from "./charts-lazy";
 import type { DashboardData } from "@/lib/training/dashboard";
 
 /**
- * The training dashboard, one section per thing worth knowing.
+ * Body: what the log, the scale and the watch say, one section per thing
+ * worth knowing.
  *
- * A **server** component. Every number on it was decided in `dashboard.ts` and
- * nothing here computes anything, so there was never any behaviour to ship —
- * it lays out what it was handed.
+ * A **server** component. Every number was decided in `dashboard.ts`; this
+ * lays out what it was handed. The charts sit behind `charts-lazy`, which is
+ * the only client boundary.
  *
- * It used to carry `"use client"` for one reason: it imported the charts, and
- * those need the browser. That pulled all seven sections into the client bundle
- * to satisfy four of them, and forced the whole view model across the wire as
- * serialised props. The charts are behind `charts-lazy` now, which is the only
- * client boundary left, so the markup renders as HTML and only the chart data
- * crosses.
+ * Trimmed on purpose. The old page carried a sentence of method under every
+ * chart — which formula, what was excluded and why — and a dashboard you read
+ * every day does not need its footnotes read to it every day. The reasoning
+ * lives in the query and model code where someone changing it will find it.
  */
-export function TrainingSections({ data }: { data: DashboardData }) {
+export function BodySections({ data }: { data: DashboardData }) {
   return (
     <div className="mt-6 space-y-6">
       <Headline data={data} />
-      <Knee data={data} />
+      <Movement data={data} />
       <Strength data={data} />
-      <Body data={data} />
+      <Weight data={data} />
+      <Sleep data={data} />
+      <RestingHr data={data} />
       <Muscles data={data} />
       <Sessions data={data} />
-      <Running data={data} />
     </div>
   );
 }
@@ -60,15 +60,22 @@ function Stat({ value, label }: { value: string | number; label: string }) {
   );
 }
 
+/**
+ * The last thirty days in four numbers, then the one sentence that used to be
+ * buried under a lifetime total. "468 sessions since 2021" is trivia; "7 in
+ * the last 28 days against 7" is the thing to know.
+ */
 function Headline({ data }: { data: DashboardData }) {
-  const { headline, body } = data;
+  const { headline, body, watch } = data;
+  const s = watch.summary;
   return (
     <Card>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-3">
-          <Stat value={headline.total_workouts} label="sessions" />
-          <Stat value={headline.total_sets.toLocaleString("en-GB")} label="sets" />
-          <Stat value={`${headline.total_hours}h`} label="under the bar" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4">
+          <Stat value={headline.last_28} label="sessions, 28 days" />
+          <Stat value={s?.who_minutes_week ?? "—"} label="active min a week" />
+          <Stat value={s?.rhr ?? "—"} label="resting bpm" />
+          <Stat value={s?.sleep_hours != null ? `${s.sleep_hours}h` : "—"} label="sleep a night" />
         </div>
         <p className="text-sm leading-normal text-muted-foreground">
           {body.cadence.label} — {headline.last_28} session
@@ -80,15 +87,18 @@ function Headline({ data }: { data: DashboardData }) {
   );
 }
 
-/** The constraint. Reps, not tonnage — accumulated reps are what flare it. */
-function Knee({ data }: { data: DashboardData }) {
-  const { knee } = data;
+/** Weekly minutes at moderate-or-better effort, against the 150 the WHO asks for. */
+function Movement({ data }: { data: DashboardData }) {
+  const { movement } = data.watch;
   return (
-    <Section
-      title="Knee load, weekly"
-      note={`Counted in knee-flexion reps rather than weight, because reps are what the right knee actually reacts to. Median ${knee.median} a week, peak ${knee.peak}.`}
-    >
-      <BarsChart data={knee.series} x="week" y="reps" unit=" reps" />
+    <Section title="Movement, weekly" note="Minutes at moderate effort or above. Vigorous counts double.">
+      <BarsChart
+        data={movement}
+        x="week"
+        y="minutes"
+        unit=" min"
+        references={[{ value: 150, label: "150" }]}
+      />
     </Section>
   );
 }
@@ -96,10 +106,7 @@ function Knee({ data }: { data: DashboardData }) {
 function Strength({ data }: { data: DashboardData }) {
   const { strength } = data;
   return (
-    <Section
-      title="Estimated one-rep max"
-      note="Best set of each quarter, via Epley. Assisted machine work is excluded — it logs the assistance, so more help would read as more strength."
-    >
+    <Section title="Estimated one-rep max">
       <TrendChart
         data={strength.series}
         x="period"
@@ -107,8 +114,6 @@ function Strength({ data }: { data: DashboardData }) {
         series={strength.definitions.map((lift, index) => ({
           key: lift.key,
           label: lift.short,
-          // One hue per lift, from the metric palette. These are lines on a
-          // card, so the vivid `accent` set is right — 3:1 as graphics.
           colour: [
             "var(--accent-protein)",
             "var(--accent-energy)",
@@ -134,12 +139,12 @@ function Strength({ data }: { data: DashboardData }) {
   );
 }
 
-function Body({ data }: { data: DashboardData }) {
+function Weight({ data }: { data: DashboardData }) {
   const { weight, body, bmi } = data;
   return (
     <Section
       title="Weight"
-      note={`${body.latest.weight_kg} kg, ${body.latest.body_fat_pct}% body fat, BMI ${bmi.current}. The dashed lines are what holding lean mass would weigh at ${weight.targets.map((t) => t.label).join(" and ")}.`}
+      note={`${body.latest.weight_kg} kg · ${body.latest.body_fat_pct}% body fat · BMI ${bmi.current}`}
     >
       <TrendChart
         data={weight.series}
@@ -162,15 +167,38 @@ function Body({ data }: { data: DashboardData }) {
   );
 }
 
+/** Hours a night by week. Awake minutes in the caption, not Garmin's score. */
+function Sleep({ data }: { data: DashboardData }) {
+  const { sleep, summary } = data.watch;
+  const note =
+    summary?.sleep_hours != null
+      ? `${summary.sleep_hours} h a night over the last 30 · ${summary.awake_min ?? 0} min awake`
+      : undefined;
+  return (
+    <Section title="Sleep, weekly" note={note}>
+      <BarsChart data={sleep} x="week" y="hours" unit=" h" references={[{ value: 7, label: "7h" }]} />
+    </Section>
+  );
+}
+
+function RestingHr({ data }: { data: DashboardData }) {
+  const { restingHr } = data.watch;
+  return (
+    <Section title="Resting heart rate, monthly">
+      <TrendChart data={restingHr} x="month" unit=" bpm" series={[{ key: "bpm", label: "Resting" }]} />
+    </Section>
+  );
+}
+
 function Muscles({ data }: { data: DashboardData }) {
   const { muscles } = data;
   return (
-    <Section title="Where the sets go" note="Last twelve months, by primary muscle group.">
+    <Section title="Where the sets go" note="Last twelve months.">
       <ul>
         {muscles.rows.map((row) => (
           <li key={row.muscle} className="border-b py-2 last:border-b-0">
             <div className="flex items-baseline justify-between gap-4 text-sm">
-              <span className="capitalize">{row.muscle}</span>
+              <span className="capitalize">{row.muscle.replace("_", " ")}</span>
               <span className="tabular-nums text-muted-foreground">
                 {row.sets} sets · {row.pct}%
               </span>
@@ -199,28 +227,6 @@ function Sessions({ data }: { data: DashboardData }) {
               {session.date} · {session.n_sets} sets ·{" "}
               {Math.round(session.duration_min)} min
             </div>
-          </li>
-        ))}
-      </ul>
-    </Section>
-  );
-}
-
-function Running({ data }: { data: DashboardData }) {
-  const { running } = data;
-  return (
-    <Section
-      title="Running"
-      note={`${running.thisYear} run${running.thisYear === 1 ? "" : "s"} this year. Impact rather than flexion, so it is tracked apart from knee load.`}
-    >
-      <TrendChart data={running.recent} x="date" unit=" km" series={[{ key: "km", label: "Distance" }]} />
-      <ul className="mt-4">
-        {running.table.map((run) => (
-          <li key={run.date} className="flex items-baseline justify-between gap-4 border-b py-2 text-sm last:border-b-0">
-            <span>{run.date}</span>
-            <span className="tabular-nums text-muted-foreground">
-              {run.distance_km} km · {Math.round(run.duration_min)} min
-            </span>
           </li>
         ))}
       </ul>

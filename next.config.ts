@@ -38,6 +38,12 @@ const nextConfig: NextConfig = {
    */
   cacheComponents: true,
 
+  // The training page became Body. Anything that still links to the old
+  // path — a home-screen shortcut, a bookmark — lands on the new one.
+  async redirects() {
+    return [{ source: "/training", destination: "/body", permanent: true }];
+  },
+
   /**
    * Empty on purpose, and required.
    *
