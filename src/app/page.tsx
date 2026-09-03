@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
 import { Wordmark } from "@/components/brand";
-import { differenceInCalendarDays } from "date-fns";
+import { format } from "date-fns";
 import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
@@ -112,10 +112,15 @@ function caption(
   totals: { kcal: number; protein_g: number },
   targets: DailyTargets,
 ): string {
-  if (day !== today) {
-    const ago = differenceInCalendarDays(parseDay(today), parseDay(day));
-    return ago === 1 ? "Yesterday" : `${ago} days ago`;
-  }
+  /*
+    On a past day, the full date — the one thing the strip cannot say. Since
+    the title became the mark, "W" and "26" are all the screen states, and
+    across a month boundary "26" beside "1" is ambiguous. "8 days ago" was the
+    caption here, and it told you only that you had left today, which the
+    Today link at the end of this row and the strip's selected disc both say
+    already; it also made you do arithmetic to get back to a date.
+  */
+  if (day !== today) return format(parseDay(day), "EEEE d MMMM");
 
   const kcal = Math.max(0, targets.kcal - totals.kcal);
   const protein = Math.max(0, targets.protein_g - totals.protein_g);
