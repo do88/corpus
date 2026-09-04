@@ -32,8 +32,6 @@
     "@base-ui/react": "^1.7.0",
     "@date-fns/tz": "^1.5.0",
     "@google/genai": "^2.19.0",
-    "@netlify/blobs": "^11.0.1",
-    "@netlify/functions": "^6.0.0",
     "@serwist/next": "^9.5.12",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
@@ -58,7 +56,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "^5.15.13",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

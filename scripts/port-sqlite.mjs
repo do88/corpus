@@ -11,7 +11,7 @@
  * SQLite is read through Node's built-in `node:sqlite` rather than a driver.
  * The app never touches SQLite — this is the one place that reads the old file
  * — so pulling in a native binding for it would put a node-gyp compile in the
- * Netlify build for the sake of a script that only ever runs on this machine.
+ * hosted build for the sake of a script that only ever runs on this machine.
  *
  * **It truncates every training table first, `profile` included.** Anything
  * edited in Postgres since the last port — a corrected height, say — is

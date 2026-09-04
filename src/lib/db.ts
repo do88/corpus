@@ -9,7 +9,7 @@ import postgres from "postgres";
  * The local Docker stack, and only ever as a *development* convenience.
  *
  * This default used to apply everywhere, which turned a missing environment
- * variable into a connection attempt against `127.0.0.1` on a Netlify server —
+ * variable into a connection attempt against `127.0.0.1` on the hosting server —
  * where nothing is listening. The server component threw, and production
  * reported it as React error #441: "an error occurred in the Server Components
  * render", with the specifics omitted. A whole page down, and the log said

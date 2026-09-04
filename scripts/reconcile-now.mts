@@ -3,10 +3,10 @@
  *
  *     pnpm reconcile:now
  *
- * Netlify refuses HTTP invocation of a scheduled function, and its scheduler
- * only supports hourly at the fastest — so when a meal is stuck *now*, this is
- * the lever. Same `processMeal` the worker and the sweep use, so it cannot
- * drift from them.
+ * The hosted cron (app/api/cron/reconcile) runs once a day on Vercel's Hobby
+ * plan, and the app retries stuck meals when it is opened — so when a meal is
+ * stuck *now* and neither has happened, this is the lever. Same `processMeal`
+ * the estimate route and the cron use, so it cannot drift from them.
  */
 import { processMeal } from "@/lib/meals/process";
 import { MAX_ATTEMPTS, type MealRow } from "@/lib/meals/repository";

@@ -15,7 +15,7 @@
  * write wrong Garmin days, which the next run overwrites.
  *
  * Reads SQLite through Node's built-in `node:sqlite`, for the same reason the
- * Hevy port does — no native driver in the Netlify build for a script that
+ * Hevy port does — no native driver in the hosted build for a script that
  * only ever runs on this machine.
  */
 import { DatabaseSync } from "node:sqlite";

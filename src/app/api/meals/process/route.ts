@@ -1,26 +1,37 @@
 import "server-only";
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { verifyOwner } from "@/lib/auth/verify";
 import { processMeal } from "@/lib/meals/process";
 import { createWorkerClient } from "@/lib/supabase/worker";
 
+/**
+ * The estimate job.
+ *
+ * Answers 202 the moment the request is valid and runs the estimate after the
+ * response has gone, with `after()`. That is the contract the client always
+ * had: Netlify's background function returned 202 and carried on, so the
+ * composer's analysing state and the outbox (lib/meals/enqueue.ts) are
+ * unchanged by the move to Vercel.
+ *
+ * Authenticated by Bearer token rather than by cookie. The caller is the
+ * outbox in the browser, which holds an access token but is not a page
+ * navigation, and this path is excluded from the proxy's matcher for exactly
+ * that reason.
+ *
+ * A failure here is written to the row by processMeal, so the UI can show it,
+ * and the reconciler (app/api/cron/reconcile) picks the meal up again.
+ */
+
+// The ceiling for a Hobby function under Fluid compute. Gemini plus one retry
+// fits well inside it.
+export const maxDuration = 300;
+
 const requestSchema = z.object({
   mealId: z.uuid(),
 });
 
-/**
- * Local adapter for the Netlify background function.
- *
- * `next dev` has no `/jobs/estimate`, but it should exercise the same durable
- * row-processing path as production. This route is compile-time disabled in a
- * production build so there is still only one deployed entry point.
- */
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV !== "development") {
-    return new Response("Not found", { status: 404 });
-  }
-
   const auth = await verifyOwner(request.headers.get("authorization"));
   if (!auth.ok) return new Response(auth.reason, { status: auth.status });
 
@@ -31,10 +42,10 @@ export async function POST(request: NextRequest) {
     return new Response("Bad request", { status: 400 });
   }
 
-  const result = await processMeal(createWorkerClient(), body.mealId);
-  return result.ok
-    ? new Response("ok")
-    : new Response(result.reason, { status: 500 });
-}
+  after(async () => {
+    const result = await processMeal(createWorkerClient(), body.mealId);
+    if (!result.ok) console.error(`estimate failed for ${body.mealId}: ${result.reason}`);
+  });
 
-export const maxDuration = 60;
+  return new Response(null, { status: 202 });
+}

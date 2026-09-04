@@ -36,17 +36,17 @@ yarn-error.log*
 # vercel
 .vercel
 
+# leftover local folder from the Netlify days; safe to delete
+.netlify
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Local Netlify folder
-.netlify
-
-# written by `netlify dev` alongside .netlify/
-deno.lock
 
 # compiled from src/app/sw.ts by Serwist at build time
 public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
+
+# written by `netlify dev`; leftover, safe to delete with .netlify
+deno.lock

@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
    * no function at all and the cold start only delays the data.
    *
    * Stable since Next 16, and it subsumes the old `ppr`, `dynamicIO` and
-   * `useCache` flags. Requires the Node runtime, which is what Netlify runs.
+   * `useCache` flags. Requires the Node runtime, which is what Vercel runs.
    */
   cacheComponents: true,
 

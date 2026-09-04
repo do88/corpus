@@ -11,20 +11,19 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
 
-  // Behind Netlify the request's own origin is the internal one, so the
+  // Behind the host's proxy the request's own origin can be internal, so the
   // redirect has to be built from the deployment's public URL or it lands
   // somewhere the browser can't reach.
   //
-  // Netlify's own `URL` env var, not the request's `x-forwarded-host`. That
-  // header is set by the proxy in front of us but originates with the client,
-  // and using it unchecked makes every redirect out of this handler point
-  // wherever a request says to — the same post-sign-in phishing shape the
-  // `next` parameter had. `URL` is set by the platform at build and run time
-  // and no request can influence it.
+  // `APP_URL`, set in the hosting environment, not the request's
+  // `x-forwarded-host`. That header is set by the proxy in front of us but
+  // originates with the client, and using it unchecked makes every redirect
+  // out of this handler point wherever a request says to — the same
+  // post-sign-in phishing shape the `next` parameter had. An env var is set
+  // by us and no request can influence it.
   //
-  // Falls back to the request origin when unset, which covers `next dev` and
-  // `netlify dev --offline`.
-  const configured = process.env.URL;
+  // Falls back to the request origin in development only.
+  const configured = process.env.APP_URL;
   const base = configured && process.env.NODE_ENV !== "development" ? configured : origin;
 
   const fail = (reason: string) =>

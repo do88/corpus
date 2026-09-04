@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 
 /**
- * Netlify passes a function at most 6 MB of request body. Four is well inside
+ * Vercel passes a function at most 4.5 MB of request body. Four is inside
  * that and still enormous for the job — a minute of Opus is around 120 KB
  * before base64. The ceiling is here so an unbounded upload cannot be pointed
  * at a paid API, not because anyone will approach it.

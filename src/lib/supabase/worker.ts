@@ -3,16 +3,16 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 /**
  * The secret-key client. **Bypasses RLS entirely.**
  *
- * For the callers that have no user session to act on behalf of: the background
- * worker and the reconciler, both invoked by Netlify rather than by a browser,
- * and the maintenance scripts. Everything with a signed-in user goes through
+ * For the callers that have no user session to act on behalf of: the estimate
+ * that runs after the process route has answered, the reconcile cron, and the
+ * maintenance scripts. Everything with a signed-in user goes through
  * supabase/server.ts or supabase/client.ts instead — a convenience import of
  * this module in a request path would quietly disable every policy on the
  * table.
  *
  * Deliberately free of `server-only` and of any Next import, for the same
- * reason lib/meal/estimate.ts is: the Netlify functions share it and they run
- * outside Next entirely, where the marker package throws on import. The guard
+ * reason lib/meal/estimate.ts is: the maintenance scripts share it and they
+ * run outside Next entirely, where the marker package throws on import. The guard
  * against this reaching a browser bundle is therefore the environment variable
  * itself — `SUPABASE_SECRET_KEY` has no `NEXT_PUBLIC_` prefix, so Next will not
  * inline it, and a client component importing this would get `undefined` and

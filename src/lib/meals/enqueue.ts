@@ -12,19 +12,13 @@
  * as an error would send the meal back to the outbox and duplicate the row on
  * the next flush.
  *
- * Authenticated by Bearer token rather than by cookie: `/jobs/*` is excluded
- * from the proxy, because in production the Next runtime's edge function
- * matches before Netlify routes to a background function, and the proxy would
- * answer a perfectly valid request with a redirect to /login.
+ * Authenticated by Bearer token rather than by cookie. The proxy authenticates
+ * by cookie and would answer this request with a redirect to /login, so the
+ * route is excluded from its matcher and verifies the token itself.
  */
 export async function requestEstimate(mealId: string, accessToken: string): Promise<void> {
   try {
-    // `/jobs/estimate` is a Netlify function and therefore does not exist under
-    // plain `next dev`. The local route delegates to the same `processMeal`
-    // implementation; production keeps the immediate-202 background function.
-    const path =
-      process.env.NODE_ENV === "production" ? "/jobs/estimate" : "/api/meals/process";
-    const response = await fetch(path, {
+    const response = await fetch("/api/meals/process", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

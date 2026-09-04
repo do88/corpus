@@ -12,18 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // `netlify dev` writes bundled edge functions here — generated, not ours.
+    // A leftover from the Netlify days: 355 MB of bundled edge functions that
+    // `netlify dev` wrote here. Delete the folder and this line together.
     ".netlify/**",
     // Serwist compiles src/app/sw.ts to here. Generated bundle, not source.
     "public/sw.js",
     "public/swe-worker-*.js",
   ]),
-  {
-    // Netlify Functions v2 are *defined* by a default-exported handler — the
-    // anonymous-default rule is asking for something the platform won't accept.
-    files: ["netlify/functions/**"],
-    rules: { "import/no-anonymous-default-export": "off" },
-  },
 ]);
 
 export default eslintConfig;

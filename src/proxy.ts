@@ -111,23 +111,14 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Everything except static assets, images, `/jobs/*`, and the local worker
-     * adapter.
+     * Everything except static assets, images, and the two routes that are
+     * called without a cookie jar.
      *
-     * `/jobs/*` is excluded deliberately, and it was a bug that it wasn't. In
-     * production the Next runtime's edge function matches before Netlify routes
-     * to the background function, so a request here reached this proxy — which
-     * authenticates by *cookie*. The outbox authenticates by Bearer token, so a
-     * perfectly valid request was answered with a redirect to /login.
-     *
-     * Those functions verify the token themselves (lib/auth/verify.ts), which
-     * is the right check for a caller that has no cookie jar.
-     * `/api/meals/process` is the development-only equivalent and performs the
-     * same Bearer-token verification inside its route handler.
-     *
-     * `/.netlify/` is excluded for the same reason — it is where functions are
-     * reachable directly, and a redirect there turns an invocation into a
-     * silent no-op.
+     * This proxy authenticates by *cookie*. `/api/meals/process` is called by
+     * the outbox with a Bearer token, and `/api/cron/` by Vercel's scheduler
+     * with the cron secret; running here would answer both perfectly valid
+     * requests with a redirect to /login. Each verifies its own caller inside
+     * the route handler instead.
      *
      * **`/auth/` is excluded because running here broke Google sign-in.** The
      * OAuth return lands on `/auth/callback?code=…`, and this proxy ran first:
@@ -143,6 +134,6 @@ export const config = {
      * already public below, so it refreshes a session for a request whose whole
      * purpose is to create one.
      */
-    "/((?!_next/static|_next/image|favicon.ico|jobs/|api/meals/process|auth/|\\.netlify/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/meals/process|api/cron/|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

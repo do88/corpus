@@ -6,7 +6,7 @@
 // worker in the way.
 //
 // `server-only` sits here, not in lib/meal/estimate.ts, because that module is
-// shared with the Netlify background function. The marker package throws on
+// shared with the maintenance scripts. The marker package throws on
 // import outside Next's `react-server` condition, so it can only live at a
 // Next-specific boundary. This route is that boundary for the browser.
 import "server-only";
