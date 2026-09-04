@@ -191,10 +191,9 @@ export function DayPicker({
  *
  * Reads the link's own status, which is the only honest signal there is for
  * a search-param navigation. While the tap is in flight the disc takes the
- * selected look early and pulses, so the thing you pressed is the thing that
- * answers — the same acknowledgement a tab gives, in the same place your
- * thumb already is. Held back 150ms like the tab mark, so a prefetched day
- * that lands in a few frames never flashes it.
+ * selected look early and its number gives way to a spinner, so the thing
+ * you pressed is the thing that answers — the same acknowledgement a tab
+ * gives, in the same place your thumb already is.
  *
  * Outside a `<Link>` (the disabled days) `useLinkStatus` reports not pending,
  * so the same component serves both.
@@ -235,9 +234,6 @@ function DayDisc({
                 color: "oklch(0.99 0 0)",
                 boxShadow:
                   "0 2px 6px color-mix(in oklch, var(--ink-protein) 40%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
-                ...(pending && !selected
-                  ? { animation: "tab-pending 900ms ease-in-out 150ms infinite", opacity: 0.85 }
-                  : {}),
               }
             : over
               ? // Past the goal: the same red the calorie card turns, so the
@@ -256,7 +252,20 @@ function DayDisc({
                 : undefined
         }
       >
-        {Number(date.slice(8))}
+        {/*
+          A spinner in the disc, not the tab's sweep. The sweep scales the
+          whole disc across its width, and on a circle that reads as a coin
+          flipping — a 3D trick nobody asked for on a date. The number gives
+          way to a ring, which is what "loading" looks like everywhere else in
+          the app. No hold-back: the disc already lights the moment it is
+          pressed, so a prefetched day that lands in a few frames shows a ring
+          for those frames on a disc that had changed anyway.
+        */}
+        {pending && !selected ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : (
+          Number(date.slice(8))
+        )}
       </span>
     </>
   );
