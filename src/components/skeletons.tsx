@@ -71,7 +71,7 @@ export function TodaySkeleton() {
         ))}
       </div>
 
-      <MacroCardsSkeleton className="mt-5" />
+      <CardSkeleton className="mt-5 h-[232px] w-full" />
 
       <CardSkeleton className="mt-3 h-13 w-full" />
       <CardSkeleton className="mt-2 h-11 w-full" />
@@ -99,7 +99,7 @@ export function ProgressSkeleton() {
           <Line w="w-44" h="h-4" />
           <Line w="w-24" h="h-3" />
         </div>
-        <MacroCardsSkeleton />
+        <CardSkeleton className="h-[232px] w-full" />
         <CardSkeleton className="h-60 w-full" />
       </div>
     </div>
@@ -136,7 +136,7 @@ export function AdvisorSkeleton() {
   return (
     <div aria-hidden>
       <HeaderSkeleton wide="w-40" />
-      <MacroCardsSkeleton className="mt-5" />
+      <CardSkeleton className="mt-5 h-[136px] w-full" />
       <div className="mt-5 space-y-2">
         <CardSkeleton className="h-13 w-full" />
         <CardSkeleton className="h-11 w-full" />
@@ -146,30 +146,14 @@ export function AdvisorSkeleton() {
 }
 
 /** Two metric cards and the carbs/fat line, at the heights the real ones take. */
-function MacroCardsSkeleton({ className = "" }: { className?: string }) {
-  return (
-    <div className={className}>
-      <div className="grid grid-cols-2 gap-3.5">
-        <CardSkeleton className="h-[168px] lg:h-[132px]" />
-        <CardSkeleton className="h-[168px] lg:h-[132px]" />
-      </div>
-      <div className="mt-3 px-1">
-        <Line w="w-52" h="h-4" />
-      </div>
-    </div>
-  );
-}
-
-/** Foods: the search field, then a short stack of cards. */
+/** Foods: the search field, then the list. */
 export function FoodsSkeleton() {
   return (
     <>
       <HeaderSkeleton wide="w-36" />
       <div className="mt-5 space-y-3">
-        <CardSkeleton className="h-11" style={{ borderRadius: 999 }} />
-        <CardSkeleton className="h-28" />
-        <CardSkeleton className="h-28" />
-        <CardSkeleton className="h-28" />
+        <CardSkeleton className="h-11" style={{ borderRadius: 12 }} />
+        <CardSkeleton className="h-80" />
       </div>
     </>
   );

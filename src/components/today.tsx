@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CloudUpload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { MacroCards } from "@/components/macro-cards";
+import { MacroLines } from "@/components/macro-lines";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { localDay } from "@/lib/time";
@@ -379,7 +379,7 @@ function Totals({
 
   return (
     <div className="space-y-3">
-      <MacroCards values={totals} targets={targets} />
+      <MacroLines values={totals} targets={targets} />
 
       {inFlight && (
         <div className="flex flex-wrap items-center gap-2 px-1">

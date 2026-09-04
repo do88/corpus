@@ -1,7 +1,7 @@
 import { Screen } from "@/components/screen";
 import { AppHeader } from "@/components/app-header";
 import { Advisor } from "@/components/advisor";
-import { MacroCards } from "@/components/macro-cards";
+import { MacroLines } from "@/components/macro-lines";
 import { createClient } from "@/lib/supabase/server";
 import { listMealsInRange } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
@@ -33,27 +33,13 @@ export default async function AdvisorScreen() {
     <Screen>
       <AppHeader title="What now?" caption="Say what you have in — it picks one" />
       {/*
-        The same cards as Today, captioned with what is left rather than what
-        is done — because the advice is a function of the gap, and "1,083 left"
-        is the form the question needs it in. This used to be its own panel
-        with its own figure treatment, the last one in the app; the answer to
-        "which of these" does not need a second notation for the day's numbers.
+        The same four lines as Today, in the compact voice: the advice is a
+        function of the gap, so "1,083 left" is the form the question needs
+        it in, and here the numbers are context for a question rather than
+        the point of the screen.
       */}
-      <div className="mt-5">
-        <MacroCards
-          values={today}
-          targets={targets}
-          kcalCaption={
-            today.kcal >= targets.kcal
-              ? "at your ceiling"
-              : `${(targets.kcal - today.kcal).toLocaleString("en-GB")} left`
-          }
-          proteinCaption={
-            today.protein_g >= targets.protein_g
-              ? "target met"
-              : `${targets.protein_g - today.protein_g}g short`
-          }
-        />
+      <div className="surface mt-5 p-4">
+        <MacroLines variant="compact" values={today} targets={targets} />
       </div>
       <Advisor />
     </Screen>

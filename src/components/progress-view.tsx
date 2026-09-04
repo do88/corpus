@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MacroCards } from "@/components/macro-cards";
+import { MacroLines } from "@/components/macro-lines";
 import type { DailyTargets } from "@/lib/meals/targets";
 import type { PeriodSummary } from "@/lib/meals/summary";
 import { BarsChart } from "@/components/charts-lazy";
@@ -102,18 +102,33 @@ export function ProgressView({
         </span>
       </div>
 
-      <MacroCards
+      {/*
+        Averages, so "left" would be the wrong word: the heavy figure is what
+        a day looked like, and the small one is how many days made the target.
+      */}
+      <MacroLines
         values={summary.average}
         targets={targets}
-        kcalCaption={
+        text={
           summary.loggedDays > 0
-            ? `/ ${targets.kcal.toLocaleString("en-GB")} · ${summary.onTarget.kcal} of ${summary.loggedDays} days under`
-            : undefined
-        }
-        proteinCaption={
-          summary.loggedDays > 0
-            ? `/ ${targets.protein_g} · ${summary.onTarget.protein} of ${summary.loggedDays} days hit`
-            : undefined
+            ? {
+                kcal: {
+                  lead: `${summary.average.kcal.toLocaleString("en-GB")} a day`,
+                  detail: `${summary.onTarget.kcal} of ${summary.loggedDays} days under ${targets.kcal.toLocaleString("en-GB")}`,
+                },
+                protein_g: {
+                  lead: `${summary.average.protein_g}g a day`,
+                  detail: `${summary.onTarget.protein} of ${summary.loggedDays} days over ${targets.protein_g}`,
+                },
+                carbs_g: { lead: `${summary.average.carbs_g}g a day`, detail: `target ${targets.carbs_g} g` },
+                fat_g: { lead: `${summary.average.fat_g}g a day`, detail: `target ${targets.fat_g} g` },
+              }
+            : {
+                kcal: { lead: "—", detail: "no days logged" },
+                protein_g: { lead: "—", detail: "no days logged" },
+                carbs_g: { lead: "—", detail: "no days logged" },
+                fat_g: { lead: "—", detail: "no days logged" },
+              }
         }
       />
 
