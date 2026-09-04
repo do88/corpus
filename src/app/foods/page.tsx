@@ -14,9 +14,9 @@ import { listSavedFoods } from "@/lib/meals/saved";
  * kept. Building the same list by typing macros into empty boxes would
  * reintroduce exactly the guesswork the app exists to remove.
  *
- * Its job here is upkeep — rename, fix a number, archive what you have gone
- * off. The fast path for actually logging one is on Today, where you already
- * are when you want it.
+ * Two jobs, and the first is the common one: find a food and log it, which
+ * every row does in one tap. The second is upkeep — rename, fix a number,
+ * archive what you have gone off — and that sits behind the row.
  */
 export default async function FoodsScreen() {
   const supabase = await createClient();
@@ -26,7 +26,7 @@ export default async function FoodsScreen() {
     <Screen>
       <AppHeader
         title="Your foods"
-        caption="Saved from meals you have already logged"
+        caption={`${foods.filter((food) => !food.archived_at).length} saved from meals you have logged`}
       />
       <SavedFoods initial={foods} />
     </Screen>

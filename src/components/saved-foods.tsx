@@ -1,34 +1,64 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Bookmark, Pencil, Search, TriangleAlert } from "lucide-react";
+import Link from "next/link";
+import {
+  Archive,
+  ArchiveRestore,
+  Bookmark,
+  CircleCheck,
+  Pencil,
+  Plus,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { enqueue } from "@/lib/outbox/store";
+import { flushOutbox } from "@/lib/outbox/sync";
+import { localDay } from "@/lib/time";
 import {
   archiveSavedFood,
+  estimateFromSaved,
   restoreSavedFood,
   updateSavedFood,
   type SavedFoodRow,
 } from "@/lib/meals/saved";
 import { MACRO_LABELS } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
+import { cn } from "@/lib/utils";
 
 /**
- * Upkeep for the saved list.
+ * The saved list, as a list.
  *
- * Deliberately the same four-box editor the meal cards use, because it is the
- * same job: these numbers came from a meal estimate and get corrected the same
- * way. A second, differently-shaped macro editor would be a second place for
- * the same rounding and validation rules to drift apart.
+ * It was a stack of cards, each carrying its items and its assumptions, and
+ * at thirty foods that was already a lot of scrolling. This is built for
+ * hundreds: one line per food — name, calories, protein — inside a single
+ * surface, and everything else behind a tap on the row. What you want from
+ * this page most of the time is to find one and log it, and a row that does
+ * both in one glance is the whole design.
+ *
+ * Logging from here is the same path "Your usual" used on Today before it
+ * went: the estimate travels with the meal, so the row lands finished and the
+ * worker is never asked. The meal counts toward now, not toward any day that
+ * happens to be selected elsewhere, because a saved food is something you
+ * just ate.
+ *
+ * Upkeep — rename, fix a number, archive — is the same four-box editor the
+ * meal cards use, because it is the same job and a second editor would be a
+ * second place for the rounding rules to drift.
  */
 export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
   const [foods, setFoods] = useState(initial);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [logging, setLogging] = useState<string | null>(null);
+  const [logged, setLogged] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const visible = useMemo(() => {
@@ -50,6 +80,37 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
     setFoods((current) => current.map((food) => (food.id === row.id ? row : food)));
   }
 
+  async function log(food: SavedFoodRow) {
+    setError(null);
+    setLogged(null);
+    setLogging(food.id);
+    try {
+      const loggedAt = new Date();
+      await enqueue({
+        clientId: crypto.randomUUID(),
+        loggedAt: loggedAt.toISOString(),
+        localDate: localDay(loggedAt),
+        note: food.name,
+        attempts: 0,
+        saved: {
+          id: food.id,
+          timesUsed: food.times_used,
+          estimate: estimateFromSaved(food),
+        },
+      });
+      // Queued is the guarantee; sent is a bonus. Today flushes again when it
+      // opens, and the service worker in the background, so a failure here
+      // is not a lost meal and is not reported as one.
+      void flushOutbox().catch(() => {});
+      replace({ ...food, times_used: food.times_used + 1, last_used_at: loggedAt.toISOString() });
+      setLogged(food.name);
+    } catch (thrown) {
+      setError(thrown instanceof Error ? thrown.message : "Could not log that");
+    } finally {
+      setLogging(null);
+    }
+  }
+
   async function toggleArchive(food: SavedFoodRow) {
     setError(null);
     const restoring = Boolean(food.archived_at);
@@ -58,6 +119,7 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
       if (restoring) await restoreSavedFood(supabase, food.id);
       else await archiveSavedFood(supabase, food.id);
       replace({ ...food, archived_at: restoring ? null : new Date().toISOString() });
+      setOpen(null);
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not change that");
     }
@@ -83,111 +145,166 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
           className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
-        {/* Button height, not the 32px the base input ships with: it sits
-            alone on a row and read as a slot rather than a control, and the
-            app's floor for anything tappable is 44px anyway. */}
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="search your foods…"
           aria-label="Search your saved foods"
-          className="h-11 rounded-2xl pl-10"
+          className="h-11 pl-10"
+          style={{ borderRadius: 12 }}
         />
       </div>
+
+      {logged && (
+        <Alert role="status">
+          <CircleCheck />
+          <AlertDescription className="flex w-full items-center justify-between gap-3">
+            <span>
+              Logged <span className="font-medium text-foreground">{logged}</span> to today.
+            </span>
+            <Link
+              href="/"
+              className="shrink-0 font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              View today
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {visible.length === 0 ? (
         <p className="px-1 py-6 text-center text-sm text-muted-foreground">
           Nothing matches “{query.trim()}”.
         </p>
       ) : (
-        <ul className="space-y-3">
-          {visible.map((food) => (
-            <li key={food.id} className="surface p-5">
-              {editing === food.id ? (
-                <MacroEditor
-                  food={food}
-                  onCancel={() => setEditing(null)}
-                  onSaved={(row) => {
-                    replace(row);
-                    setEditing(null);
-                  }}
-                  onError={setError}
-                />
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-                    {/*
-                      A floor on the text column so the *actions* wrap to
-                      their own row when space runs out, rather than the
-                      figures wrapping under them. Labelling the two buttons
-                      cost the left column about 80px, which was enough to
-                      break "125 kcal · 25g protein · logged 41×" across two
-                      lines on a phone — the row still fitted, it just read
-                      like it had not.
-                    */}
-                    <div className="min-w-[13rem] flex-1">
-                      <p className="text-[1rem] font-medium leading-snug">{food.name}</p>
-                      <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                        {food.kcal.toLocaleString("en-GB")} kcal ·{" "}
-                        <span style={{ color: "var(--ink-protein)" }}>
-                          {food.protein_g}g protein
-                        </span>
-                        {food.times_used > 0 && ` · logged ${food.times_used}×`}
-                      </p>
-                    </div>
-                    {/*
-                      Named, not just drawn. A pencil is about as close to
-                      universal as an icon gets and still lost to a box with a
-                      lid on it — nobody should have to work out whether that
-                      one archives, deletes or downloads before pressing it on
-                      a list of their own food.
-                    */}
-                    <div className="flex shrink-0 items-center gap-1">
-                      {!food.archived_at && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditing(food.id)}
-                          className="text-muted-foreground"
-                        >
-                          <Pencil className="size-4" /> Edit
-                        </Button>
+        <ul className="surface divide-y divide-[var(--rule)]/60 overflow-hidden">
+          {visible.map((food) => {
+            const isOpen = open === food.id;
+            return (
+              <li key={food.id}>
+                {/*
+                  Two controls on one line: the row itself, which opens the
+                  details, and Log. They are siblings rather than nested so a
+                  tap on Log never also opens the row, and both clear the
+                  44px floor — the row from its padding, the button from its
+                  own height.
+                */}
+                <div className="flex items-center gap-1 pl-4 pr-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(isOpen ? null : food.id);
+                      setEditing(null);
+                    }}
+                    aria-expanded={isOpen}
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left"
+                  >
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-[0.9375rem] font-medium leading-snug",
+                        food.archived_at && "text-muted-foreground",
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleArchive(food)}
-                        className="text-muted-foreground"
-                      >
-                        {food.archived_at ? (
-                          <>
-                            <ArchiveRestore className="size-4" /> Restore
-                          </>
-                        ) : (
-                          <>
-                            <Archive className="size-4" /> Archive
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                    >
+                      {food.name}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {food.kcal.toLocaleString("en-GB")} kcal
+                    </span>
+                    <span
+                      className="w-11 shrink-0 text-right text-xs tabular-nums"
+                      style={{ color: "var(--ink-protein)" }}
+                    >
+                      {food.protein_g}g
+                    </span>
+                  </button>
+                  {food.archived_at ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleArchive(food)}
+                      className="text-muted-foreground"
+                    >
+                      <ArchiveRestore className="size-4" /> Restore
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => log(food)}
+                      disabled={logging !== null}
+                      aria-label={`Log ${food.name}, ${food.kcal} kcal, to today`}
+                    >
+                      <Plus className="size-4" /> {logging === food.id ? "Logging…" : "Log"}
+                    </Button>
+                  )}
+                </div>
 
-                  {/* What is actually in it, which is the thing worth checking
-                      when a number looks wrong. */}
-                  {food.items.length > 1 && (
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                      {food.items.map((item) => item.name).join(", ")}
-                    </p>
-                  )}
-                  {food.assumptions && (
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                      {food.assumptions}
-                    </p>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
+                {isOpen && (
+                  <div className="border-t border-[var(--rule)]/60 px-4 pb-4 pt-3">
+                    {editing === food.id ? (
+                      <MacroEditor
+                        food={food}
+                        onCancel={() => setEditing(null)}
+                        onSaved={(row) => {
+                          replace(row);
+                          setEditing(null);
+                        }}
+                        onError={setError}
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        <dl className="grid grid-cols-3 gap-3 text-xs">
+                          {MACROS.filter((macro) => macro !== "kcal").map((macro) => (
+                            <div key={macro}>
+                              <dt className="text-muted-foreground">{MACRO_LABELS[macro]}</dt>
+                              <dd className="mt-0.5 font-medium tabular-nums">{food[macro]}g</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        {/* What is actually in it, which is the thing worth
+                            checking when a number looks wrong. */}
+                        {food.items.length > 1 && (
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {food.items.map((item) => item.name).join(", ")}
+                          </p>
+                        )}
+                        {food.assumptions && (
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {food.assumptions}
+                          </p>
+                        )}
+                        <p className="text-xs tabular-nums text-muted-foreground">
+                          {food.times_used > 0
+                            ? `Logged ${food.times_used}× · last ${new Date(food.last_used_at ?? food.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                            : "Never logged from here"}
+                        </p>
+                        {!food.archived_at && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditing(food.id)}
+                              className="text-muted-foreground"
+                            >
+                              <Pencil className="size-4" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggleArchive(food)}
+                              className="text-muted-foreground"
+                            >
+                              <Archive className="size-4" /> Archive
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -195,7 +312,10 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setShowArchived((v) => !v)}
+          onClick={() => {
+            setShowArchived((v) => !v);
+            setOpen(null);
+          }}
           className="text-muted-foreground"
         >
           {showArchived ? "Back to your list" : `Archived (${archivedCount})`}

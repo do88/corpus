@@ -129,11 +129,11 @@ export function TabBar() {
         style={{ viewTransitionName: "persistent-rail" }}
         aria-label="Main"
       >
-        <div className="surface flex flex-col items-center gap-0.5 p-2" style={{ borderRadius: 26 }}>
+        <div className="surface flex flex-col items-center gap-0.5 p-2" style={{ borderRadius: 18 }}>
           <Link
             href="/"
             aria-label="do.fit — Today"
-            className="tappable mb-1 grid size-11 w-16 place-items-center rounded-2xl"
+            className="tappable mb-1 grid size-11 w-16 place-items-center rounded-[10px]"
           >
             <Logomark size={22} accent="var(--accent-protein)" />
           </Link>
@@ -148,7 +148,7 @@ export function TabBar() {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className="tappable relative flex w-16 flex-col items-center gap-1 rounded-2xl py-2 transition-colors"
+                className="tappable relative flex w-16 flex-col items-center gap-1 rounded-[10px] py-2 transition-colors"
                 style={
                   active
                     ? {
