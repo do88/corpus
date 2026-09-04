@@ -825,15 +825,11 @@ portions instead of arithmetic.
 
 ### Two API shapes worth knowing
 
-- **Structured outputs reject `minimum`/`maximum` on an integer.** Zod emits
-  them from `.int()` alone, before any `.min()` of yours, so a plain
-  `z.toJSONSchema` is a 400. `lib/anthropic/schema.ts` strips them at the
-  boundary; the zod object keeps its bounds and still enforces them on parse.
 - **`server-only` throws on import outside Next.** It can't sit in a module the
-  Netlify function shares, so the marker lives on the route handler instead.
-- **The proxy matcher has to exclude `/jobs/*`.** In production the Next
-  runtime's edge function matches before Netlify routes to a background
-  function, so those requests *did* reach the proxy — which authenticates by
-  cookie, while the outbox authenticates by Bearer token. A valid request was
-  answered with a redirect to `/login`. The functions verify the token
-  themselves, which is the right check for a caller with no cookie jar.
+  maintenance scripts share, so the marker lives on the route handler instead.
+- **The proxy matcher excludes `/api/meals/process` and `/api/cron/`.** The
+  proxy authenticates by cookie; the outbox calls the first with a Bearer token
+  and Vercel's scheduler calls the second with the cron secret. Left in the
+  matcher, both valid requests were answered with a redirect to `/login`. Each
+  route verifies its own caller, which is the right check for one with no
+  cookie jar.
