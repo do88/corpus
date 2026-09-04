@@ -10,8 +10,6 @@ would orphan any meal queued on a phone, renaming the sync tag would leave a
 registered sync nobody answers, and renaming the project would spin up an empty
 Docker stack beside the ported one.
 
-The plan is in [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md).
-
 ```
 src/
   app/
@@ -761,12 +759,13 @@ locally and in production.
 
 ### Choosing the model, measured
 
-`pnpm compare:models` runs the Phase 0 reference meals — the ones whose values
+The comparison script ran the Phase 0 reference meals — the ones whose values
 were measured by hand — through every candidate on the *same* system prompt and
-the *same* schema, and prints error against those labels beside the measured
+the *same* schema, and printed error against those labels beside the measured
 cost. Same prompt matters: give each model its own tuned prompt and you are
-comparing the prompting, not the models. Add a filter to run a subset
-(`pnpm compare:models claude`); every row is real API calls against real money.
+comparing the prompting, not the models. The script and the Anthropic SDK it
+needed were removed once the choice was made; both are in git history if the
+question is ever reopened. The numbers it produced are kept here.
 
 Measured August 2026, text-only, with low thinking/effort:
 

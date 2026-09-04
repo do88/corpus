@@ -39,9 +39,9 @@ import {
  *
  * Exported uncached as well as wrapped, because `unstable_cache` throws
  * outside a Next request — it needs an incremental cache that only exists
- * there. `check:dashboard` and `time-dashboard` run under tsx with no Next
- * around them, and they want the real queries anyway: a smoke check answered
- * from cache proves nothing about the database.
+ * there. `check:dashboard` runs under tsx with no Next around it, and it
+ * wants the real queries anyway: a smoke check answered from cache proves
+ * nothing about the database.
  */
 export async function buildDashboardData() {
   // Every query below is independent, so they all go at once. Awaited one at a
