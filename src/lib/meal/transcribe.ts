@@ -33,15 +33,20 @@ import { MEAL_MODEL } from "./estimate";
  * comprehension, not transcription, and the downstream estimator needs the
  * retraction already applied — it is going to count what the sentence says.
  *
- * So the specialist stays implemented, one constant away, because the finding
- * is two synthetic clips deep and its custom-vocabulary list never got a fair
- * test: text-to-speech pronounces "Skyr" perfectly, which is exactly the case
- * vocabulary hints exist to rescue. Real speech in a real kitchen may say
- * otherwise. `pnpm probe:transcribe` re-runs the comparison.
+ * That finding was two synthetic clips deep, and the specialist's
+ * custom-vocabulary list never got a fair test: text-to-speech pronounces
+ * "Skyr" perfectly, which is exactly the case vocabulary hints exist to
+ * rescue. So the specialist is now the one running, as a trial with real
+ * speech in a real kitchen, and Flash stays one constant away if the
+ * corrections problem shows up in practice. `pnpm probe:transcribe` re-runs
+ * the comparison.
  */
 
-/** Which of the two implementations below runs. See the note above. */
-export const TRANSCRIBE_STRATEGY: "flash" | "specialist" = "flash";
+export type TranscribeStrategy = "flash" | "specialist";
+
+/** Which of the two implementations below runs. See the note above. The
+ * assertion keeps the type a union, so the other branch still type-checks. */
+export const TRANSCRIBE_STRATEGY = "specialist" as TranscribeStrategy;
 
 export const TRANSCRIBE_MODEL = TRANSCRIBE_STRATEGY === "flash" ? MEAL_MODEL : "gemini-3.5-transcribe";
 
@@ -157,7 +162,11 @@ function add(counts: Map<string, { term: string; count: number }>, term: string)
   else counts.set(key, { term, count: 1 });
 }
 
-export async function transcribeAudio(input: TranscribeInput): Promise<TranscribeResult> {
+export async function transcribeAudio(
+  input: TranscribeInput,
+  // Overridable so both paths stay tested whichever one is live.
+  strategy: TranscribeStrategy = TRANSCRIBE_STRATEGY,
+): Promise<TranscribeResult> {
   if (!input.audioBase64) throw new Error("Nothing was recorded");
   if (!isSupportedAudioType(input.mimeType)) {
     throw new Error(`Cannot transcribe ${input.mimeType}`);
@@ -168,9 +177,7 @@ export async function transcribeAudio(input: TranscribeInput): Promise<Transcrib
 
   const startedAt = Date.now();
   const text =
-    TRANSCRIBE_STRATEGY === "flash"
-      ? await viaFlash(key, input)
-      : await viaSpecialist(key, input);
+    strategy === "flash" ? await viaFlash(key, input) : await viaSpecialist(key, input);
 
   const cleaned = text.trim();
   /*
@@ -190,7 +197,8 @@ export async function transcribeAudio(input: TranscribeInput): Promise<Transcrib
     throw new Error("I heard sound but no words — try again a bit closer to the mic");
   }
 
-  return { text: cleaned, model: TRANSCRIBE_MODEL, latencyMs: Date.now() - startedAt };
+  const model = strategy === "flash" ? MEAL_MODEL : "gemini-3.5-transcribe";
+  return { text: cleaned, model, latencyMs: Date.now() - startedAt };
 }
 
 /** A short list of brand names, if there are any worth mentioning. */

@@ -18,6 +18,10 @@ const flashSaid = (text: string) =>
     usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
   });
 
+/** The specialist answers through the interactions API: steps, not candidates. */
+const specialistSaid = (text: string) =>
+  json({ steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+
 describe("isSupportedAudioType", () => {
   it("accepts what a browser actually reports, codec and all", () => {
     // The value comes from `MediaRecorder.mimeType`, which is never the bare
@@ -129,13 +133,13 @@ describe("transcribeAudio", () => {
   });
 
   it("returns what was said", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(flashSaid("Two eggs on toast."));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(specialistSaid("Two eggs on toast."));
     const result = await transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" });
     expect(result.text).toBe("Two eggs on toast.");
   });
 
   it("trims the model's stray whitespace", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(flashSaid("  Two eggs.\n"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(specialistSaid("  Two eggs.\n"));
     const result = await transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" });
     expect(result.text).toBe("Two eggs.");
   });
@@ -143,7 +147,7 @@ describe("transcribeAudio", () => {
   it("treats silence as an error rather than emptying the box", async () => {
     // The caller adds the transcript to whatever is already typed. An empty
     // string returned as success would look like it worked and change nothing.
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(flashSaid("   "));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(specialistSaid("   "));
     await expect(
       transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" }),
     ).rejects.toThrow(/no words/i);
@@ -165,15 +169,33 @@ describe("transcribeAudio", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("sends the audio and the vocabulary hints", async () => {
+  it("sends the audio and the vocabulary hints to the specialist", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(flashSaid("A Skyr yoghurt."));
-    await transcribeAudio({
+      .mockResolvedValue(specialistSaid("A Skyr yoghurt."));
+    const result = await transcribeAudio({
       audioBase64: "AAAA",
       mimeType: "audio/mp4",
       vocabulary: ["Skyr", "Mr Kipling"],
     });
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(body.model).toBe("gemini-3.5-transcribe");
+    expect(body.input[0]).toMatchObject({ type: "audio", mime_type: "audio/mp4", data: "AAAA" });
+    expect(body.generation_config.transcription_config.custom_vocabulary).toEqual([
+      "Skyr",
+      "Mr Kipling",
+    ]);
+    expect(result.model).toBe("gemini-3.5-transcribe");
+  });
+
+  it("sends the audio and the vocabulary hints to Flash, when asked", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(flashSaid("A Skyr yoghurt."));
+    await transcribeAudio(
+      { audioBase64: "AAAA", mimeType: "audio/mp4", vocabulary: ["Skyr", "Mr Kipling"] },
+      "flash",
+    );
     const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
     const parts = body.contents[0].parts;
     expect(parts[0].inlineData).toMatchObject({ mimeType: "audio/mp4", data: "AAAA" });
@@ -195,7 +217,7 @@ describe("transcribeAudio", () => {
       }),
     );
     await expect(
-      transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" }),
+      transcribeAudio({ audioBase64: "AAAA", mimeType: "audio/webm" }, "flash"),
     ).rejects.toThrow(/shorter takes/i);
   });
 
