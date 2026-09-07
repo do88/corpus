@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Clock3, Send, TriangleAlert, X } from "lucide-react";
+import { Camera, Send, TriangleAlert, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
 import { compressForEstimate } from "@/lib/meal/compress";
-import { localDay, mealTimeInput, parseMealTime } from "@/lib/time";
+import { localDay, parseMealTime } from "@/lib/time";
 import { MealTimeField } from "@/components/meal-time-field";
 import { toast } from "sonner";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
@@ -32,7 +32,8 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [choosingTime, setChoosingTime] = useState(day !== today);
+  // "" is now. On a past day the composer starts at noon of that day, since
+  // "now" would silently file the meal under today.
   const [eatenAt, setEatenAt] = useState(day === today ? "" : `${day}T12:00`);
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
@@ -69,7 +70,7 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
     setBusy(true);
     setError(null);
     try {
-      const loggedAt = choosingTime ? parseMealTime(eatenAt) : new Date();
+      const loggedAt = eatenAt ? parseMealTime(eatenAt) : new Date();
       const meal: OutboxMeal = {
         // Minted here so the meal keeps one identity through the queue, a
         // retry, and the app being closed in between.
@@ -87,7 +88,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
       clearPhoto();
       toast.success(`Meal saved for ${localDay(loggedAt)}`);
       setEatenAt(day === today ? "" : `${day}T12:00`);
-      setChoosingTime(day !== today);
       onQueued();
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not save the meal");
@@ -177,15 +177,10 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
           onDictationError={setError}
         />
 
-        <div className="mt-2 px-1">
-          {choosingTime ? (
-            <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} />
-          ) : (
-            <Button type="button" variant="ghost" disabled={busy}
-              onClick={() => { setEatenAt(mealTimeInput()); setChoosingTime(true); }} className="min-h-11 gap-2 px-2 text-muted-foreground">
-              <Clock3 className="size-4" /> Now · change date / time
-            </Button>
-          )}
+        {/* When it was eaten: "Now" unless said otherwise, in the composer's
+            own voice rather than a browser control. */}
+        <div className="mt-1">
+          <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} allowNow />
         </div>
 
       {/*
