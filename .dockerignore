@@ -1,0 +1,14 @@
+# What the sync image has no use for. Without this the build context is the
+# whole working tree, node_modules and .next included — gigabytes uploaded to
+# the builder before a single layer can be cached.
+node_modules
+.next
+.git
+.vercel
+public
+reports
+*.log
+
+# Never. The service gets its configuration from Railway variables, and an env
+# file baked into an image is a secret with no expiry and no audit trail.
+.env*

@@ -1,0 +1,48 @@
+# The data sync, as a container.
+#
+# Used by the `sync` Railway service and nothing else — the app itself is built
+# by Railpack from package.json, not from here. Two runtimes in one image
+# because the job needs both: GarminDB is Python and has no alternative, and
+# everything that writes to Postgres is the repo's own TypeScript.
+#
+# Everything mutable lives on the mounted volume, not in the image. HOME is set
+# to it, which is the whole trick: GarminDB looks for its config and its OAuth
+# tokens under $HOME/.GarminDb and writes its archive to $HOME/HealthData, so
+# pointing HOME at a volume makes all of it persist without patching a single
+# path.
+FROM node:24-slim
+
+# python3-venv because Debian marks the system Python externally-managed, and
+# pip refuses to install into it. ca-certificates because both halves talk TLS.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV GARMIN_VENV=/opt/garmindb
+RUN python3 -m venv "$GARMIN_VENV" \
+ && "$GARMIN_VENV/bin/pip" install --no-cache-dir --upgrade pip \
+ && "$GARMIN_VENV/bin/pip" install --no-cache-dir garmindb
+
+WORKDIR /app
+
+# Dependencies before source, so a change to a script does not reinstall them.
+# The full install rather than production-only: `tsx` is a dev dependency and
+# it is what runs both ports.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
+
+COPY tsconfig.json ./
+COPY scripts ./scripts
+COPY src ./src
+
+# The volume mount point. Railway mounts over it; the mkdir only matters when
+# the image is run without one, which is how the build is smoke-tested.
+ENV HOME=/data
+RUN mkdir -p /data
+
+# Both ports refuse a remote database without this, which is the right default
+# for a command typed by a person and the wrong one for the service whose only
+# purpose is to write to production.
+ENV CONFIRM_REMOTE_PORT=yes
+
+CMD ["bash", "scripts/sync-all.sh"]
