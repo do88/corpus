@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { enqueue } from "@/lib/outbox/store";
 import { flushOutbox } from "@/lib/outbox/sync";
@@ -32,49 +33,91 @@ import { MACROS, type Macro } from "@/lib/meal/schema";
 import { cn } from "@/lib/utils";
 
 /**
- * The saved list, as a list.
+ * The saved list, as a listing.
  *
- * It was a stack of cards, each carrying its items and its assumptions, and
- * at thirty foods that was already a lot of scrolling. This is built for
- * hundreds: one line per food — name, calories, protein — inside a single
- * surface, and everything else behind a tap on the row. What you want from
- * this page most of the time is to find one and log it, and a row that does
- * both in one glance is the whole design.
+ * Built for hundreds: a row per food with the name allowed two lines before
+ * it is cut, the figures underneath in a line, and Log at the right. The
+ * first version truncated names to one line and "Aldi Worldwide Foods
+ * chicken…" was every row on the page; the name is the thing you scan for,
+ * so it gets the room.
+ *
+ * Sorted the four ways a food list is actually used — most eaten, by name,
+ * by protein, by calories — and paged twenty-five at a time with a "show
+ * more" rather than page numbers, because the search box is the way to a
+ * specific food and the page is for browsing. Search resets the paging.
  *
  * Logging from here is the same path "Your usual" used on Today before it
- * went: the estimate travels with the meal, so the row lands finished and the
- * worker is never asked. The meal counts toward now, not toward any day that
- * happens to be selected elsewhere, because a saved food is something you
- * just ate.
+ * went: the estimate travels with the meal, so the row lands finished and
+ * the worker is never asked. The meal counts toward now, because a saved
+ * food is something you just ate.
  *
- * Upkeep — rename, fix a number, archive — is the same four-box editor the
- * meal cards use, because it is the same job and a second editor would be a
- * second place for the rounding rules to drift.
+ * Upkeep — items, rename, fix a number, archive — is behind a tap on the
+ * row, using the same four-box editor the meal cards use.
  */
+
+type Sort = "used" | "name" | "protein" | "kcal";
+
+const SORTS: { value: Sort; label: string }[] = [
+  { value: "used", label: "Most used" },
+  { value: "name", label: "A–Z" },
+  { value: "protein", label: "Protein" },
+  { value: "kcal", label: "Calories" },
+];
+
+const PAGE = 25;
+
+function compare(sort: Sort) {
+  return (a: SavedFoodRow, b: SavedFoodRow): number => {
+    switch (sort) {
+      case "name":
+        return a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" });
+      case "protein":
+        return b.protein_g - a.protein_g || a.kcal - b.kcal;
+      case "kcal":
+        return a.kcal - b.kcal || b.protein_g - a.protein_g;
+      default:
+        return b.times_used - a.times_used || a.name.localeCompare(b.name, "en-GB");
+    }
+  };
+}
+
 export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
   const [foods, setFoods] = useState(initial);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<Sort>("used");
   const [showArchived, setShowArchived] = useState(false);
+  const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
   const [logged, setLogged] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const visible = useMemo(() => {
+  const matching = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return foods.filter((food) => {
-      if (Boolean(food.archived_at) !== showArchived) return false;
-      if (!needle) return true;
-      // The item names too, so "whey" finds a shake called "Morning".
-      return (
-        food.name.toLowerCase().includes(needle) ||
-        food.items.some((item) => item.name.toLowerCase().includes(needle))
-      );
-    });
-  }, [foods, query, showArchived]);
+    return foods
+      .filter((food) => {
+        if (Boolean(food.archived_at) !== showArchived) return false;
+        if (!needle) return true;
+        // The item names too, so "whey" finds a shake called "Morning".
+        return (
+          food.name.toLowerCase().includes(needle) ||
+          food.items.some((item) => item.name.toLowerCase().includes(needle))
+        );
+      })
+      .sort(compare(sort));
+  }, [foods, query, showArchived, sort]);
 
+  const visible = matching.slice(0, shown);
   const archivedCount = foods.filter((food) => food.archived_at).length;
+
+  /** Any change to what is being browsed starts again from the top. */
+  function browse(change: () => void) {
+    change();
+    setShown(PAGE);
+    setOpen(null);
+    setEditing(null);
+  }
 
   function replace(row: SavedFoodRow) {
     setFoods((current) => current.map((food) => (food.id === row.id ? row : food)));
@@ -147,13 +190,25 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         />
         <Input
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => browse(() => setQuery(event.target.value))}
           placeholder="search your foods…"
           aria-label="Search your saved foods"
           className="h-11 pl-10"
           style={{ borderRadius: 12 }}
         />
       </div>
+
+      {/* The sort, as a segmented control the height of everything else
+          tappable here. Stock tabs are 32px, a desktop size. */}
+      <Tabs value={sort} onValueChange={(value) => browse(() => setSort(value as Sort))}>
+        <TabsList className="h-11 w-full group-data-horizontal/tabs:h-11">
+          {SORTS.map((option) => (
+            <TabsTrigger key={option.value} value={option.value}>
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {logged && (
         <Alert role="status">
@@ -172,7 +227,7 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         </Alert>
       )}
 
-      {visible.length === 0 ? (
+      {matching.length === 0 ? (
         <p className="px-1 py-6 text-center text-sm text-muted-foreground">
           Nothing matches “{query.trim()}”.
         </p>
@@ -183,13 +238,11 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
             return (
               <li key={food.id}>
                 {/*
-                  Two controls on one line: the row itself, which opens the
-                  details, and Log. They are siblings rather than nested so a
-                  tap on Log never also opens the row, and both clear the
-                  44px floor — the row from its padding, the button from its
-                  own height.
+                  Two controls on one row: the row itself, which opens the
+                  details, and Log. Siblings rather than nested so a tap on
+                  Log never also opens the row.
                 */}
-                <div className="flex items-center gap-1 pl-4 pr-1.5">
+                <div className="flex items-center gap-2 pl-4 pr-1.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -197,24 +250,27 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                       setEditing(null);
                     }}
                     aria-expanded={isOpen}
-                    className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left"
+                    className="min-w-0 flex-1 py-3 text-left"
                   >
+                    {/* Two lines before the name is cut: the name is what
+                        the eye scans for, and one line lost the half of it
+                        that told a chicken tikka from a chicken korma. */}
                     <span
                       className={cn(
-                        "min-w-0 flex-1 truncate text-[0.9375rem] font-medium leading-snug",
+                        "line-clamp-2 text-[0.9375rem] font-medium leading-snug",
                         food.archived_at && "text-muted-foreground",
                       )}
                     >
                       {food.name}
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {food.kcal.toLocaleString("en-GB")} kcal
-                    </span>
-                    <span
-                      className="w-11 shrink-0 text-right text-xs tabular-nums"
-                      style={{ color: "var(--ink-protein)" }}
-                    >
-                      {food.protein_g}g
+                    <span className="mt-1 flex flex-wrap gap-x-2 text-xs tabular-nums text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {food.kcal.toLocaleString("en-GB")} kcal
+                      </span>
+                      <span style={{ color: "var(--ink-protein)" }}>{food.protein_g}g protein</span>
+                      <span>{food.carbs_g}g carbs</span>
+                      <span>{food.fat_g}g fat</span>
+                      {food.times_used > 0 && <span>logged {food.times_used}×</span>}
                     </span>
                   </button>
                   {food.archived_at ? (
@@ -253,19 +309,16 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                       />
                     ) : (
                       <div className="space-y-3">
-                        <dl className="grid grid-cols-3 gap-3 text-xs">
-                          {MACROS.filter((macro) => macro !== "kcal").map((macro) => (
-                            <div key={macro}>
-                              <dt className="text-muted-foreground">{MACRO_LABELS[macro]}</dt>
-                              <dd className="mt-0.5 font-medium tabular-nums">{food[macro]}g</dd>
-                            </div>
-                          ))}
-                        </dl>
                         {/* What is actually in it, which is the thing worth
                             checking when a number looks wrong. */}
                         {food.items.length > 1 && (
                           <p className="text-xs leading-relaxed text-muted-foreground">
-                            {food.items.map((item) => item.name).join(", ")}
+                            {food.items.map((item) => `${item.name} (${item.qty})`).join(", ")}
+                          </p>
+                        )}
+                        {food.items.length === 1 && (
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {food.items[0].qty}
                           </p>
                         )}
                         {food.assumptions && (
@@ -274,9 +327,9 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                           </p>
                         )}
                         <p className="text-xs tabular-nums text-muted-foreground">
-                          {food.times_used > 0
-                            ? `Logged ${food.times_used}× · last ${new Date(food.last_used_at ?? food.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                            : "Never logged from here"}
+                          {food.fiber_g == null ? "Fibre unknown" : `${food.fiber_g}g fibre`}
+                          {food.times_used > 0 &&
+                            ` · last logged ${new Date(food.last_used_at ?? food.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
                         </p>
                         {!food.archived_at && (
                           <div className="flex items-center gap-1">
@@ -308,14 +361,25 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         </ul>
       )}
 
+      {/* Paging: how far down the list you are, and the way further. */}
+      {matching.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {Math.min(shown, matching.length)} of {matching.length}
+          </span>
+          {matching.length > shown && (
+            <Button variant="outline" size="sm" onClick={() => setShown((n) => n + PAGE)}>
+              Show {Math.min(PAGE, matching.length - shown)} more
+            </Button>
+          )}
+        </div>
+      )}
+
       {archivedCount > 0 && (
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
-            setShowArchived((v) => !v);
-            setOpen(null);
-          }}
+          onClick={() => browse(() => setShowArchived((v) => !v))}
           className="text-muted-foreground"
         >
           {showArchived ? "Back to your list" : `Archived (${archivedCount})`}

@@ -70,36 +70,33 @@ export function TrackingStreaks({ initial }: { initial: StreakDisplay | null }) 
     : "Streaks are temporarily unavailable.";
 
   /*
-    A pill, the height of the controls beside it, and only when there is
-    something to say. Two figures with an icon each and no words: the flame
-    is the logging streak, the target the on-target one. A zero is not
-    shown, because a header that reads "On target 0" every morning is a nag
-    rather than a record; the sentence behind the hover and the label
-    carries the definitions.
+    A pill, the height of the controls beside it, carrying two numbers with
+    an icon each and no words: the flame is days logged in a row, the target
+    is completed days in a row that hit both goals. Both always show, zero
+    included — a zero on the target is the point of having the second
+    number. The sentence behind the hover and the label carries the
+    definitions.
   */
-  if (!value || (value.logged === 0 && value.onTarget === 0)) return null;
+  if (!value) return null;
   return (
     <div
       className="surface flex h-9 shrink-0 items-center gap-2.5 px-3 text-sm font-semibold tabular-nums"
       style={{ borderRadius: 999 }}
       title={explanation}
-      aria-label={`${value.logged} day logging streak. ${value.onTarget} day on-target streak. ${explanation}`}
+      aria-label={`${value.logged} days logged in a row. ${value.onTarget} days on target in a row. ${explanation}`}
     >
-      {value.logged > 0 && (
-        <span className="flex items-center gap-1">
-          <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
-          {value.logged}
-        </span>
-      )}
-      {value.logged > 0 && value.onTarget > 0 && (
-        <span aria-hidden className="h-4 w-px bg-[var(--rule)]" />
-      )}
-      {value.onTarget > 0 && (
-        <span className="flex items-center gap-1" style={{ color: "var(--ink-protein)" }}>
-          <Target className="size-4" aria-hidden />
-          {value.onTarget}
-        </span>
-      )}
+      <span className="flex items-center gap-1">
+        <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
+        {value.logged}
+      </span>
+      <span aria-hidden className="h-4 w-px bg-[var(--rule)]" />
+      <span
+        className="flex items-center gap-1"
+        style={{ color: value.onTarget > 0 ? "var(--ink-protein)" : "var(--muted-foreground)" }}
+      >
+        <Target className="size-4" aria-hidden />
+        {value.onTarget}
+      </span>
     </div>
   );
 }
