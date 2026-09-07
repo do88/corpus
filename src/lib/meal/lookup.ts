@@ -32,8 +32,10 @@ If the text names a specific branded, own-brand or restaurant product, search fo
 its published nutrition information and report:
 - the full product name as sold
 - the pack or serving size it is sold in
-- energy (kcal), protein, carbohydrate and fat, per 100g AND per pack
+- energy (kcal), protein, carbohydrate, fat and dietary fibre, per 100g AND per pack
 - where the figures came from
+
+If nutrition values are already supplied in the text, do not search to replace them. Only seek missing information for an exact product match; explicitly preserve the supplied values. Missing fibre is unknown, not zero.
 
 The user is in the UK. Prefer UK listings and UK pack sizes; say so if the only
 figures you can find are for another market, because pack sizes differ.

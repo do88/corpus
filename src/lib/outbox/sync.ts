@@ -117,6 +117,7 @@ async function send(meal: OutboxMeal, accessToken: string, userId: string) {
               protein_g: meal.saved.estimate.protein_g,
               carbs_g: meal.saved.estimate.carbs_g,
               fat_g: meal.saved.estimate.fat_g,
+              fiber_g: meal.saved.estimate.fiber_g ?? null,
               confidence: meal.saved.estimate.confidence,
               assumptions: meal.saved.estimate.assumptions,
             }

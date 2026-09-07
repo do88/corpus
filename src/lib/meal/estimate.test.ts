@@ -22,6 +22,7 @@ const apiResponse = {
                   protein_g: 8,
                   carbs_g: 36,
                   fat_g: 2,
+                  fiber_g: 2.4,
                 },
               ],
               confidence: "high",

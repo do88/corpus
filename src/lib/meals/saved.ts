@@ -25,6 +25,7 @@ export type SavedFoodRow = {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number | null;
   assumptions: string | null;
   source_meal_id: string | null;
   times_used: number;
@@ -34,7 +35,7 @@ export type SavedFoodRow = {
 };
 
 const COLUMNS =
-  "id, name, items, kcal, protein_g, carbs_g, fat_g, assumptions, source_meal_id, times_used, last_used_at, archived_at, created_at";
+  "id, name, items, kcal, protein_g, carbs_g, fat_g, fiber_g, assumptions, source_meal_id, times_used, last_used_at, archived_at, created_at";
 
 /**
  * The list, most-eaten first.
@@ -189,6 +190,7 @@ export async function recordSavedFoodUse(
 export function estimateFromSaved(saved: SavedFoodRow, quantity = 1): MealEstimate {
   const items = saved.items.map((item) => ({
     ...item,
+    fiber_g: item.fiber_g == null ? null : Math.round(item.fiber_g * quantity * 10) / 10,
     qty: quantity === 1 ? item.qty : `${quantity} × ${item.qty}`,
     ...(Object.fromEntries(
       MACROS.map((macro) => [macro, Math.round(item[macro] * quantity)]),

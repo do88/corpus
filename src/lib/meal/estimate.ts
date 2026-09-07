@@ -33,6 +33,7 @@ export type SavedFoodFacts = {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number | null;
   items: { name: string; qty: string }[];
 };
 
@@ -63,11 +64,11 @@ export function describeSavedFoods(foods: SavedFoodFacts[] | undefined): string 
   if (!foods?.length) return null;
   const lines = foods.slice(0, 25).map((food) => {
     const parts = food.items.map((item) => `${item.name} — ${item.qty}`).join("; ");
-    return `- "${food.name}": ${food.kcal} kcal, ${food.protein_g}g protein, ${food.carbs_g}g carbs, ${food.fat_g}g fat${parts ? ` (${parts})` : ""}`;
+    return `- "${food.name}": ${food.kcal} kcal, ${food.protein_g}g protein, ${food.carbs_g}g carbs, ${food.fat_g}g fat, ${food.fiber_g == null ? "fibre unknown" : `${food.fiber_g}g fibre`}${parts ? ` (${parts})` : ""}`;
   });
   return [
-    "This user's own saved figures, for foods they eat often and have already checked.",
-    "Use these exactly when the description clearly refers to one of them; otherwise ignore them.",
+    "This user's own saved figures, for foods they eat often and have previously saved (may be AI estimates).",
+    "Reuse only for a clear food and portion match; this entry's explicit labels and corrections override these older figures.",
     "",
     ...lines,
   ].join("\n");

@@ -24,6 +24,7 @@ export type DaySummary = {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g: number | null;
   /** Whether anything was logged and analysed. Drives every average below. */
   logged: boolean;
 };
@@ -32,8 +33,9 @@ export type PeriodSummary = {
   days: DaySummary[];
   loggedDays: number;
   totalDays: number;
+  fibreDays: number;
   /** Mean across logged days only. Zeroes when nothing is logged. */
-  average: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
+  average: { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number | null };
   /** Logged days that cleared the protein floor / stayed under the kcal ceiling. */
   onTarget: { protein: number; kcal: number };
   /** Total intake across the period, which *is* a calendar-wide figure. */
@@ -52,7 +54,7 @@ export function summarise(
 ): PeriodSummary {
   const byDate = new Map<string, DaySummary>();
   for (const date of dates) {
-    byDate.set(date, { date, kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, logged: false });
+    byDate.set(date, { date, kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, logged: false });
   }
 
   for (const meal of meals) {
@@ -66,11 +68,14 @@ export function summarise(
     day.protein_g += meal.protein_g ?? 0;
     day.carbs_g += meal.carbs_g ?? 0;
     day.fat_g += meal.fat_g ?? 0;
+    day.fiber_g = day.fiber_g == null || meal.fiber_g == null ? null : Math.round((day.fiber_g + meal.fiber_g) * 10) / 10;
     day.logged = true;
   }
 
   const days = dates.map((d) => byDate.get(d)!);
   const logged = days.filter((d) => d.logged);
+
+  const fibreDays = logged.filter((d) => d.fiber_g !== null);
 
   const mean = (pick: (d: DaySummary) => number) =>
     logged.length === 0 ? 0 : Math.round(logged.reduce((s, d) => s + pick(d), 0) / logged.length);
@@ -79,11 +84,13 @@ export function summarise(
     days,
     loggedDays: logged.length,
     totalDays: days.length,
+    fibreDays: fibreDays.length,
     average: {
       kcal: mean((d) => d.kcal),
       protein_g: mean((d) => d.protein_g),
       carbs_g: mean((d) => d.carbs_g),
       fat_g: mean((d) => d.fat_g),
+      fiber_g: fibreDays.length ? Math.round(fibreDays.reduce((sum, d) => sum + d.fiber_g!, 0) / fibreDays.length * 10) / 10 : null,
     },
     onTarget: {
       // Protein is a floor you clear; calories are a ceiling you stay under.

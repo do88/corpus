@@ -71,6 +71,7 @@ export async function processMeal(
           protein_g: food.protein_g,
           carbs_g: food.carbs_g,
           fat_g: food.fat_g,
+          fiber_g: food.fiber_g ?? null,
           items: food.items.map((item) => ({ name: item.name, qty: item.qty })),
         }));
       } catch {

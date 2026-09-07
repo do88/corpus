@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         protein_g: today.protein_g,
         carbs_g: today.carbs_g,
         fat_g: today.fat_g,
+        fiber_g: today.fiber_g,
       },
       targets,
       time: format(inZone(), "HH:mm"),

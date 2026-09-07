@@ -29,7 +29,10 @@ export type BodyInput = {
   dailyKcalTarget?: number;
 };
 
+export const DAILY_FIBRE_TARGET = 30;
+
 export type DailyTargets = {
+  fiber_g: number;
   kcal: number;
   protein_g: number;
   carbs_g: number;
@@ -182,6 +185,7 @@ export function computeTargets(input: BodyInput): DailyTargets {
   const toLose = input.weightKg - input.goalWeightKg;
 
   return {
+    fiber_g: DAILY_FIBRE_TARGET,
     kcal,
     protein_g,
     carbs_g,

@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { inZone } from "../time";
-import type { Macro, MealItem } from "./schema";
+import type { Nutrient, MealItem } from "./schema";
 
 /**
  * How meal data is written on screen. Shared so the two components that show a
@@ -9,11 +9,12 @@ import type { Macro, MealItem } from "./schema";
  */
 
 /** What each macro is called in the UI. `kcal` is a count; the rest are grams. */
-export const MACRO_LABELS: Record<Macro, string> = {
+export const MACRO_LABELS: Record<Nutrient, string> = {
   kcal: "kcal",
   protein_g: "protein",
   carbs_g: "carbs",
   fat_g: "fat",
+  fiber_g: "fibre",
 };
 
 

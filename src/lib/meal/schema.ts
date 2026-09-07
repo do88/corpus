@@ -10,6 +10,10 @@ const wholeAmount = z.number().int().min(0);
 
 export const MACROS = ["kcal", "protein_g", "carbs_g", "fat_g"] as const;
 export type Macro = (typeof MACROS)[number];
+export const NUTRIENTS = [...MACROS, "fiber_g"] as const;
+export type Nutrient = (typeof NUTRIENTS)[number];
+export const fibreAmount = z.number().min(0).nullable()
+  .describe("Dietary fibre in grams for the stated portion; preserve label values. Null only when unknown, never use zero for missing data.");
 
 export const mealItemSchema = z.object({
   name: z.string().describe("The food as a person would say it"),
@@ -18,6 +22,8 @@ export const mealItemSchema = z.object({
   protein_g: wholeAmount,
   carbs_g: wholeAmount,
   fat_g: wholeAmount,
+  // Optional for saved items written before fibre tracking existed.
+  fiber_g: fibreAmount.optional(),
 });
 
 /**
@@ -29,7 +35,7 @@ export const mealItemSchema = z.object({
  * itself and the model spends its tokens on portions rather than arithmetic.
  */
 export const mealResponseSchema = z.object({
-  items: z.array(mealItemSchema).min(1),
+  items: z.array(mealItemSchema.extend({ fiber_g: fibreAmount })).min(1),
   confidence: z.enum(["low", "medium", "high"]),
   assumptions: z
     .string()
@@ -38,11 +44,18 @@ export const mealResponseSchema = z.object({
 
 export type MealItem = z.infer<typeof mealItemSchema>;
 export type MealResponse = z.infer<typeof mealResponseSchema>;
-export type MealTotals = Record<Macro, number>;
-export type MealEstimate = MealResponse & MealTotals;
+export type MealTotals = Record<Macro, number> & { fiber_g: number | null };
+export type MealEstimate = Omit<MealResponse, "items"> & { items: MealItem[] } & MealTotals;
+
+/** Missing fibre makes a total unknown, not artificially low. */
+export function fibreTotal(items: { fiber_g?: number | null }[]): number | null {
+  return items.some((item) => item.fiber_g == null)
+    ? null
+    : Math.round(items.reduce((sum, item) => sum + item.fiber_g!, 0) * 10) / 10;
+}
 
 export function totalsFor(items: MealItem[]): MealTotals {
-  return Object.fromEntries(
+  return { ...Object.fromEntries(
     MACROS.map((macro) => [macro, items.reduce((sum, item) => sum + item[macro], 0)]),
-  ) as MealTotals;
+  ) as Record<Macro, number>, fiber_g: fibreTotal(items) };
 }

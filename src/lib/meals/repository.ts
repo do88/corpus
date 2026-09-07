@@ -1,7 +1,7 @@
 import { addDays, startOfWeek } from "date-fns";
-import { parseDay, toDay } from "@/lib/time";
+import { localDay, parseDay, toDay } from "@/lib/time";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MealEstimate } from "@/lib/meal/schema";
+import { fibreTotal, type MealEstimate } from "@/lib/meal/schema";
 
 /**
  * Every read and write of `meal_log`, in one place.
@@ -35,6 +35,7 @@ export type MealRow = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  fiber_g?: number | null;
   items: MealEstimate["items"] | null;
   confidence: MealEstimate["confidence"] | null;
   assumptions: string | null;
@@ -124,6 +125,7 @@ export async function saveEstimate(
       protein_g: estimate.protein_g,
       carbs_g: estimate.carbs_g,
       fat_g: estimate.fat_g,
+      fiber_g: estimate.fiber_g,
       items: estimate.items,
       confidence: estimate.confidence,
       assumptions: estimate.assumptions,
@@ -174,11 +176,12 @@ export async function recordFailure(
 export async function correctMacros(
   supabase: SupabaseClient,
   id: string,
-  macros: { kcal: number; protein_g: number; carbs_g: number; fat_g: number },
+  macros: { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null },
+  at?: Date,
 ): Promise<void> {
   const { error } = await supabase
     .from("meal_log")
-    .update({ ...macros, edited: true, status: "analyzed", error: null })
+    .update({ ...macros, ...(at ? { logged_at: at.toISOString(), local_date: localDay(at) } : {}), edited: true, status: "analyzed", error: null })
     .eq("id", id);
 
   if (error) throw new Error(`Could not save the correction: ${error.message}`);
@@ -206,16 +209,19 @@ export async function redescribeMeal(
   note: string,
   estimate: MealEstimate,
   model: string,
+  at?: Date,
 ): Promise<void> {
   const { error } = await supabase
     .from("meal_log")
     .update({
+      ...(at ? { logged_at: at.toISOString(), local_date: localDay(at) } : {}),
       status: "analyzed",
       note,
       kcal: estimate.kcal,
       protein_g: estimate.protein_g,
       carbs_g: estimate.carbs_g,
       fat_g: estimate.fat_g,
+      fiber_g: estimate.fiber_g,
       items: estimate.items,
       confidence: estimate.confidence,
       assumptions: estimate.assumptions,
@@ -234,6 +240,18 @@ export async function deleteMeal(supabase: SupabaseClient, id: string): Promise<
   if (error) throw new Error(`Could not delete: ${error.message}`);
 }
 
+/** Move an entry and its tracking day together without changing its estimate. */
+export async function changeMealTime(supabase: SupabaseClient, id: string, at: Date): Promise<MealRow> {
+  if (!Number.isFinite(at.getTime()) || at.getTime() > Date.now()) {
+    throw new Error("Choose a valid time that has already happened.");
+  }
+  const { data, error } = await supabase.from("meal_log")
+    .update({ logged_at: at.toISOString(), local_date: localDay(at) })
+    .eq("id", id).select().single();
+  if (error) throw new Error(`Could not change the time: ${error.message}`);
+  return data as MealRow;
+}
+
 /** Running totals for the day. Summed here so the UI never does arithmetic. */
 export function totalsForDay(meals: MealRow[]) {
   const analysed = meals.filter((m) => m.status === "analyzed");
@@ -242,6 +260,7 @@ export function totalsForDay(meals: MealRow[]) {
     protein_g: analysed.reduce((sum, m) => sum + (m.protein_g ?? 0), 0),
     carbs_g: analysed.reduce((sum, m) => sum + (m.carbs_g ?? 0), 0),
     fat_g: analysed.reduce((sum, m) => sum + (m.fat_g ?? 0), 0),
+    fiber_g: fibreTotal(analysed),
     pending: meals.filter((m) => m.status === "pending").length,
     failed: meals.filter((m) => m.status === "failed").length,
   };

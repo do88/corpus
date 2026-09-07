@@ -23,7 +23,7 @@
  * are context for a question rather than the point of the screen.
  */
 
-type Figures = { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
+type Figures = { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null };
 type Macro = keyof Figures;
 
 /** Per-line text overrides, for a screen where "left" is the wrong word (averages). */
@@ -39,6 +39,7 @@ const LINES: { macro: Macro; label: string; unit: string; metric: string; ceilin
   { macro: "protein_g", label: "Protein", unit: "g", metric: "protein", ceiling: false },
   { macro: "carbs_g", label: "Carbs", unit: "g", metric: "water", ceiling: false },
   { macro: "fat_g", label: "Fat", unit: "g", metric: "weight", ceiling: false },
+  { macro: "fiber_g", label: "Fibre", unit: "g", metric: "protein", ceiling: false },
 ];
 
 const n = (value: number) => value.toLocaleString("en-GB");
@@ -64,8 +65,9 @@ export function MacroLines({
   text?: Partial<Record<Macro, LineText>>;
 }) {
   const rows = LINES.map((line) => {
-    const value = values[line.macro];
-    const target = targets[line.macro];
+    const unknown = values[line.macro] == null;
+    const value = values[line.macro] ?? 0;
+    const target = targets[line.macro] ?? 30;
     const over = target > 0 && value > target;
     const alarmed = over && line.ceiling;
     const fraction = target > 0 ? Math.min(value / target, 1) : 0;
@@ -75,10 +77,10 @@ export function MacroLines({
       target,
       alarmed,
       fraction,
-      lead: text?.[line.macro]?.lead ?? leadFor(value, target, line.unit, line.ceiling),
+      lead: text?.[line.macro]?.lead ?? (unknown ? "Unknown" : leadFor(value, target, line.unit, line.ceiling)),
       detail:
         text?.[line.macro]?.detail ??
-        `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`,
+        (unknown ? `incomplete data · target ${n(target)}g` : `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`),
       fill: alarmed ? "var(--destructive)" : `var(--accent-${line.metric})`,
       ink: `var(--ink-${line.metric})`,
     };
