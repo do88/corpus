@@ -4,6 +4,7 @@ import { Offline } from "@/components/offline";
 import { HeaderControls } from "@/components/header-controls";
 import { TabBar } from "@/components/tab-bar";
 import { Theme } from "@/components/theme";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 /**
@@ -82,6 +83,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Suspense>
             {children}
             <TabBar />
+            {/* Top, not bottom: the tab bar owns the bottom of a phone screen. */}
+            <Toaster position="top-center" />
           </Theme>
         </Offline>
       </body>

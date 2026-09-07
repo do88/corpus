@@ -192,10 +192,12 @@
   --color-accent-protein: var(--accent-protein);
   --color-accent-water: var(--accent-water);
   --color-accent-weight: var(--accent-weight);
+  --color-accent-fibre: var(--accent-fibre);
   --color-ink-energy: var(--ink-energy);
   --color-ink-protein: var(--ink-protein);
   --color-ink-water: var(--ink-water);
   --color-ink-weight: var(--ink-weight);
+  --color-ink-fibre: var(--ink-fibre);
   --color-time-morning: var(--time-morning);
   --color-time-afternoon: var(--time-afternoon);
   --color-time-evening: var(--time-evening);
@@ -247,6 +249,8 @@
   --accent-protein: oklch(0.62 0.19 256);
   --accent-water: oklch(0.615 0.13 220);
   --accent-weight: oklch(0.58 0.20 285);
+  /* Fibre: the one green in the set, so its bar reads apart from protein's blue. */
+  --accent-fibre: oklch(0.60 0.15 150);
 
   /* The same hues darkened for use as type (4.5:1). Same lesson as before:
      one token cannot be both a vivid fill and a legible 11px label. */
@@ -254,6 +258,7 @@
   --ink-protein: oklch(0.53 0.20 256);
   --ink-water: oklch(0.53 0.12 220);
   --ink-weight: oklch(0.50 0.21 285);
+  --ink-fibre: oklch(0.48 0.14 150);
 
   /* Time of day, for the timeline spine and its nodes.
 
@@ -344,11 +349,13 @@
   --accent-protein: oklch(0.70 0.16 256);
   --accent-water: oklch(0.74 0.12 220);
   --accent-weight: oklch(0.68 0.18 285);
+  --accent-fibre: oklch(0.72 0.14 150);
 
   --ink-energy: oklch(0.82 0.14 62);
   --ink-protein: oklch(0.78 0.14 256);
   --ink-water: oklch(0.80 0.10 220);
   --ink-weight: oklch(0.76 0.15 285);
+  --ink-fibre: oklch(0.80 0.12 150);
 
   --time-morning: oklch(0.76 0.10 55);
   --time-afternoon: oklch(0.74 0.09 195);

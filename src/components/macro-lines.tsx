@@ -25,6 +25,8 @@
 
 type Figures = { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null };
 type Macro = keyof Figures;
+/** Every target is known, fibre included; only the eaten figure can be unknown. */
+type Targets = Record<Macro, number>;
 
 /** Per-line text overrides, for a screen where "left" is the wrong word (averages). */
 export type LineText = {
@@ -39,7 +41,7 @@ const LINES: { macro: Macro; label: string; unit: string; metric: string; ceilin
   { macro: "protein_g", label: "Protein", unit: "g", metric: "protein", ceiling: false },
   { macro: "carbs_g", label: "Carbs", unit: "g", metric: "water", ceiling: false },
   { macro: "fat_g", label: "Fat", unit: "g", metric: "weight", ceiling: false },
-  { macro: "fiber_g", label: "Fibre", unit: "g", metric: "protein", ceiling: false },
+  { macro: "fiber_g", label: "Fibre", unit: "g", metric: "fibre", ceiling: false },
 ];
 
 const n = (value: number) => value.toLocaleString("en-GB");
@@ -60,14 +62,14 @@ export function MacroLines({
   text,
 }: {
   values: Figures;
-  targets: Figures;
+  targets: Targets;
   variant?: "full" | "compact";
   text?: Partial<Record<Macro, LineText>>;
 }) {
   const rows = LINES.map((line) => {
     const unknown = values[line.macro] == null;
     const value = values[line.macro] ?? 0;
-    const target = targets[line.macro] ?? 30;
+    const target = targets[line.macro];
     const over = target > 0 && value > target;
     const alarmed = over && line.ceiling;
     const fraction = target > 0 ? Math.min(value / target, 1) : 0;

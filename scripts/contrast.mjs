@@ -52,11 +52,13 @@ const REQUIRED = {
   "--ink-protein": { need: 4.5, on: ["card", "ground"] },
   "--ink-water": { need: 4.5, on: ["card"] },
   "--ink-weight": { need: 4.5, on: ["card"] },
+  "--ink-fibre": { need: 4.5, on: ["card"] },
   // The same hues as *graphics* — a ring, a fill, a dot. WCAG asks 3:1.
   "--accent-energy": { need: 3, on: ["card"] },
   "--accent-protein": { need: 3, on: ["card", "ground"] },
   "--accent-water": { need: 3, on: ["card"] },
   "--accent-weight": { need: 3, on: ["card"] },
+  "--accent-fibre": { need: 3, on: ["card"] },
   // The timeline nodes are small filled dots drawn on the bare page, not on a
   // card — so they are graphics against the ground.
   "--time-morning": { need: 3, on: ["ground"] },
