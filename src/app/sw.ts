@@ -75,8 +75,8 @@ const serwist = new Serwist({
        * It was three seconds, argued as "longer than a working connection
        * needs". That was measured from a laptop on wifi against a warm edge,
        * and it is not what a phone cold-opening a home-screen app sees: the
-       * radio waking, TLS, and a Netlify function that has to start before it
-       * can render the authenticated page. The result was a PWA that opened
+       * radio waking, TLS, and a server that has to render the authenticated
+       * page before it can answer. The result was a PWA that opened
        * on yesterday — the cache won the race, and a document rendered before
        * midnight was served as this morning.
        *

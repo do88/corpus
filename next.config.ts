@@ -28,13 +28,13 @@ const nextConfig: NextConfig = {
    *
    * This is the whole performance story for this app. Every page here reads
    * the session from cookies, so every page was dynamic, which meant every tab
-   * tap woke a Netlify function and waited for it before painting anything.
+   * tap waited on a server render before it could paint anything.
    * With Cache Components the shell — layout, nav, and each route's loading
    * skeleton — is built once and served from the CDN, so the first paint costs
    * no function at all and the cold start only delays the data.
    *
    * Stable since Next 16, and it subsumes the old `ppr`, `dynamicIO` and
-   * `useCache` flags. Requires the Node runtime, which is what Vercel runs.
+   * `useCache` flags. Requires the Node runtime, which is what `next start` runs.
    */
   cacheComponents: true,
 

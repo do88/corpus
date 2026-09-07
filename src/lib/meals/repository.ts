@@ -140,8 +140,8 @@ export async function saveEstimate(
 /**
  * Record a failure against the row.
  *
- * `attempts` is incremented here rather than left to the platform: Netlify's
- * documented background-function retries were measured and never fired, so the
+ * `attempts` is incremented here rather than left to the platform: documented
+ * background retries were measured and never fired, so the
  * only reliable count is the one we keep. The reconciler reads it to decide
  * what to retry and what to give up on.
  */

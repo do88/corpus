@@ -6,10 +6,10 @@ import { MAX_ATTEMPTS, type MealRow } from "./repository";
 /**
  * Re-ask the worker for anything still pending when the app opens.
  *
- * Netlify's scheduler cannot run faster than hourly, so the server-side sweep
- * is a long backstop rather than a prompt one. This covers the case that
- * actually matters: you open the app, see a meal saying "analysing", and it
- * should sort itself out in seconds rather than by the next hour.
+ * The server-side sweep runs every fifteen minutes, which makes it a backstop
+ * rather than a prompt response. This covers the case that actually matters:
+ * you open the app, see a meal saying "analysing", and it should sort itself
+ * out in seconds rather than at the next sweep.
  *
  * Safe to call repeatedly. The worker claims a row by incrementing `attempts`
  * before doing anything slow, and rows are only picked up here once they are

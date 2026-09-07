@@ -12,9 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // A leftover from the Netlify days: 355 MB of bundled edge functions that
-    // `netlify dev` wrote here. Delete the folder and this line together.
-    ".netlify/**",
     // Serwist compiles src/app/sw.ts to here. Generated bundle, not source.
     "public/sw.js",
     "public/swe-worker-*.js",

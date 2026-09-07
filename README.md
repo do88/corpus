@@ -47,7 +47,7 @@ src/
       client.ts          the browser, as the signed-in user
       server.ts          the server, as the signed-in user
       worker.ts          the secret key — no session, bypasses RLS
-netlify/functions/       background worker + hourly reconciler
+  app/api/cron/reconcile/  the stuck-meal sweep, woken by a scheduler
 supabase/migrations/     the schema
 scripts/
   port-sqlite.mjs        one-time load of Alpha 1's data
@@ -62,7 +62,6 @@ pnpm install
 pnpm db:start            # local Supabase (Docker) — start this first
 pnpm dev:user            # the local sign-in user; once, and after a db reset
 pnpm dev                 # http://localhost:3000 — local, no login screen
-netlify dev --offline    # http://localhost:8888 — app + functions + blobs
 
 pnpm db:up               # apply pending migrations
 pnpm db:verify           # prove they replay cleanly from nothing
@@ -90,8 +89,8 @@ Turbopack, which is faster, and does not register a service worker. If a
 production worker was already controlling localhost, the app unregisters it
 and clears its precache once. Meal estimation still works under plain
 `pnpm dev`: the client calls a development-only Next route that delegates to
-the same `processMeal` function as Netlify. Production continues to use the
-immediate-202 `/jobs/estimate` background function.
+the same `processMeal` function as production, which uses the immediate-202
+`/api/meals/process` route.
 
 Needs `GEMINI_API_KEY` in `.env.local`. Everything else runs locally: the
 database is the Supabase CLI's Docker stack, not the hosted project.
@@ -411,32 +410,34 @@ hears this".
 
 ### Recovery is ours, not the platform's
 
-`netlify/functions/reconcile.mts` runs **hourly** and is the **primary**
-recovery path. Netlify's documented retries do not fire (measured — see Phase 0),
-so nothing retries anything unless this does.
+`src/app/api/cron/reconcile/route.ts` is the **primary** recovery path, and
+nothing retries anything unless it does. Documented platform retries were
+measured and never fired (see Phase 0), so recovery has never been anyone's job
+but ours.
 
-Hourly is the floor, not a choice: Netlify's scheduler has no sub-hourly cron,
-and an invalid expression fails silently — `*/10 * * * *` was accepted at deploy
-and simply never fired, so the safety net was never armed. The gap that leaves
-is covered from the client, which retries anything stale whenever the app is
-opened, which is also the moment you would notice.
+**The schedule is ours now, which is most of why this moved.** A hosted scheduler
+sets the interval and is quiet when it fails: `*/10 * * * *` was once accepted at
+deploy and simply never fired, so the safety net sat unarmed and nothing said so.
+Railway runs a separate `reconcile` service on `*/15 * * * *`: a
+`curlimages/curl` container that wakes, calls this route with the shared secret,
+and exits. Cron services are billed for the seconds they run, so quarter-hourly
+costs about what daily did.
 
-Nothing guards it, and nothing needs to. Netlify refuses HTTP invocation of a
-scheduled function — measured against the deployed site, not assumed: GET, POST
-and PUT to `/.netlify/functions/reconcile` all return **403**. `/jobs/estimate`
-does answer 202 to an unauthenticated caller, but that is a background function
-acknowledging before its handler runs; `verifyOwner` refuses inside it, and
-nothing reaches Gemini.
+**Authentication is the secret and nothing else.** This is an ordinary route
+handler on a public URL, not a scheduled function something else refuses to
+invoke over HTTP, so the bearer check at the top of it *is* the boundary rather
+than a second line behind one. The proxy cannot help: it authenticates by cookie, and `/api/cron/` is excluded from its matcher
+precisely because a scheduler has no cookie jar.
 
-It is also the only thing that can recover a meal whose worker was never invoked
-at all: signal lost between writing the row and firing the request, or a deploy
-mid-flight. No queue can retry a job it never saw; a sweep finds it because the
-row *is* the job.
+It is also still the only thing that can recover a meal whose worker was never
+invoked at all: signal lost between writing the row and firing the request, or a
+deploy mid-flight. No queue can retry a job it never saw; a sweep finds it
+because the row *is* the job.
 
 Both paths call the same `processMeal`, which is what makes them genuinely
-equivalent rather than merely similar. Scheduled functions get 30 seconds hard
-and cannot be background, so the sweep works to a 22-second budget and logs what
-it deferred — a sweep that silently truncates reads as "all clear" when it isn't.
+equivalent rather than merely similar. The sweep works to a 240-second budget
+inside a 300-second ceiling and logs what it deferred — a sweep that silently
+truncates reads as "all clear" when it isn't.
 
 `pnpm test:recovery` proves it: insert a meal that looks stuck, run the real
 processing path, check macros came back, delete the row. It refuses to run
@@ -502,7 +503,7 @@ strength      Deadlift 168kg, Squat 96kg, Bench 113.3kg, OHP 72kg
 
 **`DATABASE_URL` missing in production is React error #441.** The training page
 needs a direct Postgres connection, and `db.ts` used to fall back to the local
-Docker stack when the variable was unset — which on a Netlify server means
+Docker stack when the variable was unset — which on any deployed server means
 connecting to nothing. The server component threw, and production reported it as
 "an error occurred in the Server Components render" with the specifics omitted,
 while the log said ECONNREFUSED against `127.0.0.1` rather than naming the
@@ -673,7 +674,7 @@ handful of requests a day and does not need the multiplexing it was paying for.
 **Nothing in the app reads SQLite.** `scripts/port-sqlite.mjs` is the single
 place that opens Alpha 1's old file, and it uses Node's built-in `node:sqlite`
 rather than a driver — a native binding would put a node-gyp compile in the
-Netlify build for a script that only ever runs locally. There are no native
+deploy build for a script that only ever runs locally. There are no native
 dependencies in the tree.
 
 ---
@@ -734,25 +735,20 @@ correctly itemised in 4.9 s. At six entries a day that is about **£2.10/month**
 
 ### 2. Does the background worker hold up?
 
-`netlify/functions/estimate-background.mts` exists to prove three things:
+A throwaway background function existed to prove three things:
 
 | | Verified |
 |---|---|
 | Returns immediately, runs long | yes — **202 in 21 ms**, ran **40.2 s** |
-| Writes a result that outlives the request | yes — Netlify Blobs, read back via `/jobs/status/:id` |
-| Retries on failure | **no — the platform does not do this** |
+| Writes a result that outlives the request | yes — read back through a status route |
+| Retries on failure | **no — measured, and none fired** |
 
-The 40 s matters: **Scheduled Functions cap at 30 s**, which is exactly why the
-queue is a *background* function (15 min) instead.
+Documented retries promised one at a minute and another at two. Measured against
+a deployed site, a background function that threw was **still at `attempts=1`
+after 220 seconds**, and the local emulator did not simulate them either — so
+the behaviour was identical in both places: absent.
 
-Netlify's docs promise a retry at 1 minute and another at 2. Measured on the
-deployed site, a background function that threw was **still at `attempts=1`
-after 220 seconds** — neither retry fired. `netlify dev` doesn't simulate them
-either, so the behaviour is identical in both places: absent.
-
-The likely cause is that the v2 runtime catches a thrown handler error and turns
-it into a 500 *response*, which AWS treats as a successful invocation rather
-than a function error. Either way, the conclusion for the design is the same:
+The conclusion for the design is what survived the move:
 **do not depend on platform retries.** The scheduled reconciler is the primary
 recovery path, `attempts` is driven by our own code, and both behave the same
 locally and in production.
@@ -829,7 +825,7 @@ portions instead of arithmetic.
   maintenance scripts share, so the marker lives on the route handler instead.
 - **The proxy matcher excludes `/api/meals/process` and `/api/cron/`.** The
   proxy authenticates by cookie; the outbox calls the first with a Bearer token
-  and Vercel's scheduler calls the second with the cron secret. Left in the
+  and the `reconcile` cron service calls the second with the cron secret. Left in the
   matcher, both valid requests were answered with a redirect to `/login`. Each
   route verifies its own caller, which is the right check for one with no
   cookie jar.

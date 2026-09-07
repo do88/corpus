@@ -115,7 +115,7 @@ export const config = {
      * called without a cookie jar.
      *
      * This proxy authenticates by *cookie*. `/api/meals/process` is called by
-     * the outbox with a Bearer token, and `/api/cron/` by Vercel's scheduler
+     * the outbox with a Bearer token, and `/api/cron/` by the reconcile service
      * with the cron secret; running here would answer both perfectly valid
      * requests with a redirect to /login. Each verifies its own caller inside
      * the route handler instead.

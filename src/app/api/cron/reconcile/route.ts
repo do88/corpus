@@ -12,10 +12,12 @@ import { createWorkerClient } from "@/lib/supabase/worker";
  * `pending`. The app retries those itself every time it is opened; this cron
  * is the net under that, for a day the app was never opened.
  *
- * Scheduled in vercel.json. Hobby runs a cron once a day and the start can
- * drift within the hour, which is fine for a safety net. Vercel presents the
- * project's CRON_SECRET as a Bearer token on every run, and nothing else
- * knows it, so that header is the whole authentication.
+ * Called every fifteen minutes by the `reconcile` service: a container that
+ * wakes, sends this one request with CRON_SECRET as a Bearer token, and exits.
+ *
+ * That header is the whole authentication. This is an ordinary route handler on
+ * a public URL rather than something the platform refuses to invoke over HTTP,
+ * so the check below is the boundary and not a second line behind one.
  */
 
 export const maxDuration = 300;

@@ -4,12 +4,12 @@ import { isOwner } from "./owner";
 /**
  * Verify a Supabase access token from an Authorization header.
  *
- * Deliberately free of `server-only` and of any Next import: the Netlify
- * functions share this, and they run outside Next entirely.
+ * Deliberately free of `server-only` and of any Next import, so the
+ * maintenance scripts can share it without dragging Next in.
  *
- * The proxy excludes `/jobs/*` on purpose — it authenticates by cookie, and
- * these endpoints are called with a Bearer token — so this is the only thing
- * standing between those functions and the open internet.
+ * The proxy excludes `/api/meals/process` on purpose — it authenticates by
+ * cookie, and that endpoint is called with a Bearer token — so this is the only
+ * thing standing between it and the open internet.
  *
  * The token is checked against Supabase rather than decoded locally. A JWT read
  * without verifying its signature is just a string the caller chose.
