@@ -23,12 +23,19 @@ import { cn } from "@/lib/utils";
  * and test, so the London-time and 04:00 rules are untouched; this only
  * changes how the string gets typed. An empty string means "now", which is
  * what the composer defaults to and what the "Use now" button restores.
+ *
+ * `compact` collapses it to the clock alone while the value is still "now",
+ * on the reasoning that a control saying "Now" in a composer that already
+ * defaults to now is a row spent on no information. The label comes back the
+ * moment the time has been changed, because "Yesterday · 19:30" is the one
+ * state you must be able to see without opening anything.
  */
 export function MealTimeField({
   value,
   onChange,
   disabled,
   allowNow = false,
+  compact = false,
   className,
 }: {
   /** `yyyy-MM-ddTHH:mm` in London time, or "" for now. */
@@ -37,9 +44,14 @@ export function MealTimeField({
   disabled?: boolean;
   /** Offer "Use now", which sets the value back to "". */
   allowNow?: boolean;
+  /** Show the clock alone while the value is still "now". */
+  compact?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Icon-only is only honest while there is nothing to report. A set time is
+  // always spelled out, compact or not.
+  const showLabel = !compact || Boolean(value);
   const selected = value ? fromInput(value) : null;
   const time = value ? value.slice(11, 16) : "12:00";
 
@@ -60,14 +72,23 @@ export function MealTimeField({
         render={
           <Button
             type="button"
-            variant="ghost"
+            variant={compact ? "outline" : "ghost"}
             disabled={disabled}
-            className={cn("min-h-11 gap-2 px-2 text-muted-foreground", value && "text-foreground", className)}
+            // The icon alone says "a time" but not "which time", so the button
+            // has to say it to anything that cannot see the clock.
+            aria-label={showLabel ? undefined : "When did you eat? Now"}
+            className={cn(
+              "min-h-11 gap-2 text-muted-foreground",
+              compact && "shrink-0 rounded-full",
+              showLabel ? (compact ? "px-3" : "px-2") : "w-11 px-0",
+              value && "text-foreground",
+              className,
+            )}
           />
         }
       >
         {value ? <CalendarClock className="size-4" /> : <Clock3 className="size-4" />}
-        {value && selected ? describe(selected, value) : "Now"}
+        {showLabel && (value && selected ? describe(selected, value) : "Now")}
       </PopoverTrigger>
 
       {/* Taller than the room a phone leaves above or below the composer, so

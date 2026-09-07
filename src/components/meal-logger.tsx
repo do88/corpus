@@ -177,12 +177,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
           onDictationError={setError}
         />
 
-        {/* When it was eaten: "Now" unless said otherwise, in the composer's
-            own voice rather than a browser control. */}
-        <div className="mt-1">
-          <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} allowNow />
-        </div>
-
       {/*
         Labelled, not just drawn, and given half the row each. Two unlabelled
         circles left the reader to infer a camera and a paper plane, and a
@@ -194,12 +188,25 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
         alternatives, not a primary with an afterthought beside it, and a
         50/50 split says that without needing a third colour to say it.
       */}
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {/*
+            When it was eaten, in the composer's own voice rather than a browser
+            control — and in this row rather than one of its own.
+
+            It had a row to itself saying "Now" in a composer that already
+            defaults to now, which is a line of the card spent restating the
+            default. As a clock beside the actions it costs nothing until it has
+            something to report, and the moment you set a time it spells it out
+            and pushes the two buttons onto the line below, where a backdated
+            meal is worth the space.
+          */}
+          <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} allowNow compact />
+
           <Button
             variant="outline"
             onClick={() => fileInput.current?.click()}
             disabled={busy || Boolean(photo)}
-            className="tappable flex-1 rounded-full"
+            className="tappable flex-1 basis-28 rounded-full"
           >
             <Camera className="size-4" />
             {photo ? "Photo added" : "Photo"}
@@ -208,7 +215,7 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
           <Button
             onClick={save}
             disabled={busy || empty}
-            className="tappable flex-1 rounded-full"
+            className="tappable flex-1 basis-28 rounded-full"
             style={
               empty
                 ? undefined
