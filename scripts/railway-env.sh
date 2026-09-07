@@ -62,7 +62,7 @@ echo "Service $SERVICE in $ENVIRONMENT"
 echo
 
 for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
-           SUPABASE_SECRET_KEY DATABASE_URL GEMINI_API_KEY; do
+           SUPABASE_SECRET_KEY DATABASE_URL GEMINI_API_KEY HEVY_API_KEY; do
   if ! value=$(value_of "$key") || [ -z "$value" ]; then
     echo "  $key missing or empty in $ENV_FILE" >&2
     exit 1
