@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Flame, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateStreaks, loadStreakMeals } from "@/lib/meals/streaks";
 import { loadTargets } from "@/lib/meals/load-targets";
@@ -65,13 +66,40 @@ export function TrackingStreaks({ initial }: { initial: StreakDisplay | null }) 
   }, []);
 
   const explanation = value
-    ? `Logged: consecutive days with an entry, including today. On target: consecutive completed days under ${value.kcal.toLocaleString("en-GB")} kcal and at least ${value.protein}g protein, through yesterday. Days end at 04:00 London time. Based on recorded meals and current targets.`
+    ? `Logged: consecutive days with an entry, including today. On target: consecutive completed days under ${value.kcal.toLocaleString("en-GB")} kcal and at least ${value.protein}g protein, through yesterday. Days end at 04:00 London time.`
     : "Streaks are temporarily unavailable.";
+
+  /*
+    A pill, the height of the controls beside it, and only when there is
+    something to say. Two figures with an icon each and no words: the flame
+    is the logging streak, the target the on-target one. A zero is not
+    shown, because a header that reads "On target 0" every morning is a nag
+    rather than a record; the sentence behind the hover and the label
+    carries the definitions.
+  */
+  if (!value || (value.logged === 0 && value.onTarget === 0)) return null;
   return (
-    <div className="surface flex h-10 shrink-0 flex-col justify-center rounded-2xl px-2 text-[10px] leading-4" title={explanation}
-      aria-label={value ? `${value.logged} day logging streak. ${value.onTarget} day on-target streak. ${explanation}` : explanation}>
-      <span className="flex justify-between gap-2">Logged <strong className="tabular-nums">{value?.logged ?? "—"}</strong></span>
-      <span className="flex justify-between gap-2" style={{ color: "var(--ink-protein)" }}>On target <strong className="tabular-nums">{value?.onTarget ?? "—"}</strong></span>
+    <div
+      className="surface flex h-9 shrink-0 items-center gap-2.5 px-3 text-sm font-semibold tabular-nums"
+      style={{ borderRadius: 999 }}
+      title={explanation}
+      aria-label={`${value.logged} day logging streak. ${value.onTarget} day on-target streak. ${explanation}`}
+    >
+      {value.logged > 0 && (
+        <span className="flex items-center gap-1">
+          <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
+          {value.logged}
+        </span>
+      )}
+      {value.logged > 0 && value.onTarget > 0 && (
+        <span aria-hidden className="h-4 w-px bg-[var(--rule)]" />
+      )}
+      {value.onTarget > 0 && (
+        <span className="flex items-center gap-1" style={{ color: "var(--ink-protein)" }}>
+          <Target className="size-4" aria-hidden />
+          {value.onTarget}
+        </span>
+      )}
     </div>
   );
 }
