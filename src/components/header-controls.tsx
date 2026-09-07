@@ -1,14 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Flame } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { isOwner } from "@/lib/auth/owner";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { avatarUrl, readProfile } from "@/lib/auth/profile";
-import { kcalByDay, listMealsInRange } from "@/lib/meals/repository";
-import { localDay, parseDay, toDay } from "@/lib/time";
-import { subDays } from "date-fns";
+import { calculateStreaks, loadStreakMeals } from "@/lib/meals/streaks";
+import { loadTargets } from "@/lib/meals/load-targets";
+import { localDay } from "@/lib/time";
+import { TrackingStreaks, type StreakDisplay } from "@/components/tracking-streaks";
 
 /**
  * The controls that belong to the app rather than to a screen.
@@ -44,8 +44,12 @@ export async function HeaderControls() {
     email: data?.claims.email,
     user_metadata: data?.claims.user_metadata ?? {},
   } as User);
+  const today = localDay();
   const [streak, avatar] = await Promise.all([
-    currentStreak(supabase),
+    Promise.all([loadStreakMeals(supabase, today), loadTargets(supabase)])
+      .then(([meals, targets]): StreakDisplay => ({
+        ...calculateStreaks(meals, today, targets), kcal: targets.kcal, protein: targets.protein_g,
+      })).catch(() => null),
     avatarUrl(supabase, profile),
   ]);
 
@@ -55,16 +59,7 @@ export async function HeaderControls() {
           in-header version did rather than approximately. */}
       <div className="mx-auto flex w-full max-w-md justify-end px-5 pt-6 lg:max-w-4xl lg:pl-28 lg:pt-10">
         <div className="pointer-events-auto flex items-center gap-2">
-          {streak > 0 && (
-            <div
-              className="surface flex h-9 shrink-0 items-center gap-1 px-3"
-              style={{ borderRadius: 999 }}
-              aria-label={`${streak} day streak`}
-            >
-              <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
-              <span className="text-sm font-semibold tabular-nums">{streak}</span>
-            </div>
-          )}
+          <TrackingStreaks initial={streak} />
           <ThemeToggle />
           {/*
             Account, as your face. It was the sixth tab, and it is not a daily
@@ -89,32 +84,5 @@ export async function HeaderControls() {
       </div>
     </div>
   );
-}
-
-/**
- * Consecutive days ending today with something analysed on them.
- *
- * Counted back from today rather than forward from the first entry, so a gap
- * ends the streak — which is the only reading of the word that means anything.
- * Today not being logged *yet* does not break it: a streak that resets every
- * morning until breakfast would be a nag, not a record. So a missing today is
- * skipped once, and the count runs from yesterday.
- *
- * Its own small query rather than borrowing Today's. Today reads a week for
- * the strip; this needs ten days and runs on every screen, and tying a header
- * to another page's fetch is how a header ends up only correct on one page.
- */
-async function currentStreak(supabase: SupabaseClient): Promise<number> {
-  const today = localDay();
-  const from = toDay(subDays(parseDay(today), 10));
-
-  const logged = kcalByDay(await listMealsInRange(supabase, from, today));
-
-  let count = 0;
-  for (let offset = logged[today] ? 0 : 1; offset <= 10; offset += 1) {
-    if (!logged[toDay(subDays(parseDay(today), offset))]) break;
-    count += 1;
-  }
-  return count;
 }
 

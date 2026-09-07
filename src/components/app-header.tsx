@@ -30,14 +30,14 @@ export function AppHeader({
         The persistent controls — streak, theme, account — are drawn over this
         row by the layout (see `header-controls.tsx`), so the title reserves
         their full width: a streak pill, the theme toggle and the avatar come
-        to about 140px. Reserving less looked fine until a screen also had an
+        to about 164px. Reserving less looked fine until a screen also had an
         action, at which point "Today" was drawn on top of "Wednesday".
       */}
       <div className="flex items-start gap-4">
         <h1 className="min-w-0 text-[2.125rem] font-bold leading-tight tracking-[-0.03em]">
           {title}
         </h1>
-        <span aria-hidden className="h-9 w-[8.75rem] shrink-0" />
+        <span aria-hidden className="h-9 w-[10.25rem] shrink-0" />
       </div>
 
       {/*
