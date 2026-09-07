@@ -18,13 +18,34 @@
  * and fat are what the calorie budget had left, so those three simply report
  * "met" or "over" in the same muted voice as everything else.
  *
- * Two densities. `full` is Today and Progress, a card with a row per figure.
- * `compact` is the Advisor: one line each, small, because there the numbers
- * are context for a question rather than the point of the screen.
+ * Two tiers inside the card. Calories and protein are the day's targets and
+ * get a full row each. Carbs, fat and fibre "need only be reasonable", in
+ * the estimator's own words, and share one row of three beneath — five full
+ * rows pushed the first meal off a phone screen for three numbers that are
+ * rarely the reason you opened the app.
+ *
+ * Fibre before tracking existed is unknown, not zero, and the strict total
+ * is null for such a day so the advisor never treats a partial sum as the
+ * whole. The card shows what *is* known and says how many meals were not
+ * counted, which is more use than the word "unknown" against an empty bar.
+ *
+ * Two densities. `full` is Today and Progress. `compact` is the Advisor:
+ * one line each, small, because there the numbers are context for a
+ * question rather than the point of the screen.
  */
 
-type Figures = { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null };
-type Macro = keyof Figures;
+type Figures = {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  /** Null when any meal of the day has no fibre figure. */
+  fiber_g?: number | null;
+  /** The fibre that is known, and how many meals were not counted. */
+  fiber_known_g?: number;
+  fiber_missing?: number;
+};
+type Macro = "kcal" | "protein_g" | "carbs_g" | "fat_g" | "fiber_g";
 /** Every target is known, fibre included; only the eaten figure can be unknown. */
 type Targets = Record<Macro, number>;
 
@@ -67,26 +88,30 @@ export function MacroLines({
   text?: Partial<Record<Macro, LineText>>;
 }) {
   const rows = LINES.map((line) => {
-    const unknown = values[line.macro] == null;
-    const value = values[line.macro] ?? 0;
+    const partial = line.macro === "fiber_g" && values.fiber_g == null;
+    const value = partial ? (values.fiber_known_g ?? 0) : (values[line.macro] ?? 0);
     const target = targets[line.macro];
     const over = target > 0 && value > target;
     const alarmed = over && line.ceiling;
     const fraction = target > 0 ? Math.min(value / target, 1) : 0;
+    const missing = values.fiber_missing ?? 0;
+    const detail = partial
+      ? `${n(value)} / ${n(target)} g · ${missing > 0 ? `${missing} meal${missing === 1 ? "" : "s"} not counted` : "not counted"}`
+      : `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`;
     return {
       ...line,
       value,
       target,
       alarmed,
       fraction,
-      lead: text?.[line.macro]?.lead ?? (unknown ? "Unknown" : leadFor(value, target, line.unit, line.ceiling)),
-      detail:
-        text?.[line.macro]?.detail ??
-        (unknown ? `incomplete data · target ${n(target)}g` : `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`),
+      lead: text?.[line.macro]?.lead ?? leadFor(value, target, line.unit, line.ceiling),
+      detail: text?.[line.macro]?.detail ?? detail,
       fill: alarmed ? "var(--destructive)" : `var(--accent-${line.metric})`,
       ink: `var(--ink-${line.metric})`,
     };
   });
+  const primary = rows.filter((row) => row.macro === "kcal" || row.macro === "protein_g");
+  const secondary = rows.filter((row) => !primary.includes(row));
 
   if (variant === "compact") {
     return (
@@ -113,7 +138,7 @@ export function MacroLines({
 
   return (
     <dl className="surface space-y-3.5 p-4.5">
-      {rows.map((row) => (
+      {primary.map((row) => (
         <div key={row.macro}>
           <div className="flex items-baseline justify-between gap-3">
             <dt className="flex min-w-0 flex-wrap items-baseline gap-x-2">
@@ -134,6 +159,23 @@ export function MacroLines({
           </dd>
         </div>
       ))}
+
+      {/* The three that need only be reasonable, side by side and smaller.
+          The eaten/target detail moves into the hover and the label, so a
+          third of a phone's width holds a name and a figure comfortably. */}
+      <div className="grid grid-cols-3 gap-3 border-t border-[var(--rule)]/60 pt-3.5">
+        {secondary.map((row) => (
+          <div key={row.macro} title={`${row.label}: ${row.detail}`}>
+            <dt className="text-xs font-medium" style={{ color: row.ink }}>
+              {row.label}
+            </dt>
+            <dd className="m-0 mt-0.5 truncate text-sm font-semibold tabular-nums">{row.lead}</dd>
+            <dd className="m-0 mt-1.5">
+              <Track fraction={row.fraction} fill={row.fill} height={5} label={`${row.label}: ${row.detail}`} />
+            </dd>
+          </div>
+        ))}
+      </div>
     </dl>
   );
 }

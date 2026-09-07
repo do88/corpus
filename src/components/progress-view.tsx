@@ -121,7 +121,13 @@ export function ProgressView({
                   detail: `${summary.onTarget.protein} of ${summary.loggedDays} days over ${targets.protein_g}`,
                 },
                 carbs_g: { lead: `${summary.average.carbs_g}g a day`, detail: `target ${targets.carbs_g} g` },
-                fiber_g: { lead: summary.average.fiber_g == null ? "Unknown" : `${summary.average.fiber_g}g a day`, detail: `${summary.fibreDays} of ${summary.loggedDays} logged days with fibre data · target ${targets.fiber_g}g` },
+                fiber_g:
+                  summary.average.fiber_g == null
+                    ? { lead: "—", detail: "no day has fibre for every meal yet" }
+                    : {
+                        lead: `${summary.average.fiber_g}g a day`,
+                        detail: `over ${summary.fibreDays} of ${summary.loggedDays} days · target ${targets.fiber_g} g`,
+                      },
                 fat_g: { lead: `${summary.average.fat_g}g a day`, detail: `target ${targets.fat_g} g` },
               }
             : {
