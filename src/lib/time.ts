@@ -54,6 +54,25 @@ export function toDay(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+/** A datetime-local field always shows the app's London clock. */
+export function mealTimeInput(at: Date = new Date()): string {
+  return format(inZone(at), "yyyy-MM-dd'T'HH:mm");
+}
+
+/** Reject invalid dates, skipped DST times and future meals before saving. */
+export function parseMealTime(value: string, now: Date = new Date()): Date {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    throw new Error("Choose a valid date and time.");
+  }
+  const [year, month, day, hour, minute] = value.split(/[-T:]/).map(Number);
+  const date = new TZDate(year, month - 1, day, hour, minute, 0, 0, ZONE);
+  if (!Number.isFinite(date.getTime()) || mealTimeInput(date) !== value) {
+    throw new Error("That time does not exist in London. Choose another time.");
+  }
+  if (date.getTime() > now.getTime()) throw new Error("Choose a time that has already happened.");
+  return new Date(date.getTime());
+}
+
 /**
  * The day a `?d=` parameter should actually show.
  *

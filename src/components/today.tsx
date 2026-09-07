@@ -78,13 +78,14 @@ export function Today({
 
   const upsert = useCallback((row: MealRow) => {
     setMeals((current) => {
+      if (row.local_date !== day) return current.filter((m) => m.id !== row.id);
       const index = current.findIndex((m) => m.id === row.id);
       if (index === -1) return [...current, row];
       const next = [...current];
       next[index] = row;
       return next;
     });
-  }, []);
+  }, [day]);
 
   /** Send whatever is waiting, re-read the day, and nudge anything stuck. */
   const sync = useCallback(async () => {
@@ -233,13 +234,14 @@ export function Today({
         .channel(`meal_log:${day}`)
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "meal_log", filter: `local_date=eq.${day}` },
+          { event: "*", schema: "public", table: "meal_log" },
           (payload) => {
             if (payload.eventType === "DELETE") {
               setMeals((c) => c.filter((m) => m.id !== (payload.old as MealRow).id));
             } else {
               upsert(payload.new as MealRow);
             }
+            router.refresh();
           },
         )
         .subscribe((status, error) => {
@@ -296,11 +298,10 @@ export function Today({
         channelRef.current = null;
       }
     };
-  }, [day, upsert]);
+  }, [day, upsert, router]);
 
   const totals = totalsForDay(meals);
 
-  const isToday = day === today;
 
   return (
     <div className="mt-5 space-y-5">
@@ -329,21 +330,19 @@ export function Today({
         }
       >
       <Totals totals={totals} queued={queued.length} targets={targets} />
-      {/* Logging always applies to now, so it only shows on today. Offering it
-          on a past day would imply back-dating, which the 04:00 rule already
-          decides and the composer has no way to override. */}
-      {isToday && (
-        <MealLogger
-          onQueued={() => {
-            void sync();
-          }}
-        />
-      )}
+      <MealLogger
+        key={day}
+        day={day}
+        today={today}
+        onQueued={() => {
+          void sync().then(() => router.refresh());
+        }}
+      />
       <MealList
         meals={meals}
         queued={queued}
-        onChanged={upsert}
-        onRemoved={(id) => setMeals((c) => c.filter((m) => m.id !== id))}
+        onChanged={(row) => { upsert(row); router.refresh(); }}
+        onRemoved={(id) => { setMeals((c) => c.filter((m) => m.id !== id)); router.refresh(); }}
       />
       </div>
     </div>

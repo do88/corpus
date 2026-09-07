@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampDay, localDay, parseDay, toDay } from "./time";
+import { clampDay, localDay, mealTimeInput, parseMealTime, parseDay, toDay } from "./time";
 
 /**
  * The day boundary, checked against the database's own answer.
@@ -97,5 +97,30 @@ describe("clampDay", () => {
     // future is refused.
     expect(clampDay("2026-07-27", today, null)).toBe("2026-07-27");
     expect(clampDay("2026-08-28", today, null)).toBe(today);
+  });
+});
+
+describe("meal date and time editing", () => {
+  const now = new Date("2027-12-31T23:59:59Z");
+  it("converts London summer and winter wall times into actual timestamps", () => {
+    expect(parseMealTime("2026-09-06T19:30", now).toISOString()).toBe("2026-09-06T18:30:00.000Z");
+    expect(parseMealTime("2026-12-06T19:30", now).toISOString()).toBe("2026-12-06T19:30:00.000Z");
+  });
+  it("round trips the time shown in the editor", () => {
+    const instant = new Date("2026-09-06T18:30:00Z");
+    expect(mealTimeInput(instant)).toBe("2026-09-06T19:30");
+    expect(parseMealTime(mealTimeInput(instant), now)).toEqual(instant);
+  });
+  it("keeps the 04:00 tracking boundary when backdating", () => {
+    expect(localDay(parseMealTime("2026-09-06T03:59", now))).toBe("2026-09-05");
+    expect(localDay(parseMealTime("2026-09-06T04:00", now))).toBe("2026-09-06");
+  });
+  it("rejects invalid dates, malformed inputs and the missing spring hour", () => {
+    for (const value of ["", "invalid", "2026-02-30T12:00", "2026-13-01T12:00", "2026-03-29T01:30"]) {
+      expect(() => parseMealTime(value, now)).toThrow();
+    }
+  });
+  it("rejects future meals", () => {
+    expect(() => parseMealTime("2026-09-08T12:00", new Date("2026-09-07T12:00:00Z"))).toThrow("already happened");
   });
 });

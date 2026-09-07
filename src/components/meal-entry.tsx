@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { correctMacros, deleteMeal, redescribeMeal, type MealRow } from "@/lib/meals/repository";
+import { changeMealTime, correctMacros, deleteMeal, redescribeMeal, type MealRow } from "@/lib/meals/repository";
+import { localDay, mealTimeInput, parseMealTime } from "@/lib/time";
+import { MealTimeField } from "@/components/meal-time-field";
 import { saveFoodFromMeal } from "@/lib/meals/saved";
 import type { MealEstimate } from "@/lib/meal/schema";
 import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
@@ -209,6 +211,7 @@ function Editor({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eatenAt, setEatenAt] = useState(() => mealTimeInput(new Date(meal.logged_at)));
 
   // Re-describing: say what it actually was and let the model estimate that.
   const [describe, setDescribe] = useState("");
@@ -283,9 +286,20 @@ function Editor({
     setBusy(true);
     setError(null);
     try {
-      const macros = Object.fromEntries(
-        MACROS.map((m) => [m, Math.max(0, Math.round(Number(values[m]) || 0))]),
-      ) as Record<Macro, number>;
+      const numbers = MACROS.map((m) => Number(values[m]));
+      if (MACROS.some((m) => !values[m].trim()) || numbers.some((n) => !Number.isFinite(n) || n < 0)) {
+        throw new Error("Enter a valid, non-negative number for each macro.");
+      }
+      const macros = Object.fromEntries(MACROS.map((m, i) => [m, Math.round(numbers[i])])) as Record<Macro, number>;
+      const timeChanged = eatenAt !== mealTimeInput(new Date(meal.logged_at));
+      const at = timeChanged ? parseMealTime(eatenAt) : undefined;
+      const timeFields = at ? { logged_at: at.toISOString(), local_date: localDay(at) } : {};
+      const macrosChanged = MACROS.some((m) => macros[m] !== (meal[m] ?? 0));
+      if (!proposed && !macrosChanged) {
+        if (at) onChanged(await changeMealTime(createClient(), meal.id, at));
+        onDone();
+        return;
+      }
 
       // Which of the two saves this is depends on whether the numbers on screen
       // are still the ones the model just produced. Untouched, the whole
@@ -297,9 +311,10 @@ function Editor({
         proposed !== null && MACROS.every((m) => macros[m] === proposed.estimate[m]);
 
       if (untouched) {
-        await redescribeMeal(createClient(), meal.id, proposed.note, proposed.estimate, proposed.model);
+        await redescribeMeal(createClient(), meal.id, proposed.note, proposed.estimate, proposed.model, at);
         onChanged({
           ...meal,
+          ...timeFields,
           ...macros,
           note: proposed.note,
           items: proposed.estimate.items,
@@ -310,10 +325,10 @@ function Editor({
           error: null,
         });
       } else {
-        await correctMacros(createClient(), meal.id, macros);
+        await correctMacros(createClient(), meal.id, macros, at);
         // Applied locally as well as sent: Realtime delivers the same change a
         // moment later, and waiting for it makes a deliberate edit feel laggy.
-        onChanged({ ...meal, ...macros, edited: true, status: "analyzed", error: null });
+        onChanged({ ...meal, ...timeFields, ...macros, edited: true, status: "analyzed", error: null });
       }
       onDone();
     } catch (thrown) {
@@ -353,6 +368,7 @@ function Editor({
         background: "color-mix(in oklch, var(--muted) 35%, transparent)",
       }}
     >
+      <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} />
       <div className="grid grid-cols-4 gap-2">
         {MACROS.map((macro) => (
           <div key={macro} className="space-y-1">

@@ -2,12 +2,14 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Send, TriangleAlert, X } from "lucide-react";
+import { Camera, Clock3, Send, TriangleAlert, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
 import { compressForEstimate } from "@/lib/meal/compress";
-import { localDay } from "@/lib/time";
+import { localDay, mealTimeInput, parseMealTime } from "@/lib/time";
+import { MealTimeField } from "@/components/meal-time-field";
+import { toast } from "sonner";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
 
 /**
@@ -23,13 +25,15 @@ import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
  * nothing here can fail in a way that loses it. The worst case is a meal saved
  * and not yet sent, which is visible and self-healing.
  */
-export function MealLogger({ onQueued }: { onQueued: () => void }) {
+export function MealLogger({ day, today, onQueued }: { day: string; today: string; onQueued: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [choosingTime, setChoosingTime] = useState(day !== today);
+  const [eatenAt, setEatenAt] = useState(day === today ? "" : `${day}T12:00`);
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -61,10 +65,11 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
   }
 
   async function save() {
+    if (busy || (!photo && !note.trim())) return;
     setBusy(true);
     setError(null);
     try {
-      const loggedAt = new Date();
+      const loggedAt = choosingTime ? parseMealTime(eatenAt) : new Date();
       const meal: OutboxMeal = {
         // Minted here so the meal keeps one identity through the queue, a
         // retry, and the app being closed in between.
@@ -80,6 +85,9 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
       await enqueue(meal);
       setNote("");
       clearPhoto();
+      toast.success(`Meal saved for ${localDay(loggedAt)}`);
+      setEatenAt(day === today ? "" : `${day}T12:00`);
+      setChoosingTime(day !== today);
       onQueued();
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not save the meal");
@@ -169,6 +177,17 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
           onDictationError={setError}
         />
 
+        <div className="mt-2 px-1">
+          {choosingTime ? (
+            <MealTimeField value={eatenAt} onChange={setEatenAt} disabled={busy} />
+          ) : (
+            <Button type="button" variant="ghost" disabled={busy}
+              onClick={() => { setEatenAt(mealTimeInput()); setChoosingTime(true); }} className="min-h-11 gap-2 px-2 text-muted-foreground">
+              <Clock3 className="size-4" /> Now · change date / time
+            </Button>
+          )}
+        </div>
+
       {/*
         Labelled, not just drawn, and given half the row each. Two unlabelled
         circles left the reader to infer a camera and a paper plane, and a
@@ -223,4 +242,3 @@ export function MealLogger({ onQueued }: { onQueued: () => void }) {
     </div>
   );
 }
-
