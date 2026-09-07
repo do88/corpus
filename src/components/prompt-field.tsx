@@ -82,8 +82,8 @@ export function PromptField({
         // deliberately: padding underneath would add a mic's height to an
         // empty composer, and the composer has already been shrunk once for
         // sitting taller than it needed to.
-        onTranscript && "min-h-13 transition-[padding] duration-150",
-        onTranscript && (dictating ? "pr-24" : "pr-13"),
+        onTranscript && "min-h-15 transition-[padding] duration-150",
+        onTranscript && (dictating ? "pr-24" : "pr-16"),
         className,
       )}
       style={{

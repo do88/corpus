@@ -199,15 +199,11 @@ export function DictateButton({
       disabled={disabled || working}
       aria-label={recording ? `Stop recording, ${seconds} seconds` : "Record what you ate"}
       aria-pressed={recording}
+      title={recording ? "Stop recording" : "Tap to dictate"}
       className={cn(
-        "tappable relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full transition-colors",
-        recording ? "px-3" : "w-9",
-        // The circle is 36px; the thing you actually hit is 44. Sized the other
-        // way round it was as tall as the field it sits in, which is what a
-        // control looks like when it has been given a minimum rather than a
-        // size. The hit area is grown with a pseudo-element instead, so the
-        // target rule is met without the button having to look like it.
-        "after:absolute after:-inset-1 after:content-['']",
+        "tappable relative flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full transition-colors",
+        recording ? "px-3" : "w-11",
+        "border border-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         "disabled:opacity-60",
         className,
       )}
@@ -222,7 +218,7 @@ export function DictateButton({
               background: "color-mix(in oklch, var(--accent-energy) 16%, transparent)",
               color: "var(--ink-energy)",
             }
-          : { background: "var(--muted)", color: "var(--muted-foreground)" }
+          : { background: "var(--secondary)", color: "var(--foreground)" }
       }
     >
       {working ? (
@@ -245,7 +241,7 @@ export function DictateButton({
           <span className="relative text-sm font-medium tabular-nums">{format(seconds)}</span>
         </>
       ) : (
-        <Mic className="size-4" aria-hidden />
+        <Mic className="size-5" aria-hidden />
       )}
     </button>
   );
