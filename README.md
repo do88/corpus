@@ -37,7 +37,8 @@ the real food log.
 | `SUPABASE_SECRET_KEY` | the server | bypasses RLS, never sent to the browser |
 | `DATABASE_URL` | the Body page | the **session** pooler on 5432, not 6543 |
 | `GEMINI_API_KEY` | estimates, advice, dictation | |
-| `CRON_SECRET` | production | the reconcile sweep's only authentication |
+| `HEVY_API_KEY` | the Hevy sync | from your Hevy account settings |
+| `CRON_SECRET` | production | the only authentication on both `/api/cron/` routes |
 | `APP_URL` | production | the public origin |
 | `NEXT_PUBLIC_DEV_AUTH` | development | `true` skips the login screen locally |
 | `MEAL_PRODUCT_LOOKUP` | optional | `off` disables the branded-product lookup |
@@ -60,18 +61,21 @@ the real food log.
 | `pnpm check:dashboard` | the Body view model against real rows |
 | `pnpm check:access` | what the signed-in role can actually do, locally |
 | `pnpm check:access:hosted` | the same assertions against the hosted project |
-| `pnpm port:garmin` / `pnpm sync:all` | pull Garmin and Hevy data |
+| `pnpm sync:hevy` | pull Hevy into Postgres, straight from their API |
+| `pnpm sync:garmin` | pull Garmin — **this Mac only**, see below |
+| `pnpm port:garmin` | load an already-downloaded GarminDB into Postgres |
 | `pnpm probe:advice` / `pnpm probe:transcribe` | one-shot checks against the live models |
 | `pnpm reconcile:now` | the stuck-meal lever — **hosted** |
 
 ## Deployment
 
-Two Railway services in one project, both in Europe West.
+Three Railway services in one project, all in Europe West.
 
 | Service | Runs | Schedule |
 | --- | --- | --- |
 | `corpus` | this repo, built on push to `main`, `next start` on port 8080 | always on |
 | `reconcile` | `curlimages/curl`, one request to `/api/cron/reconcile` | `*/15 * * * *` |
+| `hevy-sync` | `curlimages/curl`, one request to `/api/cron/sync-hevy` | `0 5 * * 1` |
 
 `scripts/railway-env.sh` pushes `.env.hosted` into the `corpus` service, sets
 `APP_URL` from the service domain, and generates `CRON_SECRET` on first run.
@@ -84,6 +88,15 @@ Values go over stdin, so none of them reach the process list or shell history.
 Supabase and Gemini are unchanged by the hosting. The database, storage, auth
 and the estimating all sit outside Railway.
 
+### Garmin is still a laptop job
+
+Hevy has a public API, so its sync is a route on a weekly schedule and needs
+nothing but a key. Garmin does not. GarminDB signs into Garmin Connect as you
+and downloads FIT files, which means a Python toolchain, your credentials and
+an archive that has to persist between runs — about 638 MB across fifteen
+thousand files. Until that is containerised with a volume, `pnpm sync:garmin`
+runs here, and `--remote` sends the result to the hosted database.
+
 ## Layout
 
 ```
@@ -94,6 +107,7 @@ src/
     api/meals/transcribe/  dictation
     api/advise/            the advisor's one call
     api/cron/reconcile/    the stuck-meal sweep, woken by the reconcile service
+    api/cron/sync-hevy/    the weekly Hevy pull, woken by the hevy-sync service
     body/ foods/ progress/ advisor/ account/   the tabs
   components/
     today.tsx              the day's log, sent and still queued
@@ -122,6 +136,8 @@ src/
       advise.ts            the advisor's prompt and parsing
       compress.ts          client-side resize before upload
       format.ts            macro labels and meal times, shared by the views
+    hevy/
+      sync.ts              the Hevy API pull, shared by route and script
     meals/
       repository.ts        every read and write of meal_log, in one place
       process.ts           the one estimate path, shared by job and sweep
