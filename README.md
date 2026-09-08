@@ -65,7 +65,7 @@ the real food log.
 | `pnpm check:access` | what the signed-in role can actually do, locally |
 | `pnpm check:access:hosted` | the same assertions against the hosted project |
 | `pnpm sync:hevy` | pull Hevy into Postgres, straight from their API |
-| `pnpm sync:garmin` | pull Garmin — **this Mac only**, see below |
+| `pnpm sync:garmin` | pull Garmin by hand — **refuses by default**, see below |
 | `pnpm port:garmin` | load an already-downloaded GarminDB into Postgres |
 | `pnpm probe:advice` / `pnpm probe:transcribe` | one-shot checks against the live models |
 | `pnpm reconcile:now` | the stuck-meal lever — **hosted** |
@@ -124,8 +124,14 @@ is never applied again. Running the sync here *and* on a laptop would have the
 two invalidate each other. When Garmin eventually rejects it, re-authenticate
 on a machine that can prompt and replace the file with `railway volume files`.
 
-`pnpm sync:garmin` remains for running it by hand on a machine that already has
-GarminDB installed.
+`pnpm sync:garmin` still exists but refuses to run. Garmin's refresh token
+rotates on use, so whoever used it last holds the only valid one, and the `sync`
+service is now that holder. Running it here as well would leave the server with
+a spent token and a Monday failure that reads as rate limiting.
+
+The one time to override it is to re-authenticate after Garmin rejects the
+token, because that needs a machine which can answer a prompt. The script prints
+the full procedure, including putting the refreshed token back on the server.
 
 ## Layout
 

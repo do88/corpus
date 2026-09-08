@@ -5,12 +5,17 @@
 #     pnpm sync:garmin            # into local Postgres
 #     pnpm sync:garmin --remote   # into the hosted project, via .env.hosted
 #
-# **This one still only runs on this Mac, and that is the whole reason it is a
-# shell script rather than a route.** Garmin has no public API. GarminDB signs
-# into Garmin Connect as you and downloads FIT files into ~/HealthData, which
-# means a Python toolchain, your credentials, and 638 MB of archive that has to
-# persist between runs. Hevy needed none of that and moved to the server; this
-# has not, yet.
+# **The server owns Garmin now, so this refuses to run by default.**
+#
+# Garmin's refresh token rotates on every use and whoever used it last holds the
+# only valid one. The `sync` Railway service uses it weekly, which makes the
+# token single-homed: running this as well would hand the Mac a fresh pair and
+# leave the server holding a spent one, silently, until the next Monday failed.
+#
+# There is exactly one good reason to run it anyway, and it is the reason this
+# is a guard rather than a deletion: when Garmin eventually rejects the token,
+# re-authenticating needs a machine that can answer a prompt, and this is that
+# machine. See the message below for what to do with the new token afterwards.
 #
 # Expect fifteen to twenty minutes, and know why: the download with `--latest`
 # is seconds, but GarminDB's import then walks every FIT file it has ever
@@ -36,6 +41,32 @@ for arg in "$@"; do
     *) echo "unknown argument: $arg" >&2; exit 64 ;;
   esac
 done
+
+if [ "${CONFIRM_GARMIN_TAKEOVER:-}" != "yes" ]; then
+  cat >&2 <<'WHY'
+Refusing to run: the Railway `sync` service owns the Garmin token.
+
+Garmin's refresh token rotates on use, so running this here would invalidate the
+server's copy and the Monday sync would start failing with a 429 that looks like
+rate limiting rather than what it is.
+
+The one time you should override this is to re-authenticate after Garmin has
+rejected the token. Then:
+
+  CONFIRM_GARMIN_TAKEOVER=yes pnpm sync:garmin
+
+and afterwards put the refreshed token back on the server, or the next run will
+still be using the dead one:
+
+  railway variable set GARMIN_TOKENS --stdin --service sync \
+    < ~/.GarminDb/garmin_tokens.json
+
+The volume keeps whichever token it already has, so also delete
+/data/.GarminDb/garmin_tokens.json on the volume, or clear the volume, so the
+new value is seeded on the next run.
+WHY
+  exit 1
+fi
 
 # The pipx shim cannot be executed directly: its shebang points into
 # "~/Library/Application Support/…", and a shebang with a space in it is a
