@@ -551,6 +551,22 @@
     }
   }
 
+  /**
+   * A toast, as one of the app's own objects.
+   *
+   * Sonner ships a flat panel with a plain border, which on a ground built out
+   * of floating cards reads as a browser notification that wandered in. It
+   * gets the card's shadow and its specular top edge instead, so the thing
+   * that appears over the app looks like it came from the app.
+   *
+   * `--normal-*` in sonner.tsx already point at the popover tokens, so the
+   * colours follow the theme; this is only the depth.
+   */
+  .cn-toast {
+    box-shadow: var(--shadow-card) !important;
+    border-color: transparent !important;
+  }
+
   /* A caution, not a casualty. The energy accent already carries "attention"
      in this app — it is the calorie ring and the streak flame — so a warning
      borrows it rather than introducing a colour that means nothing yet. The

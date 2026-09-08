@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, TriangleAlert } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
+import { toastFailed } from "@/lib/notify";
 import type { Advice, Turn } from "@/lib/meal/advise";
 
 /**
@@ -40,7 +40,6 @@ export function Advisor() {
   // leaves your own words in the input while it thinks does not feel like one.
   const [pending, setPending] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const busy = pending !== null || logging;
 
   async function ask() {
@@ -48,7 +47,6 @@ export function Advisor() {
     if (!asked || busy) return;
     setPending(asked);
     setOptions("");
-    setError(null);
     try {
       // The model's own JSON goes back as its turn, so what it sees itself
       // having said is exactly what it said.
@@ -72,7 +70,7 @@ export function Advisor() {
         [...previous, { asked, advice: body as Advice }].slice(-MAX_EXCHANGES),
       );
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not get an answer");
+      toastFailed(thrown, "Could not get an answer");
       // Give the words back rather than making you retype them.
       setOptions((current) => (current.trim() ? current : asked));
     } finally {
@@ -100,7 +98,7 @@ export function Advisor() {
       // would leave you looking at advice you have already taken.
       router.push("/");
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not log it");
+      toastFailed(thrown, "Could not log that");
       setLogging(false);
     }
   }
@@ -220,7 +218,7 @@ export function Advisor() {
           onTranscript={(text) =>
             setOptions((current) => (current.trim() ? `${current.trim()} ${text}` : text))
           }
-          onDictationError={setError}
+          onDictationError={(message) => toastFailed(new Error(message), "Dictation failed")}
         />
         <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
           {pending !== null ? "Thinking…" : started ? "Ask again" : "Ask"}
@@ -238,20 +236,12 @@ export function Advisor() {
             onClick={() => {
               setExchanges([]);
               setOptions("");
-              setError(null);
             }}
             className="shrink-0 text-muted-foreground"
           >
             <RotateCcw className="size-3.5" /> Start over
           </Button>
         </div>
-      )}
-
-      {error && (
-        <Alert variant="warning" className="mt-3">
-          <TriangleAlert />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
       )}
     </div>
   );

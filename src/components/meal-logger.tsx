@@ -2,14 +2,13 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Send, TriangleAlert, X } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Camera, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
 import { compressForEstimate } from "@/lib/meal/compress";
 import { localDay, parseMealTime } from "@/lib/time";
 import { MealTimeField } from "@/components/meal-time-field";
-import { toast } from "sonner";
+import { toastDone, toastFailed } from "@/lib/notify";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
 
 /**
@@ -31,7 +30,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // "" is now. On a past day the composer starts at noon of that day, since
   // "now" would silently file the meal under today.
   const [eatenAt, setEatenAt] = useState(day === today ? "" : `${day}T12:00`);
@@ -39,7 +37,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setError(null);
     // Before anything else: a full-size photo is roughly ten times the image
     // tokens of a resized one, and a few of them fill the storage quota.
     const small = await compressForEstimate(file);
@@ -68,7 +65,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
   async function save() {
     if (busy || (!photo && !note.trim())) return;
     setBusy(true);
-    setError(null);
     try {
       const loggedAt = eatenAt ? parseMealTime(eatenAt) : new Date();
       const meal: OutboxMeal = {
@@ -86,11 +82,11 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
       await enqueue(meal);
       setNote("");
       clearPhoto();
-      toast.success(`Meal saved for ${localDay(loggedAt)}`);
+      toastDone(`Meal saved for ${localDay(loggedAt)}`);
       setEatenAt(day === today ? "" : `${day}T12:00`);
       onQueued();
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not save the meal");
+      toastFailed(thrown, "Could not save the meal");
     } finally {
       setBusy(false);
     }
@@ -174,7 +170,7 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
           onTranscript={(text) =>
             setNote((current) => (current.trim() ? `${current.trim()} ${text}` : text))
           }
-          onDictationError={setError}
+          onDictationError={(message) => toastFailed(new Error(message), "Dictation failed")}
         />
 
       {/*
@@ -234,13 +230,6 @@ export function MealLogger({ day, today, onQueued }: { day: string; today: strin
           </Button>
         </div>
       </div>
-
-      {error && (
-        <Alert variant="warning">
-          <TriangleAlert />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }

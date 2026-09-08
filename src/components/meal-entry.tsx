@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Bookmark, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { changeMealTime, correctMacros, deleteMeal, redescribeMeal, type MealRow
 import { localDay, mealTimeInput, parseMealTime } from "@/lib/time";
 import { MealTimeField } from "@/components/meal-time-field";
 import { saveFoodFromMeal } from "@/lib/meals/saved";
+import { toastDone, toastFailed } from "@/lib/notify";
 import type { MealEstimate } from "@/lib/meal/schema";
 import { MACRO_LABELS, formatTime, summariseItems } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
@@ -210,7 +210,6 @@ function Editor({
     fat_g: String(meal.fat_g ?? 0),
   });
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [eatenAt, setEatenAt] = useState(() => mealTimeInput(new Date(meal.logged_at)));
 
   // Re-describing: say what it actually was and let the model estimate that.
@@ -232,13 +231,13 @@ function Editor({
     const name = naming?.trim();
     if (!name) return;
     setBusy(true);
-    setError(null);
     try {
       await saveFoodFromMeal(createClient(), meal, { name });
       setNaming(null);
       setSaved(true);
+      toastDone(`Saved ${name} to your foods`);
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not save that");
+      toastFailed(thrown, "Could not save that to your foods");
     } finally {
       setBusy(false);
     }
@@ -253,7 +252,6 @@ function Editor({
     const note = describe.trim();
     if (!note) return;
     setBusy(true);
-    setError(null);
     try {
       const response = await fetch("/api/meals/analyze", {
         method: "POST",
@@ -276,7 +274,7 @@ function Editor({
       setProposed({ note, estimate, model: body.model as string });
       setDescribe("");
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not re-estimate");
+      toastFailed(thrown, "Could not re-estimate that");
     } finally {
       setBusy(false);
     }
@@ -284,7 +282,6 @@ function Editor({
 
   async function save() {
     setBusy(true);
-    setError(null);
     try {
       const numbers = MACROS.map((m) => Number(values[m]));
       if (MACROS.some((m) => !values[m].trim()) || numbers.some((n) => !Number.isFinite(n) || n < 0)) {
@@ -296,7 +293,10 @@ function Editor({
       const timeFields = at ? { logged_at: at.toISOString(), local_date: localDay(at) } : {};
       const macrosChanged = MACROS.some((m) => macros[m] !== (meal[m] ?? 0));
       if (!proposed && !macrosChanged) {
-        if (at) onChanged(await changeMealTime(createClient(), meal.id, at));
+        if (at) {
+          onChanged(await changeMealTime(createClient(), meal.id, at));
+          toastDone("Meal moved");
+        }
         onDone();
         return;
       }
@@ -330,9 +330,10 @@ function Editor({
         // moment later, and waiting for it makes a deliberate edit feel laggy.
         onChanged({ ...meal, ...timeFields, ...macros, edited: true, status: "analyzed", error: null });
       }
+      toastDone("Meal updated");
       onDone();
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not save");
+      toastFailed(thrown, "Could not save your changes");
     } finally {
       setBusy(false);
     }
@@ -343,8 +344,9 @@ function Editor({
     try {
       await deleteMeal(createClient(), meal.id);
       onRemoved(meal.id);
+      toastDone("Meal deleted");
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not delete");
+      toastFailed(thrown, "Could not delete that meal");
       setBusy(false);
     }
   }
@@ -501,7 +503,7 @@ function Editor({
       {saved && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Bookmark className="size-3.5" aria-hidden />
-          Saved. Logging it again will copy these numbers rather than guess them.
+          Logging it again will copy these numbers rather than guess them.
         </p>
       )}
 
@@ -516,12 +518,6 @@ function Editor({
           Delete
         </Button>
       </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }

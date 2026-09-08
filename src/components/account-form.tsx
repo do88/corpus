@@ -4,13 +4,13 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Camera, LogOut } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { avatarObjectPath, type Profile } from "@/lib/auth/profile";
 import { compressForEstimate } from "@/lib/meal/compress";
 import { createClient } from "@/lib/supabase/client";
+import { toastDone, toastFailed } from "@/lib/notify";
 
 /**
  * Name, picture, and the way out.
@@ -36,8 +36,6 @@ export function AccountForm({
   const [name, setName] = useState(profile.name);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "name" | "avatar" | "signout">(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const shown = preview ?? avatarSrc;
   const initials = profile.name.slice(0, 1).toUpperCase();
@@ -45,18 +43,16 @@ export function AccountForm({
 
   async function saveName() {
     setBusy("name");
-    setError(null);
-    setSaved(false);
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ data: { name: name.trim() } });
       if (error) throw new Error(error.message);
-      setSaved(true);
+      toastDone("Name saved");
       // The header renders the name server-side, so the page has to re-fetch
       // for the change to appear anywhere but this field.
       router.refresh();
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not save your name");
+      toastFailed(thrown, "Could not save your name");
     } finally {
       setBusy(null);
     }
@@ -66,8 +62,6 @@ export function AccountForm({
     const file = event.target.files?.[0];
     if (!file) return;
     setBusy("avatar");
-    setError(null);
-    setSaved(false);
 
     try {
       // The same resize the meal photos get. An avatar rendered at 72px has no
@@ -96,10 +90,10 @@ export function AccountForm({
       });
       if (metaError) throw new Error(metaError.message);
 
-      setSaved(true);
+      toastDone("Picture saved");
       router.refresh();
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not save your picture");
+      toastFailed(thrown, "Could not save your picture");
       setPreview((old) => {
         if (old) URL.revokeObjectURL(old);
         return null;
@@ -112,7 +106,6 @@ export function AccountForm({
 
   async function signOut() {
     setBusy("signout");
-    setError(null);
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
@@ -131,7 +124,7 @@ export function AccountForm({
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/login");
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not sign out");
+      toastFailed(thrown, "Could not sign out");
       setBusy(null);
     }
   }
@@ -204,10 +197,7 @@ export function AccountForm({
           <Input
             id="display-name"
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setSaved(false);
-            }}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
             maxLength={60}
             className="rounded-xl"
@@ -221,15 +211,6 @@ export function AccountForm({
           {busy === "name" ? "Saving…" : "Save"}
         </Button>
       </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {saved && !error && (
-        <p className="px-1 text-sm text-muted-foreground">Saved.</p>
-      )}
 
       <Button
         variant="ghost"

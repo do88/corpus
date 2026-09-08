@@ -1,18 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  Archive,
-  ArchiveRestore,
-  Bookmark,
-  CircleCheck,
-  Pencil,
-  Plus,
-  Search,
-  TriangleAlert,
-} from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
+import { Archive, ArchiveRestore, Bookmark, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +20,7 @@ import {
 } from "@/lib/meals/saved";
 import { MACRO_LABELS } from "@/lib/meal/format";
 import { MACROS, type Macro } from "@/lib/meal/schema";
+import { toastDone, toastFailed } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 /**
@@ -90,8 +81,7 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
-  const [logged, setLogged] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const matching = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -124,8 +114,6 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
   }
 
   async function log(food: SavedFoodRow) {
-    setError(null);
-    setLogged(null);
     setLogging(food.id);
     try {
       const loggedAt = new Date();
@@ -146,16 +134,18 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
       // is not a lost meal and is not reported as one.
       void flushOutbox().catch(() => {});
       replace({ ...food, times_used: food.times_used + 1, last_used_at: loggedAt.toISOString() });
-      setLogged(food.name);
+      toastDone(`Logged ${food.name} to today`, {
+        label: "View today",
+        onClick: () => router.push("/"),
+      });
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not log that");
+      toastFailed(thrown, `Could not log ${food.name}`);
     } finally {
       setLogging(null);
     }
   }
 
   async function toggleArchive(food: SavedFoodRow) {
-    setError(null);
     const restoring = Boolean(food.archived_at);
     try {
       const supabase = createClient();
@@ -163,8 +153,9 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
       else await archiveSavedFood(supabase, food.id);
       replace({ ...food, archived_at: restoring ? null : new Date().toISOString() });
       setOpen(null);
+      toastDone(restoring ? `Restored ${food.name}` : `Archived ${food.name}`);
     } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : "Could not change that");
+      toastFailed(thrown, restoring ? "Could not restore that food" : "Could not archive that food");
     }
   }
 
@@ -209,23 +200,6 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
           ))}
         </TabsList>
       </Tabs>
-
-      {logged && (
-        <Alert role="status">
-          <CircleCheck />
-          <AlertDescription className="flex w-full items-center justify-between gap-3">
-            <span>
-              Logged <span className="font-medium text-foreground">{logged}</span> to today.
-            </span>
-            <Link
-              href="/"
-              className="shrink-0 font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              View today
-            </Link>
-          </AlertDescription>
-        </Alert>
-      )}
 
       {matching.length === 0 ? (
         <p className="px-1 py-6 text-center text-sm text-muted-foreground">
@@ -305,7 +279,6 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                           replace(row);
                           setEditing(null);
                         }}
-                        onError={setError}
                       />
                     ) : (
                       <div className="space-y-3">
@@ -385,13 +358,6 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
           {showArchived ? "Back to your list" : `Archived (${archivedCount})`}
         </Button>
       )}
-
-      {error && (
-        <Alert variant="warning">
-          <TriangleAlert />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }
@@ -410,12 +376,10 @@ function MacroEditor({
   food,
   onCancel,
   onSaved,
-  onError,
 }: {
   food: SavedFoodRow;
   onCancel: () => void;
   onSaved: (row: SavedFoodRow) => void;
-  onError: (message: string) => void;
 }) {
   const single = food.items.length === 1;
   const [name, setName] = useState(food.name);
@@ -437,8 +401,9 @@ function MacroEditor({
       const items = single ? [{ ...food.items[0], ...numbers }] : undefined;
       await updateSavedFood(createClient(), food.id, { name, items });
       onSaved({ ...food, name: name.trim(), ...(single ? numbers : {}) });
+      toastDone(`Saved ${name.trim()}`);
     } catch (thrown) {
-      onError(thrown instanceof Error ? thrown.message : "Could not save that");
+      toastFailed(thrown, `Could not save ${food.name}`);
       setBusy(false);
     }
   }

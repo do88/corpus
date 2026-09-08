@@ -83,8 +83,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Suspense>
             {children}
             <TabBar />
-            {/* Top, not bottom: the tab bar owns the bottom of a phone screen. */}
-            <Toaster position="top-center" />
+            {/*
+              Above the tab bar, not over the header.
+
+              It was top-center, which put every confirmation on top of the
+              streak pill and the avatar — the two things fixed up there. Bottom
+              is where a phone expects a transient message anyway; it just has
+              to clear the bar and the home indicator, which is what the offset
+              is. The desktop rail is on the left, so there the toast only has
+              to clear the edge.
+            */}
+            <Toaster
+              position="bottom-center"
+              offset={{ bottom: "1.5rem" }}
+              mobileOffset={{
+                bottom: "calc(env(safe-area-inset-bottom) + 4.75rem)",
+                left: "1rem",
+                right: "1rem",
+              }}
+            />
           </Theme>
         </Offline>
       </body>
