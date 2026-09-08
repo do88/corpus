@@ -64,8 +64,7 @@ The rules, in the order they matter:
   that is what you have done.
 - Late in the day and well short on protein, favour the highest-protein option
   even when it is not the lowest in calories. Early in the day, leave room.
-- When calories and protein fit, prefer an option that helps the fibre goal. Unknown consumed fibre is not zero and must not be described as a measured shortfall. Fibre does not override the user's stated food preferences or calorie/protein priorities.
-- Estimate the chosen option's calories, fibre and protein the way you would estimate
+- Estimate the chosen option's calories and protein the way you would estimate
   any meal. UK portions and UK supermarket products.
 - Be brief and lead with whatever actually decided it: what they asked for if
   they asked for something, the number otherwise. Two sentences at most.
@@ -78,7 +77,6 @@ export const adviceSchema = z.object({
     .describe("The option chosen, in the user's own words, short enough to be a heading"),
   kcal: z.number().int().min(0).describe("Estimated calories for the chosen option"),
   protein_g: z.number().int().min(0).describe("Estimated protein for the chosen option"),
-  fiber_g: z.number().min(0).nullable().describe("Estimated dietary fibre for the chosen portion, or null if unknown"),
   why: z
     .string()
     .describe(
@@ -100,7 +98,7 @@ const GEMINI_ADVICE_SCHEMA = Object.fromEntries(
 export type Turn = { role: "user" | "model"; text: string };
 
 export type DayState = {
-  consumed: { kcal: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null };
+  consumed: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
   targets: DailyTargets;
   /** The local clock, "20:15", so it can weigh how much day is left. */
   time: string;
@@ -158,7 +156,6 @@ function describeDay(day: DayState): string {
     `- Protein: ${consumed.protein_g} of ${targets.protein_g} g (${left(consumed.protein_g, targets.protein_g)} short)`,
     `- Carbs: ${consumed.carbs_g} of ${targets.carbs_g} g`,
     `- Fat: ${consumed.fat_g} of ${targets.fat_g} g`,
-    `- Fibre: ${consumed.fiber_g == null ? "unknown (incomplete tracking)" : `${consumed.fiber_g}g consumed`} against ${targets.fiber_g}g target`,
   ].join("\n");
 }
 

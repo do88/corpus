@@ -261,12 +261,6 @@ export function totalsForDay(meals: MealRow[]) {
     carbs_g: analysed.reduce((sum, m) => sum + (m.carbs_g ?? 0), 0),
     fat_g: analysed.reduce((sum, m) => sum + (m.fat_g ?? 0), 0),
     fiber_g: fibreTotal(analysed),
-    // What *is* known about fibre, for the day's card: the sum over the meals
-    // that have a figure, and how many do not. The strict total above stays
-    // null for the advisor, which must not treat a partial sum as the day.
-    fiber_known_g:
-      Math.round(analysed.reduce((sum, m) => sum + (m.fiber_g ?? 0), 0) * 10) / 10,
-    fiber_missing: analysed.filter((m) => m.fiber_g == null).length,
     pending: meals.filter((m) => m.status === "pending").length,
     failed: meals.filter((m) => m.status === "failed").length,
   };

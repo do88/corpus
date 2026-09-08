@@ -109,6 +109,9 @@ export function ProgressView({
       <MacroLines
         values={summary.average}
         targets={targets}
+        // The one screen that shows fibre: an average over days survives a
+        // meal that had no figure, where a single day's total does not.
+        showFibre
         text={
           summary.loggedDays > 0
             ? {

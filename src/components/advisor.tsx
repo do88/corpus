@@ -153,7 +153,6 @@ export function Advisor() {
                 <span className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
                   <Chip>≈ {exchange.advice.kcal.toLocaleString("en-GB")} kcal</Chip>
                   <Chip tone="protein">{exchange.advice.protein_g}g protein</Chip>
-                  {exchange.advice.fiber_g != null && <Chip>{exchange.advice.fiber_g}g fibre</Chip>}
                 </span>
               </div>
 

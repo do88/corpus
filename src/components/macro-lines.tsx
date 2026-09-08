@@ -29,10 +29,14 @@
  * above, smaller type and a thinner bar, so the hierarchy is carried by
  * weight rather than by cramming.
  *
- * Fibre before tracking existed is unknown, not zero, and the strict total
- * is null for such a day so the advisor never treats a partial sum as the
- * whole. The card shows what *is* known and says how many meals were not
- * counted, which is more use than the word "unknown" against an empty bar.
+ * Fibre is off by default, and shown only where `showFibre` asks for it.
+ * The app records it — the estimator returns it in the same call, so it costs
+ * nothing — but it is not a target you are held to, and it was the least
+ * trustworthy figure on the screen: calories and protein can be read off a
+ * label, fibre is usually inferred. A day's total is also null the moment one
+ * meal lacks a figure, and the saved foods that carry the fast logging path
+ * have none, so the line spent a row saying it did not know. Progress shows
+ * it as an average across days, where one missing meal does not void it.
  *
  * Two densities. `full` is Today and Progress. `compact` is the Advisor:
  * one line each, small, because there the numbers are context for a
@@ -46,9 +50,6 @@ type Figures = {
   fat_g: number;
   /** Null when any meal of the day has no fibre figure. */
   fiber_g?: number | null;
-  /** The fibre that is known, and how many meals were not counted. */
-  fiber_known_g?: number;
-  fiber_missing?: number;
 };
 type Macro = "kcal" | "protein_g" | "carbs_g" | "fat_g" | "fiber_g";
 /** Every target is known, fibre included; only the eaten figure can be unknown. */
@@ -85,24 +86,23 @@ export function MacroLines({
   values,
   targets,
   variant = "full",
+  showFibre = false,
   text,
 }: {
   values: Figures;
   targets: Targets;
   variant?: "full" | "compact";
+  /** Progress only. See the note above. */
+  showFibre?: boolean;
   text?: Partial<Record<Macro, LineText>>;
 }) {
-  const rows = LINES.map((line) => {
-    const partial = line.macro === "fiber_g" && values.fiber_g == null;
-    const value = partial ? (values.fiber_known_g ?? 0) : (values[line.macro] ?? 0);
+  const rows = LINES.filter((line) => line.macro !== "fiber_g" || showFibre).map((line) => {
+    const value = values[line.macro] ?? 0;
     const target = targets[line.macro];
     const over = target > 0 && value > target;
     const alarmed = over && line.ceiling;
     const fraction = target > 0 ? Math.min(value / target, 1) : 0;
-    const missing = values.fiber_missing ?? 0;
-    const detail = partial
-      ? `${n(value)} / ${n(target)} g · ${missing > 0 ? `${missing} meal${missing === 1 ? "" : "s"} not counted` : "not counted"}`
-      : `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`;
+    const detail = `${n(value)} / ${n(target)}${line.unit === "kcal" ? " kcal" : " g"}`;
     return {
       ...line,
       value,

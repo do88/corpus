@@ -25,7 +25,7 @@
 import { adviseMeal, type DayState, type Turn } from "../src/lib/meal/advise";
 
 const DAY: DayState = {
-  consumed: { kcal: 694, protein_g: 58, carbs_g: 61, fat_g: 27, fiber_g: 9 },
+  consumed: { kcal: 694, protein_g: 58, carbs_g: 61, fat_g: 27 },
   targets: {
     fiber_g: 30,
     kcal: 2294,

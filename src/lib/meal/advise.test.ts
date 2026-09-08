@@ -5,7 +5,7 @@ import { FALLBACK_TARGETS } from "../meals/targets";
 const OPTIONS = "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt";
 
 const day = {
-  consumed: { kcal: 1211, protein_g: 96, carbs_g: 101, fat_g: 44, fiber_g: 12 },
+  consumed: { kcal: 1211, protein_g: 96, carbs_g: 101, fat_g: 44 },
   targets: FALLBACK_TARGETS,
   time: "20:15",
 };
@@ -25,7 +25,6 @@ const good = {
   pick: "A tin of mackerel",
   kcal: 260,
   protein_g: 22,
-  fiber_g: 0,
   why: "22g of protein against a 95g shortfall.",
   instead: "Toast and peanut butter is mostly fat.",
 };
