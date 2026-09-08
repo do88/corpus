@@ -68,16 +68,24 @@ export type WatchDay = { day: string; steps: number | null; kcal: number | null 
  * The days the watch has reported lately, oldest last.
  *
  * A smaller projection than `recentGarminDays` because this one is serialised
- * into a client component, and ten columns of a fortnight is a lot of bytes
- * to ship so a card can say two numbers.
+ * into a client component, and ten columns of a month is a lot of bytes to
+ * ship so a card can say two numbers.
  *
- * The window is deliberately wider than a week. The sync runs weekly, so on a
- * Sunday the newest day the watch has reported is six days old, and a
- * seven-day window would some days hold nothing at all.
+ * Thirty days, which is what the sync makes available: `GARMIN_WINDOW_DAYS`
+ * re-pulls a rolling month, so this reads exactly as far back as the data is
+ * kept current and no further.
+ *
+ * The window is deliberately much wider than a week, for two reasons. The sync
+ * runs weekly, so on a Sunday the newest day the watch has reported is six days
+ * old and a seven-day window would some days hold nothing at all. And the mean
+ * is the figure every day is judged against, so it wants to move with a real
+ * change in how active you are rather than with one heavy weekend. The cost of
+ * the wider window is on the same axis: it takes longer to notice a genuine
+ * shift.
  */
 export async function recentWatchDays(
   supabase: SupabaseClient,
-  days = 21,
+  days = 30,
 ): Promise<WatchDay[]> {
   const from = toDay(subDays(inZone(), days));
   const { data, error } = await supabase
