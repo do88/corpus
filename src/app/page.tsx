@@ -6,6 +6,7 @@ import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
+import { dayEnergy, recentWatchDays } from "@/lib/garmin/repository";
 import type { DailyTargets } from "@/lib/meals/targets";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
@@ -34,9 +35,12 @@ export default async function Home({
 
   // One query covers the day being shown and the dots on the week strip.
   const week = weekOf(day);
-  const [meals, targets] = await Promise.all([
+  const [meals, targets, watch] = await Promise.all([
     listMealsInRange(supabase, week[0], week[6]),
     loadTargets(supabase),
+    // The ledger and the watch card are both extras. A day with no watch
+    // behind it still logs meals, so a failure here must not take the page.
+    recentWatchDays(supabase).catch(() => []),
   ]);
 
   const onScreen = meals.filter((m) => m.local_date === day);
@@ -87,6 +91,8 @@ export default async function Home({
         logged={kcalByDay(meals)}
         earliest={earliest}
         targets={targets}
+        energy={dayEnergy(day, today, watch)}
+        watch={watch}
       />
     </Screen>
   );

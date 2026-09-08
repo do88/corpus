@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayOf, instantOf, intOf, minutesOf, toDaily, toSleep } from "./convert";
-import { measuredMaintenance } from "./repository";
+import { dayEnergy, measuredMaintenance } from "./repository";
 
 describe("dayOf", () => {
   it("takes the date off a SQLAlchemy midnight", () => {
@@ -107,5 +107,34 @@ describe("measuredMaintenance", () => {
   it("is null with nothing recorded", () => {
     expect(measuredMaintenance([])).toBeNull();
     expect(measuredMaintenance(days(null, null))).toBeNull();
+  });
+});
+
+describe("dayEnergy", () => {
+  const watch = [
+    { day: "2026-09-01", steps: 8000, kcal: 2900 },
+    { day: "2026-09-02", steps: 9000, kcal: 3000 },
+    { day: "2026-09-03", steps: 7000, kcal: 2800 },
+    { day: "2026-09-04", steps: 9500, kcal: 3100 },
+    { day: "2026-09-05", steps: 8500, kcal: 3200 },
+  ];
+
+  it("uses a past day's own figure", () => {
+    expect(dayEnergy("2026-09-03", "2026-09-05", watch).counted).toBe(2800);
+  });
+
+  it("refuses today's figure, which is a day still being counted", () => {
+    // The sync runs at 05:00, so on a sync day the watch has a row for today
+    // holding a few hundred calories of being asleep.
+    const partial = [...watch, { day: "2026-09-06", steps: 300, kcal: 420 }];
+    expect(dayEnergy("2026-09-06", "2026-09-06", partial).counted).toBeNull();
+  });
+
+  it("has no figure for a day the watch never reported", () => {
+    expect(dayEnergy("2026-08-30", "2026-09-05", watch).counted).toBeNull();
+  });
+
+  it("always offers the typical figure to fall back on", () => {
+    expect(dayEnergy("2026-08-30", "2026-09-05", watch).typical).toEqual({ kcal: 3000, days: 5 });
   });
 });

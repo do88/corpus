@@ -60,3 +60,61 @@ export function measuredMaintenance(
   const kcal = Math.round(burns.reduce((sum, k) => sum + k, 0) / burns.length);
   return { kcal, days: burns.length };
 }
+
+/** One day the watch reported, trimmed to what a screen needs. */
+export type WatchDay = { day: string; steps: number | null; kcal: number | null };
+
+/**
+ * The days the watch has reported lately, oldest last.
+ *
+ * A smaller projection than `recentGarminDays` because this one is serialised
+ * into a client component, and ten columns of a fortnight is a lot of bytes
+ * to ship so a card can say two numbers.
+ *
+ * The window is deliberately wider than a week. The sync runs weekly, so on a
+ * Sunday the newest day the watch has reported is six days old, and a
+ * seven-day window would some days hold nothing at all.
+ */
+export async function recentWatchDays(
+  supabase: SupabaseClient,
+  days = 21,
+): Promise<WatchDay[]> {
+  const from = toDay(subDays(inZone(), days));
+  const { data, error } = await supabase
+    .from("garmin_daily")
+    .select("day, steps, calories_total")
+    .gte("day", from)
+    .order("day", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    day: row.day as string,
+    steps: row.steps as number | null,
+    kcal: row.calories_total as number | null,
+  }));
+}
+
+/** What a day cost, against what a day usually costs. */
+export type DayEnergy = {
+  /** The watch's own total for a day it has finished counting. */
+  counted: number | null;
+  /** The mean of recent complete days, for a day it has not. */
+  typical: { kcal: number; days: number } | null;
+};
+
+/**
+ * The two burn figures a day can be judged against.
+ *
+ * **Today never uses its counted figure, even when one exists.** The sync runs
+ * at five in the morning, so on a sync day the watch has a row for today
+ * holding a few hundred calories of being asleep. Reading that as the day's
+ * burn would tell you that you were four thousand calories up before lunch.
+ * A day still in progress has no final total, so today is always judged
+ * against the typical figure and past days against their own.
+ */
+export function dayEnergy(day: string, today: string, watch: WatchDay[]): DayEnergy {
+  const row = day === today ? undefined : watch.find((w) => w.day === day);
+  return {
+    counted: row && (row.kcal ?? 0) > 0 ? row.kcal : null,
+    typical: measuredMaintenance(watch.map((w) => ({ calories_total: w.kcal }))),
+  };
+}
