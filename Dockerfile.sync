@@ -10,7 +10,12 @@
 # tokens under $HOME/.GarminDb and writes its archive to $HOME/HealthData, so
 # pointing HOME at a volume makes all of it persist without patching a single
 # path.
-FROM node:24-slim
+
+# Trixie, not bookworm, and that is load-bearing. Bookworm's python3 is 3.11,
+# GarminDB 3.9 requires 3.12+, and pip's response to that is not an error: it
+# silently resolves to an old release that authenticates a different way. See
+# the pin below.
+FROM node:24-trixie-slim
 
 # python3-venv because Debian marks the system Python externally-managed, and
 # pip refuses to install into it. ca-certificates because both halves talk TLS.
@@ -18,10 +23,19 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+# Pinned, because the version decides how it authenticates.
+#
+# 3.9 resumes from the OAuth token store at $HOME/.GarminDb/garmin_tokens.json
+# and only falls back to a password. The releases that still support Python
+# 3.11 skip the token store entirely and log in with a username and password
+# every run, which Garmin answers with 429 Too Many Requests. Unpinned, on a
+# bookworm base, that is silently what you get.
 ENV GARMIN_VENV=/opt/garmindb
+ENV GARMINDB_VERSION=3.9.0
 RUN python3 -m venv "$GARMIN_VENV" \
  && "$GARMIN_VENV/bin/pip" install --no-cache-dir --upgrade pip \
- && "$GARMIN_VENV/bin/pip" install --no-cache-dir garmindb
+ && "$GARMIN_VENV/bin/pip" install --no-cache-dir "garmindb==${GARMINDB_VERSION}" \
+ && "$GARMIN_VENV/bin/python" -c "from importlib.metadata import version; assert version('garmindb') == '${GARMINDB_VERSION}'"
 
 WORKDIR /app
 
