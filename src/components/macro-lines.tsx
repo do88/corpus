@@ -20,9 +20,14 @@
  *
  * Two tiers inside the card. Calories and protein are the day's targets and
  * get a full row each. Carbs, fat and fibre "need only be reasonable", in
- * the estimator's own words, and share one row of three beneath — five full
- * rows pushed the first meal off a phone screen for three numbers that are
- * rarely the reason you opened the app.
+ * the estimator's own words, and take a lighter treatment beneath.
+ *
+ * Those three sit three-across only from `lg`, which is the first width at
+ * which the column stops being 448px — three of them in 448 gave each about
+ * 130px, and a label, a figure and a bar in 130px is a thing you decipher
+ * rather than scan. Below that they are stacked rows: same shape as the two
+ * above, smaller type and a thinner bar, so the hierarchy is carried by
+ * weight rather than by cramming.
  *
  * Fibre before tracking existed is unknown, not zero, and the strict total
  * is null for such a day so the advisor never treats a partial sum as the
@@ -160,16 +165,24 @@ export function MacroLines({
         </div>
       ))}
 
-      {/* The three that need only be reasonable, side by side and smaller.
-          The eaten/target detail moves into the hover and the label, so a
-          third of a phone's width holds a name and a figure comfortably. */}
-      <div className="grid grid-cols-3 gap-3 border-t border-[var(--rule)]/60 pt-3.5">
+      {/* Stacked rows on a phone, three across once the column widens. */}
+      <div className="grid gap-3 border-t border-[var(--rule)]/60 pt-3.5 lg:grid-cols-3">
         {secondary.map((row) => (
           <div key={row.macro} title={`${row.label}: ${row.detail}`}>
-            <dt className="text-xs font-medium" style={{ color: row.ink }}>
-              {row.label}
-            </dt>
-            <dd className="m-0 mt-0.5 truncate text-sm font-semibold tabular-nums">{row.lead}</dd>
+            <div className="flex items-baseline justify-between gap-3 lg:block">
+              <dt className="flex min-w-0 items-baseline gap-2">
+                <span className="text-xs font-medium" style={{ color: row.ink }}>
+                  {row.label}
+                </span>
+                {/* Room for the parts on a phone; three across there is not. */}
+                <span className="truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                  {row.detail}
+                </span>
+              </dt>
+              <dd className="m-0 shrink-0 text-sm font-semibold tabular-nums lg:mt-0.5 lg:truncate">
+                {row.lead}
+              </dd>
+            </div>
             <dd className="m-0 mt-1.5">
               <Track fraction={row.fraction} fill={row.fill} height={5} label={`${row.label}: ${row.detail}`} />
             </dd>
