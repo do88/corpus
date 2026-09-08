@@ -26,7 +26,11 @@ export default defineRailway(() => {
    * Postgres already holds.
    */
   const syncVolume = volume("sync-volume", {
-    region: "europe-west4",
+    // The zone, not the region. Railway stores the zone a volume was created
+    // in, and a volume cannot be moved: `VolumeUpdateInput` takes a name and
+    // nothing else. Writing the broader `europe-west4` here leaves a diff that
+    // no apply can ever close, which teaches you to ignore the plan.
+    region: "europe-west4-drams3a",
     sizeMB: 500,
     allowOnlineResize: true,
     alerts: { usage: { "80": {}, "95": {}, "100": {} } },
