@@ -65,6 +65,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "microdiff": "^1.6.0",
+    "railway": "^3.11.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5",

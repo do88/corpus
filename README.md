@@ -80,6 +80,12 @@ Four Railway services in one project, all in Europe West.
 | `reconcile` | `curlimages/curl`, one request to `/api/cron/reconcile` | `*/15 * * * *` |
 | `sync` | this repo via `Dockerfile.sync`, Hevy then Garmin | `0 5 * * 1` |
 
+The project itself is described in `.railway/railway.ts`, so the repo can
+rebuild not just the app but the thing that runs it. Secrets are not in there:
+`preserve()` names a variable without carrying its value. Edit it, run
+`railway config plan` to see the difference against the live project, and apply
+only once the plan says what you expected.
+
 `scripts/railway-env.sh` pushes `.env.hosted` into the `corpus` service, sets
 `APP_URL` from the service domain, and generates `CRON_SECRET` on first run.
 Values go over stdin, so none of them reach the process list or shell history.
