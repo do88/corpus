@@ -117,6 +117,9 @@ export function MacroLines({
   });
   const primary = rows.filter((row) => row.macro === "kcal" || row.macro === "protein_g");
   const secondary = rows.filter((row) => !primary.includes(row));
+  // Sized to what is actually there. Fibre leaving turned this into two items
+  // in a three-column grid, which reads as a column that failed to load.
+  const columns = secondary.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2";
 
   if (variant === "compact") {
     return (
@@ -166,7 +169,7 @@ export function MacroLines({
       ))}
 
       {/* Stacked rows on a phone, three across once the column widens. */}
-      <div className="grid gap-3 border-t border-[var(--rule)]/60 pt-3.5 lg:grid-cols-3">
+      <div className={`grid gap-3 border-t border-[var(--rule)]/60 pt-3.5 ${columns}`}>
         {secondary.map((row) => (
           <div key={row.macro} title={`${row.label}: ${row.detail}`}>
             <div className="flex items-baseline justify-between gap-3 lg:block">

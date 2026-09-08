@@ -46,29 +46,33 @@ export function EnergyLedger({
   return (
     <section className="surface p-4.5" aria-label="Energy balance">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="flex min-w-0 items-baseline gap-2">
-          <span
-            className="text-[1rem] font-semibold tracking-[-0.01em]"
-            style={{ color: "var(--ink-energy)" }}
-          >
-            Balance
-          </span>
-          {/*
-            Which burn figure this is, in the small voice. "Burned" is the
-            watch's count of a finished day; "burns about" is an average over
-            recent days, and the difference matters enough to spell out.
-          */}
-          <span className="truncate text-xs tabular-nums text-muted-foreground">
-            {measured ? `burned ${n(burned)}` : `burns about ${n(burned)}`} · ate {n(eaten)}
-          </span>
+        <h2
+          className="text-[1rem] font-semibold tracking-[-0.01em]"
+          style={{ color: "var(--ink-energy)" }}
+        >
+          Balance
         </h2>
+        {/*
+          "Under" and "over" need something to be under and over, and the line
+          below is what supplies it — so the two are read together and the
+          figure is never alone. On a day still being eaten it says so, because
+          "2,819 under" at breakfast is arithmetic rather than an achievement.
+        */}
         <p
           className="m-0 shrink-0 text-[1rem] font-semibold tabular-nums"
           style={{ color: over ? "var(--destructive)" : undefined }}
         >
-          {balance === 0 ? "level" : `${n(balance)} ${over ? "over" : "under"}`}
+          {balance === 0
+            ? "level"
+            : `${n(balance)} ${over ? "over" : "under"}${isToday ? " so far" : ""}`}
         </p>
       </div>
+
+      {/* The whole comparison in one line, in the order the bar draws it. */}
+      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+        eaten {n(eaten)} of {measured ? "" : "about "}
+        {n(burned)} burned
+      </p>
 
       {/* The same bar the macros use, against a different denominator: full
           is having eaten everything the day cost. */}
@@ -92,8 +96,8 @@ export function EnergyLedger({
         {measured
           ? "What your watch counted for this day."
           : isToday
-            ? `Your average over the last ${energy.typical?.days} days. The watch has not finished counting today.`
-            : `Your average over the last ${energy.typical?.days} days. The watch has no figure for this day.`}
+            ? `Your watch's average over ${energy.typical?.days} days. Today is still being counted.`
+            : `Your watch's average over ${energy.typical?.days} days. It has no figure for this day.`}
       </p>
     </section>
   );
