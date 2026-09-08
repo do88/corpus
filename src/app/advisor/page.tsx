@@ -1,6 +1,7 @@
 import { Screen } from "@/components/screen";
 import { AppHeader } from "@/components/app-header";
 import { Advisor } from "@/components/advisor";
+import { listTurns } from "@/lib/advisor/thread";
 import { MacroLines } from "@/components/macro-lines";
 import { createClient } from "@/lib/supabase/server";
 import { listMealsInRange } from "@/lib/meals/repository";
@@ -21,9 +22,12 @@ export default async function AdvisorScreen() {
   const supabase = await createClient();
   const day = localDay();
 
-  const [meals, targets] = await Promise.all([
+  const [meals, targets, turns] = await Promise.all([
     listMealsInRange(supabase, day, day),
     loadTargets(supabase),
+    // The conversation is read here rather than sent up by the client, so the
+    // history the model answers against is the history that actually happened.
+    listTurns(supabase),
   ]);
   // The same rollup Progress uses, so "eaten so far" means one thing across
   // the app — pending and failed meals excluded alike.
@@ -41,7 +45,7 @@ export default async function AdvisorScreen() {
       <div className="surface mt-5 p-4">
         <MacroLines variant="compact" values={today} targets={targets} />
       </div>
-      <Advisor />
+      <Advisor initial={turns} />
     </Screen>
   );
 }

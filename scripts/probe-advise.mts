@@ -20,9 +20,19 @@
  * protein — and no regex tells those two apart. Read the printed answers;
  * do not just count the ticks.
  *
+ * It drives the real loop, tools and all, against whichever database the
+ * environment points at — so run it against the local stack unless you mean
+ * otherwise. The cases name their options outright, so the answer should come
+ * from the conversation rather than from a look-up, but the model is free to
+ * look and the point is partly to see whether it does.
+ *
  *   pnpm probe:advice
  */
-import { adviseMeal, type DayState, type Turn } from "../src/lib/meal/advise";
+import { runAdvisor } from "../src/lib/advisor/run";
+import type { DayState } from "../src/lib/advisor/prompt";
+import type { AdvisorTurn } from "../src/lib/advisor/thread";
+import { createWorkerClient } from "../src/lib/supabase/worker";
+import { localDay } from "../src/lib/time";
 
 const DAY: DayState = {
   consumed: { kcal: 694, protein_g: 58, carbs_g: 61, fat_g: 27 },
@@ -96,18 +106,49 @@ const CASES: Case[] = [
 
 let failures = 0;
 
+const supabase = createWorkerClient();
+const today = localDay();
+
+/** A turn as the thread stores one, without going near the database. */
+let sequence = 0;
+const turn = (
+  role: AdvisorTurn["role"],
+  text: string,
+  advice: AdvisorTurn["advice"] = null,
+): AdvisorTurn => ({
+  id: `probe-${sequence}`,
+  role,
+  text,
+  advice,
+  created_at: new Date(Date.now() + sequence++ * 1000).toISOString(),
+});
+
 for (const [index, testCase] of CASES.entries()) {
-  const turns: Turn[] = testCase.turns.map((text) => ({ role: "user", text }));
-  // Each user turn after the first needs the model's own turn between them, and
-  // the only honest way to get one is to actually run the earlier turns.
-  const built: Turn[] = [];
-  let advice;
-  for (const turn of turns) {
-    built.push(turn);
-    advice = await adviseMeal([...built], DAY);
-    built.push({ role: "model", text: JSON.stringify(advice) });
+  // Each question after the first needs the model's own turn between them, and
+  // the only honest way to get one is to actually run the earlier questions.
+  const history: AdvisorTurn[] = [];
+  let advice = null;
+  let text = "";
+  for (const question of testCase.turns) {
+    const result = await runAdvisor({
+      supabase,
+      question,
+      history: [...history],
+      day: DAY,
+      today,
+      emit: () => {},
+    });
+    advice = result.advice;
+    text = result.text;
+    history.push(turn("user", question));
+    history.push(turn("model", result.text || advice?.why || "(recommended)", advice));
   }
-  if (!advice) throw new Error("no advice");
+  if (!advice) {
+    console.log(`\n✗ ${index + 1}. ${testCase.name}`);
+    console.log(`   no recommendation was made. It said: ${text}`);
+    failures += 1;
+    continue;
+  }
 
   const problems: string[] = [];
   const pick = advice.pick.toLowerCase();

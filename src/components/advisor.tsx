@@ -2,79 +2,130 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw } from "lucide-react";
+import { Layers, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PromptField } from "@/components/prompt-field";
 import { localDay } from "@/lib/time";
 import { enqueue, type OutboxMeal } from "@/lib/outbox/store";
-import { toastFailed } from "@/lib/notify";
-import type { Advice, Turn } from "@/lib/meal/advise";
+import { toastDone, toastFailed } from "@/lib/notify";
+import { createSseParser } from "@/lib/advisor/events";
+import type { AdvisorTurn } from "@/lib/advisor/thread";
+import type { Advice } from "@/lib/meal/advise";
 
 /**
- * "I have these three things — which one?"
+ * "I have these three things — which one?", and anything else about the log.
  *
- * A screen rather than a disclosure on Today. It began as a collapsed row
- * under the composer, which undersold it: deciding what to eat is a different
- * activity from recording what you ate, it takes a conversation rather than a
- * tap, and it wants the day's remaining numbers on screen while you think.
- * None of that fits in a row that has to stay out of the way.
+ * A screen rather than a disclosure on Today. Deciding what to eat is a
+ * different activity from recording what you ate, it takes a conversation
+ * rather than a tap, and it wants the day's remaining numbers on screen while
+ * you think. None of that fits in a row that has to stay out of the way.
  *
- * It remembers the exchange, and only the exchange. You can say "not the fish"
- * or "I've also got eggs" and it keeps up; leaving the screen throws the lot
- * away. That is the intended lifetime, not a limitation — the question is
- * about what is in the kitchen right now, and an answer built on what was
- * there on Tuesday is worse than no answer. Nothing is written down anywhere.
+ * Two things changed when it learned to look things up. It keeps the thread
+ * now, because a standing preference — no more fish, the shake is every
+ * morning — is worth more than a clean slate, and it can only act on one if
+ * it can still read it. And it narrates itself while it works: an answer that
+ * takes three look-ups behind a still screen reads as broken, so each look-up
+ * says what it is, in words rather than a spinner.
  */
 
-/** Ten exchanges, matching the route's cap. Nobody deliberates this long. */
-const MAX_EXCHANGES = 10;
+/** What the thread shows, whether it came from the server or has just arrived. */
+type Entry =
+  | { kind: "asked"; text: string }
+  | { kind: "answer"; text: string; advice: Advice | null }
+  | { kind: "folded"; text: string };
 
-type Exchange = { asked: string; advice: Advice };
+function toEntries(turns: AdvisorTurn[]): Entry[] {
+  return turns.map((turn): Entry => {
+    if (turn.role === "summary") return { kind: "folded", text: turn.text };
+    if (turn.role === "user") return { kind: "asked", text: turn.text };
+    return { kind: "answer", text: turn.text, advice: turn.advice };
+  });
+}
 
-export function Advisor() {
+/** The turn being answered right now, built up as the stream arrives. */
+type Live = { asked: string; text: string; advice: Advice | null; doing: string | null };
+
+export function Advisor({ initial }: { initial: AdvisorTurn[] }) {
   const router = useRouter();
-  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [entries, setEntries] = useState<Entry[]>(() => toEntries(initial));
   const [options, setOptions] = useState("");
-  // What you have just asked, held separately so it can go on screen the
-  // instant you send it rather than when the answer arrives. A chat that
-  // leaves your own words in the input while it thinks does not feel like one.
-  const [pending, setPending] = useState<string | null>(null);
+  const [live, setLive] = useState<Live | null>(null);
   const [logging, setLogging] = useState(false);
-  const busy = pending !== null || logging;
+  const busy = live !== null || logging;
 
   async function ask() {
     const asked = options.trim();
     if (!asked || busy) return;
-    setPending(asked);
     setOptions("");
-    try {
-      // The model's own JSON goes back as its turn, so what it sees itself
-      // having said is exactly what it said.
-      const turns: Turn[] = [
-        ...exchanges.flatMap((exchange): Turn[] => [
-          { role: "user", text: exchange.asked },
-          { role: "model", text: JSON.stringify(exchange.advice) },
-        ]),
-        { role: "user", text: asked },
-      ];
+    setLive({ asked, text: "", advice: null, doing: null });
 
+    try {
       const response = await fetch("/api/advise", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ turns }),
+        body: JSON.stringify({ question: asked }),
       });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Could not get an answer");
+      // Only a refusal before the stream opens can still be a status code; once
+      // it is open, a failure arrives as an `error` event instead.
+      if (!response.ok || !response.body) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "Could not get an answer");
+      }
 
-      setExchanges((previous) =>
-        [...previous, { asked, advice: body as Advice }].slice(-MAX_EXCHANGES),
-      );
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const parse = createSseParser();
+      let failure: string | null = null;
+      let text = "";
+      let advice: Advice | null = null;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const event of parse(decoder.decode(value, { stream: true }))) {
+          if (event.type === "text") {
+            text += event.delta;
+            setLive((current) => (current ? { ...current, text, doing: null } : current));
+          } else if (event.type === "tool") {
+            setLive((current) => (current ? { ...current, doing: event.label } : current));
+          } else if (event.type === "advice") {
+            advice = event.advice;
+            setLive((current) => (current ? { ...current, advice, doing: null } : current));
+          } else if (event.type === "error") {
+            failure = event.message;
+          }
+        }
+      }
+      if (failure) throw new Error(failure);
+
+      setEntries((previous) => [
+        ...previous,
+        { kind: "asked", text: asked },
+        { kind: "answer", text, advice },
+      ]);
     } catch (thrown) {
       toastFailed(thrown, "Could not get an answer");
       // Give the words back rather than making you retype them.
       setOptions((current) => (current.trim() ? current : asked));
+      // The question was written down before the answer was attempted, so the
+      // server's thread has it either way; re-reading is what keeps the two
+      // in step after a failure.
+      router.refresh();
     } finally {
-      setPending(null);
+      setLive(null);
+    }
+  }
+
+  async function clear() {
+    try {
+      const response = await fetch("/api/advise", { method: "DELETE" });
+      if (!response.ok) throw new Error("Could not clear the conversation");
+      setEntries([]);
+      setOptions("");
+      toastDone("Conversation cleared");
+      router.refresh();
+    } catch (thrown) {
+      toastFailed(thrown, "Could not clear the conversation");
     }
   }
 
@@ -103,7 +154,8 @@ export function Advisor() {
     }
   }
 
-  const started = exchanges.length > 0 || pending !== null;
+  const started = entries.length > 0 || live !== null;
+  const lastAnswer = entries.findLastIndex((entry) => entry.kind === "answer");
 
   /*
     Follow the thread down. Each turn adds a screenful and the composer moves
@@ -113,85 +165,49 @@ export function Advisor() {
     about to type in comes along too.
   */
   const foot = useRef<HTMLDivElement>(null);
-  const turns = exchanges.length + (pending !== null ? 1 : 0);
+  const beat = entries.length + (live ? live.text.length + (live.doing ? 1 : 0) : 0);
   useEffect(() => {
-    if (turns === 0) return;
+    if (beat === 0) return;
     foot.current?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "nearest",
     });
-  }, [turns]);
+  }, [beat]);
 
   return (
     /*
-      A thread, not a form with results underneath.
-
-      It read as the latter: each question was a line of small grey text above
-      a card, so the two halves of an exchange looked like a caption and a
-      panel rather than a thing said and a thing answered. Alternating sides is
-      what every messaging app uses to carry that, and it costs nothing to
-      borrow — what you said sits right in its own tint, what came back sits
-      left and plain.
+      A thread, not a form with results underneath. Alternating sides is what
+      every messaging app uses to carry that, and it costs nothing to borrow —
+      what you said sits right in its own tint, what came back sits left and
+      plain.
     */
     <div className="mt-5">
       <ol className="space-y-5">
-        {exchanges.map((exchange, index) => (
-          <li key={index} className="space-y-3">
-            <Asked>{exchange.asked}</Asked>
-
-            {/* The answer. No bubble: it is the substance of the screen, and
-                boxing it would make it look like an aside to the question. */}
-            <div className="space-y-2.5 px-1">
-              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <h2 className="text-[1.125rem] font-semibold tracking-[-0.01em]">
-                  {exchange.advice.pick}
-                </h2>
-                {/* Approximate, and said so: logging it runs the real
-                    estimator, which is allowed to disagree. */}
-                <span className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
-                  <Chip>≈ {exchange.advice.kcal.toLocaleString("en-GB")} kcal</Chip>
-                  <Chip tone="protein">{exchange.advice.protein_g}g protein</Chip>
-                </span>
-              </div>
-
-              <p className="text-[0.9375rem] leading-relaxed">{exchange.advice.why}</p>
-
-              {exchange.advice.instead.trim() && (
-                <p className="border-l-2 border-[var(--rule)] pl-3 text-xs leading-relaxed text-muted-foreground">
-                  {exchange.advice.instead}
-                </p>
-              )}
-
-              {/* Only the current answer is loggable. An older one is a step in
-                  the conversation, not a standing offer. */}
-              {index === exchanges.length - 1 && (
-                <Button onClick={() => logPick(exchange.advice)} disabled={busy} className="mt-1">
-                  Log it
-                </Button>
-              )}
-            </div>
+        {entries.map((entry, index) => (
+          <li key={index}>
+            {entry.kind === "asked" && <Asked>{entry.text}</Asked>}
+            {entry.kind === "folded" && <Folded>{entry.text}</Folded>}
+            {entry.kind === "answer" && (
+              <Answer
+                text={entry.text}
+                advice={entry.advice}
+                /* Only the newest recommendation is loggable. An older one is a
+                   step in the conversation, not a standing offer. */
+                onLog={index === lastAnswer ? logPick : undefined}
+                busy={busy}
+              />
+            )}
           </li>
         ))}
 
-        {/* The turn in flight: your words, on screen straight away, and the
-            pause where the answer will land. Without it the thread sits
-            perfectly still while a request runs. */}
-        {pending !== null && (
-          <li className="space-y-3">
-            <Asked>{pending}</Asked>
-            <div className="flex items-center gap-1.5 px-1" aria-live="polite">
-            <span className="sr-only">Thinking</span>
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                aria-hidden
-                className="size-1.5 rounded-full bg-muted-foreground"
-                style={{ animation: `thinking 1.2s ease-in-out ${i * 160}ms infinite` }}
-              />
-            ))}
-            </div>
+        {live && (
+          <li className="space-y-5">
+            <Asked>{live.asked}</Asked>
+            {live.text || live.advice ? (
+              <Answer text={live.text} advice={live.advice} busy />
+            ) : (
+              <Working label={live.doing} />
+            )}
           </li>
         )}
       </ol>
@@ -209,7 +225,7 @@ export function Advisor() {
           }}
           placeholder={
             started
-              ? "not the fish… or say what else you have"
+              ? "not the fish… or ask about last week"
               : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
           }
           label="What do you have in?"
@@ -220,28 +236,116 @@ export function Advisor() {
           onDictationError={(message) => toastFailed(new Error(message), "Dictation failed")}
         />
         <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
-          {pending !== null ? "Thinking…" : started ? "Ask again" : "Ask"}
+          {live !== null ? "Thinking…" : started ? "Ask again" : "Ask"}
         </Button>
       </div>
 
       {started && (
         <div className="mt-3 flex items-center justify-between gap-3 px-1">
           <p className="text-xs text-muted-foreground">
-            Remembered while you are here, then forgotten. Nothing is saved.
+            Kept between visits, so it remembers what you have told it.
           </p>
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              setExchanges([]);
-              setOptions("");
-            }}
+            onClick={clear}
+            disabled={busy}
             className="shrink-0 text-muted-foreground"
           >
-            <RotateCcw className="size-3.5" /> Start over
+            <RotateCcw className="size-3.5" /> Clear
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * An answer: what it said, and the card if it recommended something.
+ *
+ * No bubble. It is the substance of the screen, and boxing it would make it
+ * look like an aside to the question.
+ */
+function Answer({
+  text,
+  advice,
+  onLog,
+  busy,
+}: {
+  text: string;
+  advice: Advice | null;
+  onLog?: (advice: Advice) => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="space-y-2.5 px-1">
+      {advice && (
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <h2 className="text-[1.125rem] font-semibold tracking-[-0.01em]">{advice.pick}</h2>
+          {/* Approximate, and said so: logging it runs the real estimator,
+              which is allowed to disagree. */}
+          <span className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
+            <Chip>≈ {advice.kcal.toLocaleString("en-GB")} kcal</Chip>
+            <Chip tone="protein">{advice.protein_g}g protein</Chip>
+          </span>
+        </div>
+      )}
+
+      {advice && <p className="text-[0.9375rem] leading-relaxed">{advice.why}</p>}
+      {text && <p className="text-[0.9375rem] leading-relaxed">{text}</p>}
+
+      {advice?.instead.trim() && (
+        <p className="border-l-2 border-[var(--rule)] pl-3 text-xs leading-relaxed text-muted-foreground">
+          {advice.instead}
+        </p>
+      )}
+
+      {advice && onLog && (
+        <Button onClick={() => onLog(advice)} disabled={busy} className="mt-1">
+          Log it
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What it is doing, while it does it.
+ *
+ * The three dots said only "waiting". With look-ups the wait has a reason, and
+ * naming it is the difference between a slow screen and a screen at work.
+ */
+function Working({ label }: { label: string | null }) {
+  return (
+    <div className="flex items-center gap-2 px-1" aria-live="polite">
+      <span className="flex items-center gap-1.5" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="size-1.5 rounded-full bg-muted-foreground"
+            style={{ animation: `thinking 1.2s ease-in-out ${i * 160}ms infinite` }}
+          />
+        ))}
+      </span>
+      <span className="text-xs text-muted-foreground">{label ?? "Thinking"}</span>
+    </div>
+  );
+}
+
+/**
+ * Where the old end of the conversation used to be.
+ *
+ * Shown rather than hidden, because the model is still reading it and a person
+ * ought to be able to see what it thinks it knows about them.
+ */
+function Folded({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 px-1 text-xs leading-relaxed text-muted-foreground">
+      <Layers className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <p>
+        <span className="font-medium">Earlier, folded up. </span>
+        {children}
+      </p>
     </div>
   );
 }
