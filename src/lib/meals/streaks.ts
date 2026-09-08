@@ -2,7 +2,7 @@ import { subDays } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseDay, toDay } from "../time";
 import type { DailyTargets } from "./targets";
-import type { MealRow } from "./repository";
+import { weekOf, type MealRow } from "./repository";
 
 export type StreakMeal = Pick<MealRow, "local_date" | "status" | "kcal" | "protein_g">;
 
@@ -21,13 +21,30 @@ export function calculateStreaks(meals: StreakMeal[], today: string, targets: Pi
     while (qualifies(toDay(subDays(parseDay(today), offset + total)))) total++;
     return total;
   };
+
+  /** A day that closed under the calorie ceiling and over the protein floor. */
+  const hitBoth = (date: string) => {
+    const day = days.get(date);
+    return !!day?.complete && day.kcal < targets.kcal && day.protein >= targets.protein_g;
+  };
+
+  // The week so far, Monday to today. A consecutive on-target streak is a
+  // number that spends most of its life at zero — one hard night ends it and
+  // it cannot start again until tomorrow — which makes it a reproach rather
+  // than a score. A count out of seven survives a bad Tuesday and still says
+  // exactly how the week is going.
+  const soFar = weekOf(today).filter((date) => date <= today);
+
   return {
     logged: count(days.has(today) ? 0 : 1, (date) => days.has(date)),
     // Today is still in progress. Only completed tracking days earn a target day.
-    onTarget: count(1, (date) => {
-      const day = days.get(date);
-      return !!day?.complete && day.kcal < targets.kcal && day.protein >= targets.protein_g;
-    }),
+    onTarget: count(1, hitBoth),
+    week: {
+      logged: soFar.filter((date) => days.has(date)).length,
+      // Today is excluded here for the same reason it is above: there is
+      // still an evening left in which to eat.
+      onTarget: soFar.filter((date) => date !== today && hitBoth(date)).length,
+    },
   };
 }
 
