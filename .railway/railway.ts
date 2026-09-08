@@ -97,7 +97,10 @@ export default defineRailway(() => {
    */
   const reconcile = service("reconcile", {
     source: image("alpine:latest"),
-    start: 'wget -q -O- --header="Authorization: Bearer $CRON_SECRET" "$RECONCILE_URL"',
+    // Wrapped in a shell on purpose. Railway does not run a start command
+    // through one, so an unwrapped version passed $RECONCILE_URL to wget as a
+    // literal four-word string and every run died on "bad address".
+    start: "sh -c 'wget -q -O- --header=\"Authorization: Bearer $CRON_SECRET\" \"$RECONCILE_URL\"'",
     replicas: { "europe-west4": 1 },
     // Never restart: a failed run waits for its next slot rather than looping.
     deploy: { cronSchedule: "*/15 * * * *", restartPolicyType: "NEVER" },
