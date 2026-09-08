@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { estimateFromSaved, saveFoodFromMeal, type SavedFoodRow } from "./saved";
+import { estimateFromSaved, levelFor, saveFoodFromMeal, type SavedFoodRow } from "./saved";
 import type { MealItem } from "../meal/schema";
 
 const shake: MealItem = {
@@ -143,5 +143,34 @@ describe("saveFoodFromMeal", () => {
       saveFoodFromMeal(client, { id: "m", items: null, assumptions: null }, { name: "Empty" }),
     ).rejects.toThrow(/nothing to save/i);
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("levelFor", () => {
+  it("starts every saved food at one, before it has been logged again", () => {
+    expect(levelFor(0)).toEqual({ level: 1, toNext: 3 });
+    expect(levelFor(2)).toEqual({ level: 1, toNext: 1 });
+  });
+
+  it("climbs at each threshold", () => {
+    expect(levelFor(3).level).toBe(2);
+    expect(levelFor(10).level).toBe(3);
+    expect(levelFor(25).level).toBe(4);
+    expect(levelFor(50).level).toBe(5);
+    expect(levelFor(100).level).toBe(6);
+  });
+
+  it("says how far the next one is", () => {
+    expect(levelFor(7)).toEqual({ level: 2, toNext: 3 });
+    expect(levelFor(24)).toEqual({ level: 3, toNext: 1 });
+  });
+
+  it("stops at the top rather than promising a level that does not exist", () => {
+    expect(levelFor(100).toNext).toBeNull();
+    expect(levelFor(4000)).toEqual({ level: 6, toNext: null });
+  });
+
+  it("is not thrown by a count that should never happen", () => {
+    expect(levelFor(-5)).toEqual({ level: 1, toNext: 3 });
   });
 });

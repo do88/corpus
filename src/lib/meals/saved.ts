@@ -205,3 +205,36 @@ export function estimateFromSaved(saved: SavedFoodRow, quantity = 1): MealEstima
     ...totalsFor(items),
   };
 }
+
+/**
+ * How many uses each level costs.
+ *
+ * A saved food's whole purpose is to be logged again: the second time you eat
+ * something, its numbers stop being a guess and start being a figure you
+ * checked once and kept. So the count of uses is already the measure of how
+ * much a food is worth having, and a level is only that count said out loud.
+ *
+ * It is the one number in this app that can only go up, which is why it is
+ * the right thing to make a game of. Nothing here rewards eating more or
+ * eating less — it rewards building the library, and a bigger library makes
+ * the estimates better and the logging faster.
+ *
+ * Deliberately steep after level three. Ten uses is a food you actually eat;
+ * a hundred is a food you are built out of, and it should feel like it.
+ */
+export const LEVEL_THRESHOLDS = [0, 3, 10, 25, 50, 100] as const;
+
+export type FoodLevel = {
+  /** 1 to 6. */
+  level: number;
+  /** Uses needed for the next level, or null at the top. */
+  toNext: number | null;
+};
+
+/** What a food's use count has earned it. */
+export function levelFor(timesUsed: number): FoodLevel {
+  const uses = Math.max(0, timesUsed);
+  const index = LEVEL_THRESHOLDS.filter((threshold) => uses >= threshold).length - 1;
+  const next = LEVEL_THRESHOLDS[index + 1];
+  return { level: index + 1, toNext: next === undefined ? null : next - uses };
+}

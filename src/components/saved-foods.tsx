@@ -14,6 +14,7 @@ import { localDay } from "@/lib/time";
 import {
   archiveSavedFood,
   estimateFromSaved,
+  levelFor,
   restoreSavedFood,
   updateSavedFood,
   type SavedFoodRow,
@@ -209,6 +210,7 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         <ul className="surface divide-y divide-[var(--rule)]/60 overflow-hidden">
           {visible.map((food) => {
             const isOpen = open === food.id;
+            const rank = levelFor(food.times_used);
             return (
               <li key={food.id}>
                 {/*
@@ -235,6 +237,9 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                         food.archived_at && "text-muted-foreground",
                       )}
                     >
+                      {/* Inline so it flows with the name and is clipped with
+                          it, rather than surviving alone on a truncated row. */}
+                      <Level rank={rank.level} />
                       {food.name}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-x-2 text-xs tabular-nums text-muted-foreground">
@@ -244,7 +249,7 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                       <span style={{ color: "var(--ink-protein)" }}>{food.protein_g}g protein</span>
                       <span>{food.carbs_g}g carbs</span>
                       <span>{food.fat_g}g fat</span>
-                      {food.times_used > 0 && <span>logged {food.times_used}×</span>}
+                      <span>logged {food.times_used}×</span>
                     </span>
                   </button>
                   {food.archived_at ? (
@@ -300,7 +305,11 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                           </p>
                         )}
                         <p className="text-xs tabular-nums text-muted-foreground">
-                          {food.fiber_g == null ? "Fibre unknown" : `${food.fiber_g}g fibre`}
+                          {rank.toNext === null
+                            ? "Top level"
+                            : `${rank.toNext} more ${rank.toNext === 1 ? "log" : "logs"} to level ${rank.level + 1}`}
+                          {" · "}
+                          {food.fiber_g == null ? "fibre unknown" : `${food.fiber_g}g fibre`}
                           {food.times_used > 0 &&
                             ` · last logged ${new Date(food.last_used_at ?? food.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
                         </p>
@@ -359,6 +368,38 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * A food's level, from how often it has been logged.
+ *
+ * Shown on every food including level one, because the point is that the
+ * whole list is a collection with a rank on each item — hiding the first
+ * level would mean the mechanic only appears once it has already happened.
+ * Coloured from level two, so climbing out of the starting rank is visible
+ * at a glance down the column.
+ */
+function Level({ rank }: { rank: number }) {
+  const earned = rank > 1;
+  return (
+    <span
+      className="mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-[0.1em] text-[0.6875rem] font-semibold tabular-nums"
+      style={
+        earned
+          ? {
+              background: "color-mix(in oklch, var(--accent-protein) 16%, transparent)",
+              color: "var(--ink-protein)",
+            }
+          : {
+              background: "color-mix(in oklch, var(--rule) 45%, transparent)",
+              color: "var(--muted-foreground)",
+            }
+      }
+      aria-label={`Level ${rank}`}
+    >
+      Lv {rank}
+    </span>
   );
 }
 
