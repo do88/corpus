@@ -27,11 +27,18 @@ export function Logomark({
   size = 28,
   accent,
   className,
+  decorative = false,
 }: {
   size?: number;
   /** A CSS colour for the dot. Omit for a single-colour mark. */
   accent?: string;
   className?: string;
+  /**
+   * Hide it from screen readers, for when the name is already written beside
+   * it. `Wordmark` is exactly that case: labelled, it announced "do.fit
+   * do.fit", and that now sits at the top of every screen rather than one.
+   */
+  decorative?: boolean;
 }) {
   return (
     <svg
@@ -40,8 +47,7 @@ export function Logomark({
       viewBox="0 0 32 32"
       fill="none"
       className={className}
-      role="img"
-      aria-label="do.fit"
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "do.fit" })}
     >
       {/* 292° drawn from twelve o'clock. Round caps overhang the path by half
           the stroke, which is why r is 11 in a 32 box rather than more. */}
@@ -63,21 +69,23 @@ export function Logomark({
 }
 
 /**
- * The mark beside the name, for places that need to say what the app is —
- * the sign-in screen, and the top of Today.
+ * The mark beside the name. It stands at the top of every screen.
  *
- * Every other screen has a title that does that job, and repeating the
- * product name above each of them would be a website habit rather than an app
- * one. Today is the exception because its title was the date, and the date is
- * already the one thing the screen states three times: the selected disc in
- * the strip, its neighbours either side, and the caption saying how far back
- * it is. Thirty-four point type restating it was the one line on the page
- * nobody needed to read, so the mark takes that spot instead.
+ * It used to be Today's alone, because Today's title was the date and the date
+ * was already stated three times below it. Every other screen carried its own
+ * name in thirty-four point type — which is a website habit: a website needs a
+ * title because you might have arrived from anywhere, and an app does not
+ * because you tapped the tab that says where you are, and it is still lit at
+ * the bottom of the screen. The name was answering a question nobody had.
+ *
+ * So the mark takes that row everywhere and the screens are told apart by the
+ * tab bar and by what they contain. The names still exist for anyone who
+ * cannot see either — see `AppHeader`.
  */
 export function Wordmark({ size = 28 }: { size?: number }) {
   return (
     <span className="flex items-center gap-2">
-      <Logomark size={size} accent="var(--accent-protein)" />
+      <Logomark size={size} accent="var(--accent-protein)" decorative />
       <span className="font-bold tracking-[-0.03em]" style={{ fontSize: size * 0.86 }}>
         do
         <span style={{ color: "var(--accent-protein)" }}>.</span>

@@ -33,7 +33,7 @@ export default async function FoodsScreen() {
   return (
     <Screen>
       <AppHeader
-        title="Your foods"
+        name="Your foods"
         caption={collectionCaption(foods)}
       />
       <SavedFoods initial={foods} />

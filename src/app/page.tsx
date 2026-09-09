@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
-import { Wordmark } from "@/components/brand";
 import { format } from "date-fns";
 import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
@@ -52,17 +51,7 @@ export default async function Home({
     // a 440px strip marooned in the middle of a 1440px window.
     <Screen>
       <AppHeader
-        title={
-          /*
-            The mark and the name, not the date. The date was the largest
-            thing on the screen and the least informative: the strip below
-            already shows which day is selected, in blue, with its neighbours
-            either side, and the caption says how far back it is. Thirty-four
-            point type spent restating that was the one thing on the page you
-            never needed to read.
-          */
-          <Wordmark size={30} />
-        }
+        name="Today"
         caption={caption(day, today, totalsForDay(onScreen), targets)}
         action={
           /*

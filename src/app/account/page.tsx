@@ -40,7 +40,7 @@ export default async function Account() {
 
   return (
     <Screen>
-      <AppHeader title="Account" />
+      <AppHeader name="Account" />
       <AccountForm profile={profile} avatarSrc={avatarSrc} userId={user.id} />
       <div className="mt-3">
         <EnergyCard

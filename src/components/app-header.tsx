@@ -1,18 +1,37 @@
+import { Wordmark } from "@/components/brand";
+
 /**
- * The large title, iOS style.
+ * The mark, and what the screen wants to say under it.
  *
- * Not a bar. iOS puts the screen's name in the content as oversized type and
- * lets it scroll away, which is why an iPhone app feels roomier than a website
- * with a header. Navigation lives at the bottom in `TabBar`, within thumb
- * reach, so nothing needs to compete up here.
+ * Not a bar, and no longer a title either. iOS puts the screen's name in the
+ * content as oversized type, and that was the pattern here — but a title is a
+ * website's answer to "where am I", and an app already answered it: you tapped
+ * the tab, and the tab is still lit at the bottom of the screen. "Progress" in
+ * thirty-four point type above a page of progress was restating the one thing
+ * you could not be unsure about, and taking the top of every screen to do it.
+ *
+ * So the mark stands there instead — the same row on every screen, which is
+ * what makes it read as one app rather than five pages. What the screen
+ * actually has to say goes in the caption, where it is information rather than
+ * a label: how much is left today, how many foods you have, how many sessions
+ * in the last month.
+ *
+ * The name does not disappear, it stops being *drawn*. It stays in the `h1` for
+ * anyone navigating by headings or landing here from a screen reader's rotor,
+ * who has no lit tab to look at — which is the one audience the visible title
+ * was genuinely serving.
  */
 export function AppHeader({
-  title,
+  name,
   caption,
   action,
 }: {
-  /** A node, not a string, so a screen can shorten its own title on a phone. */
-  title: React.ReactNode;
+  /**
+   * The screen's name, announced but not drawn. Still required: a page whose
+   * only heading is a logo tells a screen reader which app it is and nothing
+   * about where it is.
+   */
+  name: string;
   caption?: string;
   /**
    * A screen-specific control, beside the persistent ones.
@@ -34,8 +53,9 @@ export function AppHeader({
         action, at which point "Today" was drawn on top of "Wednesday".
       */}
       <div className="flex items-start gap-4">
-        <h1 className="min-w-0 text-[2.125rem] font-bold leading-tight tracking-[-0.03em]">
-          {title}
+        <h1 className="min-w-0 leading-tight">
+          <Wordmark size={30} />
+          <span className="sr-only">{name}</span>
         </h1>
         <span aria-hidden className="h-9 w-[10.25rem] shrink-0" />
       </div>
