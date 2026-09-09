@@ -19,17 +19,27 @@ vi.mock("@google/genai", async (importOriginal) => {
 
 const { runAdvisor, toContents } = await import("./run");
 
-/** One streamed response: text parts, then any function calls. */
+/**
+ * One streamed response, in the shape the SDK really returns.
+ *
+ * Candidates and parts, not a convenience `functionCalls` array — an earlier
+ * stub used the latter and hid a bug the real API rejected with a 400: Gemini
+ * 3 attaches a `thoughtSignature` to every function call and refuses the next
+ * request if it does not come back. A stub that cannot carry one cannot catch
+ * that, so this one does.
+ */
 function reply(parts: { text?: string; calls?: { name: string; args: Record<string, unknown> }[] }) {
+  const content: { parts: Record<string, unknown>[] } = { parts: [] };
+  if (parts.text) content.parts.push({ text: parts.text });
+  for (const call of parts.calls ?? []) {
+    content.parts.push({
+      functionCall: { name: call.name, args: call.args },
+      thoughtSignature: `signature-for-${call.name}`,
+    });
+  }
   return Promise.resolve(
     (async function* () {
-      if (parts.text) yield { text: parts.text, functionCalls: undefined };
-      if (parts.calls) {
-        yield {
-          text: undefined,
-          functionCalls: parts.calls.map((call) => ({ name: call.name, args: call.args })),
-        };
-      }
+      yield { candidates: [{ content }] };
     })(),
   );
 }
@@ -181,6 +191,36 @@ describe("runAdvisor", () => {
     // to ignore the note, so the last request carries none.
     const last = generateContentStream.mock.calls.at(-1)?.[0];
     expect(last.config.tools).toBeUndefined();
+  });
+
+  it("hands the model's own parts back untouched, signature and all", async () => {
+    // The 400 this exists to prevent: "Function call is missing a
+    // thought_signature in functionCall parts". The signature is the model's
+    // reasoning carried across the round trip, so it has to survive verbatim.
+    generateContentStream
+      .mockReturnValueOnce(reply({ calls: [{ name: "search_foods", args: { query: "" } }] }))
+      .mockReturnValueOnce(reply({ text: "Nothing in there." }));
+
+    const supabase = {
+      from: () => ({
+        select: () => ({ order: () => ({ order: () => ({ data: [], error: null }) }) }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await runAdvisor({
+      supabase,
+      question: "what have I got?",
+      history: [],
+      day,
+      today: "2026-09-09",
+      emit: () => {},
+    });
+
+    const second = generateContentStream.mock.calls[1][0];
+    const modelTurn = second.contents.find(
+      (c: { role: string }) => c.role === "model",
+    );
+    expect(modelTurn.parts[0].thoughtSignature).toBe("signature-for-search_foods");
   });
 
   it("says so rather than returning nothing at all", async () => {

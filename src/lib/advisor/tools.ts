@@ -61,6 +61,14 @@ export type Toolset = {
 /** Nothing the model reads may run away with the prompt. */
 const MAX_OUTPUT_CHARS = 6_000;
 
+/**
+ * Up to this many saved foods come back whole rather than filtered.
+ *
+ * Forty lines is a page the model can hold in one look, and well under the
+ * output cap above. Past it, searching earns its keep again.
+ */
+const WHOLE_LIBRARY = 40;
+
 /** Quoted material, never instructions. */
 function asData(name: string, text: string): string {
   const body =
@@ -238,25 +246,46 @@ export function buildAdvisorTools(supabase: SupabaseClient, today: string): Tool
       case "search_foods": {
         const query = typeof args.query === "string" ? args.query.trim().toLowerCase() : "";
         const foods = await listSavedFoods(supabase);
-        const matched = (
-          query
-            ? foods.filter(
-                (food) =>
-                  food.name.toLowerCase().includes(query) ||
-                  food.items.some((item) => item.name.toLowerCase().includes(query)),
-              )
-            : foods
-        ).slice(0, 15);
+        const line = (food: (typeof foods)[number]) =>
+          `- ${food.name} — ${n(food.kcal)} kcal, ${food.protein_g}g protein, ${food.carbs_g}g carbs, ${food.fat_g}g fat; logged ${food.times_used}×`;
+
+        /*
+          A short library comes back whole, whatever was asked for.
+
+          Measured against the real model: with six saved foods it called this
+          six times, once per term it could think of, because each search
+          answered only its own word and left it wondering what else was in
+          there. Handing over the entire list on the first call and saying so
+          ends that — there is nothing left to search for. It also costs less
+          than one filtered answer, since the list is shorter than the
+          explanation of how to search it.
+        */
+        if (foods.length <= WHOLE_LIBRARY) {
+          for (const food of foods) seen.add(food.name);
+          const body =
+            foods.length === 0
+              ? "They have no saved foods at all."
+              : [
+                  `Their complete saved list, all ${foods.length} of them. There is nothing else to find, so do not search again.`,
+                  "",
+                  ...foods.map(line),
+                ].join("\n");
+          return { output: asData(name, body), summary: `whole library, ${foods.length} foods` };
+        }
+
+        const matched = foods
+          .filter(
+            (food) =>
+              !query ||
+              food.name.toLowerCase().includes(query) ||
+              food.items.some((item) => item.name.toLowerCase().includes(query)),
+          )
+          .slice(0, 15);
         for (const food of matched) seen.add(food.name);
         const body =
           matched.length === 0
-            ? `No saved food matches "${query}".`
-            : matched
-                .map(
-                  (food) =>
-                    `- ${food.name} — ${n(food.kcal)} kcal, ${food.protein_g}g protein, ${food.carbs_g}g carbs, ${food.fat_g}g fat; logged ${food.times_used}×`,
-                )
-                .join("\n");
+            ? `No saved food matches "${query}". They have ${foods.length} saved in total.`
+            : matched.map(line).join("\n");
         return { output: asData(name, body), summary: `${matched.length} foods matched` };
       }
 

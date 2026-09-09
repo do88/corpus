@@ -111,6 +111,17 @@ export async function runAdvisor(args: {
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     let stepText = "";
     const calls: { name: string; args: Record<string, unknown> }[] = [];
+    /*
+      The model's own parts, kept exactly as they arrived.
+
+      They cannot be rebuilt from the name and arguments, which is what this
+      loop did at first and is what a 400 taught it: Gemini 3 attaches a
+      `thoughtSignature` to a function call, and the next request is rejected
+      outright without it — "Function call is missing a thought_signature in
+      functionCall parts". The signature is the model's own reasoning carried
+      across the round trip, so it is opaque to us and has to survive untouched.
+    */
+    const modelParts: Part[] = [];
     // Chunks carry the running total for their own request, so the last one
     // seen is that call's figure. Assigned rather than added, or a long answer
     // would count its own prompt once per chunk.
@@ -137,18 +148,24 @@ export async function runAdvisor(args: {
 
       for await (const chunk of stream) {
         if (chunk.usageMetadata) stepUsage = usageFromGemini(chunk.usageMetadata);
-        const delta = chunk.text;
-        if (delta) {
-          stepText += delta;
-          args.emit({ type: "text", delta });
-        }
-        for (const call of chunk.functionCalls ?? []) {
-          if (call.name) calls.push({ name: call.name, args: call.args ?? {} });
+        for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
+          modelParts.push(part);
+          if (part.text) {
+            stepText += part.text;
+            args.emit({ type: "text", delta: part.text });
+          }
+          if (part.functionCall?.name) {
+            calls.push({ name: part.functionCall.name, args: part.functionCall.args ?? {} });
+          }
         }
       }
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 429) throw new Error("Gemini quota exceeded; try again shortly");
+        // A 400 is us sending something malformed, and the reason is in the
+        // message — which an earlier version threw away, leaving "Gemini
+        // request failed (400)" and nothing to act on.
+        console.error("[advise] gemini rejected the request", error.status, error.message);
         throw new Error(`Gemini request failed (${error.status})`);
       }
       throw error;
@@ -158,11 +175,7 @@ export async function runAdvisor(args: {
     text += stepText;
     if (calls.length === 0) break;
 
-    // The model's own turn goes back verbatim, calls included, or the next
-    // request has a function response answering nothing.
-    const modelParts: Part[] = [];
-    if (stepText) modelParts.push({ text: stepText });
-    for (const call of calls) modelParts.push({ functionCall: { name: call.name, args: call.args } });
+    // Verbatim, signatures and all. See the note where these were collected.
     contents.push({ role: "model", parts: modelParts });
 
     const responses: Part[] = [];
