@@ -560,11 +560,42 @@
    * that appears over the app looks like it came from the app.
    *
    * `--normal-*` in sonner.tsx already point at the popover tokens, so the
-   * colours follow the theme; this is only the depth.
+   * colours follow the theme; this is only the depth and the shape.
+   *
+   * One column, which sonner does not give you. Its toast is a flex row of
+   * icon, message and action, so the message competes with the button for
+   * width — and a meal named "Aldi Worldwide Foods Classic Egg Fried Rice,
+   * 3 × Skinless chicken thighs…" came out as five wrapped lines in a narrow
+   * gutter beside a button. A grid puts the icon in its own column and stacks
+   * the message and the action beneath one another in the other, so the words
+   * get the full width whatever their length.
+   *
+   * `!important` because sonner injects its own stylesheet at runtime and
+   * `[data-sonner-toast][data-styled='true']` outranks a class either way.
    */
   .cn-toast {
     box-shadow: var(--shadow-card) !important;
     border-color: transparent !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.25rem 0.5rem;
+  }
+  /* Nudged onto the first line of text rather than centred on the whole block,
+     which is where it sat when the row was one line tall. */
+  .cn-toast > [data-icon] {
+    margin: 0.125rem 0 0 !important;
+  }
+  .cn-toast > [data-content],
+  .cn-toast > [data-button] {
+    grid-column: 2;
+  }
+  /* Sized to its label and left-aligned under the message, so it reads as the
+     next thing to do rather than as a corner decoration. */
+  .cn-toast > [data-button] {
+    justify-self: start;
+    height: 2rem !important;
+    margin: 0.25rem 0 0 !important;
   }
 
   /* A caution, not a casualty. The energy accent already carries "attention"
