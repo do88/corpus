@@ -342,10 +342,16 @@ export function Today({
             : { transitionDelay: "0ms" }
         }
       >
-      <Totals totals={totals} queued={queued.length} targets={targets} />
-      {/* The same calories against a different denominator: the plan above,
-          what the body actually cost here. */}
-      <EnergyLedger energy={energy} eaten={totals.kcal} isToday={day === today} />
+      {/*
+        First, above the numbers.
+
+        It sat under the day's figures and the ledger, which put the app's
+        entire purpose two cards down: you open this to write something in far
+        more often than to read what is already there, and the reading was
+        being served first. The numbers have not gone anywhere — they are the
+        next thing down, which is where you look *after* logging anyway, to
+        watch them move.
+      */}
       <MealLogger
         key={day}
         day={day}
@@ -354,6 +360,10 @@ export function Today({
           void sync().then(() => router.refresh());
         }}
       />
+      <Totals totals={totals} queued={queued.length} targets={targets} />
+      {/* The same calories against a different denominator: the plan above,
+          what the body actually cost here. */}
+      <EnergyLedger energy={energy} eaten={totals.kcal} isToday={day === today} />
       <MealList
         meals={meals}
         queued={queued}

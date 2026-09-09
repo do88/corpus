@@ -69,9 +69,27 @@ export function AppHeader({
         answers, with the whole width to itself.
       */}
       {(caption || action) && (
-        <div className="mt-0.5 flex items-center justify-between gap-3">
+        /*
+          A pill rather than a line of loose text.
+
+          Set plainly it read as something that had come adrift: a grey
+          sentence with nothing holding it, sitting a few pixels under the mark
+          and close enough to the streak and the avatar to look like it had
+          slipped out of that row. Everything else on these screens is an
+          object on a ground, and the caption was the one thing that was not.
+
+          A soft fill and a full radius are enough to make it one — no shadow,
+          because a shadow would lift it to the same plane as the cards and
+          make a subtitle look tappable.
+        */
+        <div className="mt-2.5 flex items-center justify-between gap-3">
           {caption ? (
-            <p className="min-w-0 text-[1rem] text-muted-foreground">{caption}</p>
+            <p
+              className="inline-flex min-w-0 items-center rounded-full px-3 py-1 text-xs text-muted-foreground"
+              style={{ background: "color-mix(in oklch, var(--muted) 65%, transparent)" }}
+            >
+              {caption}
+            </p>
           ) : (
             <span />
           )}

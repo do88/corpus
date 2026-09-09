@@ -71,10 +71,15 @@ export function TodaySkeleton() {
         ))}
       </div>
 
-      <CardSkeleton className="mt-5 h-[232px] w-full" />
-
-      <CardSkeleton className="mt-3 h-13 w-full" />
+      {/* The composer, first, as it is on the page: the field, the time, and
+          the two buttons. */}
+      <CardSkeleton className="mt-5 h-13 w-full" />
       <CardSkeleton className="mt-2 h-11 w-full" />
+
+      {/* The day's figures, then the ledger under them. The ledger was missing
+          here entirely, so the page grew a card's height as it loaded. */}
+      <CardSkeleton className="mt-5 h-[210px] w-full" />
+      <CardSkeleton className="mt-5 h-[128px] w-full" />
 
       {/* A few meals on the spine. */}
       <div className="mt-3 space-y-3">
