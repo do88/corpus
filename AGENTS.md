@@ -799,9 +799,23 @@ Pricing uses the model **requested**, not the version Gemini reports back:
 that comes dated (`…-001`), which no table can hold, and prefix matching would
 cheerfully price `flash-lite` at `flash`'s rate.
 
-This logs; it does not persist. A monthly figure needs a table, and a table
-needs a migration and its grants — see the note above on Postgres gating access
-twice.
+Every call is also written to `ai_call`, because a log line answers "what did
+that question cost" and cannot answer "what did September cost", which is the
+only version anybody asks. `ai_spend(days)` aggregates it in SQL rather than in
+Node — the sister project's dashboard read rows into JavaScript behind a limit
+and silently dropped the oldest days once it outgrew the cap — and reports an
+`unpriced` count beside the total, so a sum containing a model with no price on
+file is visibly a floor rather than passing as a figure.
+
+Two properties of the write are deliberate. It **never throws**: a book-keeping
+row must not be able to fail the meal it describes, so a refused insert is a
+warning and nothing else. Which means a missing GRANT here would be *silent* —
+nothing would break, the table would just stay empty and every total would read
+zero — so `check:access` asserts the insert and the function, and asserts the
+row reads back rather than only that no error was raised.
+
+There is no grant for update or delete. A record of what was spent is not a
+thing to edit.
 
 ### Why the model isn't asked for totals
 

@@ -30,7 +30,7 @@ const READABLE = [
   "workouts", "workout_exercises", "sets", "exercise_templates",
   "routines", "routine_folders", "body_measurements",
   "activities", "body_composition", "profile",
-  "v_sets", "v_workouts", "meal_log",
+  "v_sets", "v_workouts", "meal_log", "ai_call",
 ];
 
 const target = CONNECTION.includes("127.0.0.1") ? "local" : "remote";
@@ -75,6 +75,55 @@ try {
     failures += 1;
     console.log(`  FAIL  write meal_log — ${error.message}`);
   }
+}
+
+/**
+ * The cost ledger. The advisor runs as `authenticated` and writes its own row,
+ * so this needs the same GRANT the outage was about — and the failure would be
+ * near-silent, because `recordAiCall` swallows a refused insert on purpose so a
+ * book-keeping row can never fail a meal. Nothing would break; the table would
+ * simply stay empty and every total would read zero.
+ *
+ * Insert and select only. There is deliberately no grant for update or delete:
+ * a record of what was spent is not a thing to edit, and this asserts that it
+ * cannot be rather than trusting that nobody tries.
+ */
+try {
+  await asOwner(async (tx) => {
+    const [row] = await tx`
+      insert into ai_call (kind, model, input_tokens, cached_input_tokens, output_tokens, cost_micros)
+      values ('meal', 'access-check', 1, 0, 1, 2)
+      returning id`;
+
+    // The row count, not just the absence of an error: a policy that matches
+    // nothing lets the statement succeed having done nothing.
+    const readBack = await tx`select 1 from ai_call where id = ${row.id}`;
+    if (readBack.length !== 1) throw new Error("insert is not readable back (no SELECT policy?)");
+
+    throw new Rollback();
+  });
+} catch (error) {
+  if (error instanceof Rollback) {
+    console.log("  ok    insert/select ai_call");
+  } else {
+    failures += 1;
+    console.log(`  FAIL  write ai_call — ${error.message}`);
+  }
+}
+
+// The aggregate the spend screen calls. A function is a third gate after the
+// grant and the policy — EXECUTE is its own privilege, and `anon` is revoked
+// from it explicitly rather than left to inherit whatever the default was.
+try {
+  const result = await asOwner((tx) => tx`select ai_spend(30) as spend`);
+  const spend = result[0]?.spend;
+  if (typeof spend?.costMicros !== "number" || !Array.isArray(spend?.byKind)) {
+    throw new Error(`unexpected shape: ${JSON.stringify(spend)}`);
+  }
+  console.log("  ok    execute ai_spend");
+} catch (error) {
+  failures += 1;
+  console.log(`  FAIL  execute ai_spend — ${error.message}`);
 }
 
 /**

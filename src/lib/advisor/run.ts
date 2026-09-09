@@ -5,7 +5,8 @@ import { buildAdvisorPrompt, type DayState } from "./prompt";
 import { buildAdvisorTools } from "./tools";
 import type { AdvisorEvent } from "./events";
 import type { AdvisorTurn } from "./thread";
-import { NO_USAGE, addUsage, costMicros, formatCost, usageFromGemini, type TokenUsage } from "@/lib/ai/cost";
+import { NO_USAGE, addUsage, costMicros, usageFromGemini, type TokenUsage } from "@/lib/ai/cost";
+import { recordAiCall } from "@/lib/ai/record";
 
 /**
  * One turn of the advisor: look things up, then answer.
@@ -91,6 +92,7 @@ export async function runAdvisor(args: {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
 
+  const startedAt = Date.now();
   const ai = new GoogleGenAI({ apiKey: key });
   const tools = buildAdvisorTools(args.supabase, args.today);
   const deadline = Date.now() + WALL_CLOCK_MS;
@@ -199,13 +201,15 @@ export async function runAdvisor(args: {
 
   if (!text.trim() && !advice) throw new Error("No answer came back");
 
-  const cost = costMicros(ADVISE_MODEL, usage);
-  // `warn` rather than `log`, which the lint rules forbid outright. The line is
-  // informational, and one per answered question is a rate a person can read.
-  console.warn(
-    `[advisor] ${formatCost(cost)} · ${toolCalls} look-ups · ` +
-      `${usage.input}+${usage.cachedInput} in, ${usage.output} out`,
-  );
+  // After the answer is known to be good, so a run that ends in a thrown error
+  // above does not bill the person for a question they never got answered.
+  await recordAiCall(args.supabase, {
+    kind: "advisor",
+    model: ADVISE_MODEL,
+    usage,
+    toolCalls,
+    latencyMs: Date.now() - startedAt,
+  });
 
-  return { text: text.trim(), advice, toolCalls, usage, costMicros: cost };
+  return { text: text.trim(), advice, toolCalls, usage, costMicros: costMicros(ADVISE_MODEL, usage) };
 }
