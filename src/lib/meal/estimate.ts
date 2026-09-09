@@ -3,6 +3,7 @@ import { MEAL_SYSTEM_PROMPT } from "./prompt";
 import { mealResponseSchema, totalsFor, type MealEstimate } from "./schema";
 import { GEMINI_MEAL_SCHEMA } from "./gemini-schema";
 import { lookUpProduct, type ProductFacts } from "./lookup";
+import { usageFromGemini, type TokenUsage } from "@/lib/ai/cost";
 
 export const MEAL_MODEL = "gemini-3.7-flash";
 
@@ -42,7 +43,7 @@ export type EstimateResult = {
   model: string;
   /** Wall-clock for the whole operation, including any product lookup. */
   latencyMs: number;
-  usage: { input: number; output: number };
+  usage: TokenUsage;
   /** What the label lookup found, or null if it did not run or declined. */
   lookup: ProductFacts | null;
 };
@@ -166,12 +167,9 @@ export async function estimateMeal(
     lookup,
     model: response.modelVersion ?? MEAL_MODEL,
     latencyMs,
-    usage: {
-      input: response.usageMetadata?.promptTokenCount ?? 0,
-      // Thinking tokens are billed as output tokens and reported separately.
-      output:
-        (response.usageMetadata?.candidatesTokenCount ?? 0) +
-        (response.usageMetadata?.thoughtsTokenCount ?? 0),
-    },
+    // The thinking-tokens correction this used to make inline now lives in
+    // `usageFromGemini`, alongside the second one it was missing: prompt tokens
+    // include the cached ones, which are billed at a tenth of the rate.
+    usage: usageFromGemini(response.usageMetadata),
   };
 }

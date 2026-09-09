@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { estimateMeal } from "@/lib/meal/estimate";
+import { MEAL_MODEL, estimateMeal } from "@/lib/meal/estimate";
 import { recordFailure, saveEstimate, type MealRow } from "./repository";
 import { listSavedFoods } from "./saved";
+import { costMicros, formatCost } from "@/lib/ai/cost";
 
 /**
  * Turn one pending meal into macros.
@@ -79,11 +80,22 @@ export async function processMeal(
       }
     }
 
-    const { estimate, model } = await estimateMeal({
+    const { estimate, model, usage } = await estimateMeal({
       imageBase64,
       note: meal.note ?? undefined,
       savedFoods,
     });
+    // The tokens were already being counted here and thrown away. One line per
+    // meal is what turns AGENTS.md's "$0.013 a meal" from a figure measured
+    // once by a since-deleted benchmark into something the running app says.
+    // `warn` because the lint rules allow only warn and error.
+    console.warn(
+      // Priced against the model we asked for, not the version Gemini reports
+      // back: that comes dated ("…-001"), which no table can hold, and prefix
+      // matching would cheerfully price flash-lite at flash's rate.
+      `[meal] ${formatCost(costMicros(MEAL_MODEL, usage))} · ` +
+        `${usage.input}+${usage.cachedInput} in, ${usage.output} out`,
+    );
     await saveEstimate(supabase, mealId, estimate, model);
     return { ok: true };
   } catch (thrown) {

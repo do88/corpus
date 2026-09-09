@@ -5,6 +5,7 @@ import { buildAdvisorPrompt, type DayState } from "./prompt";
 import { buildAdvisorTools } from "./tools";
 import type { AdvisorEvent } from "./events";
 import type { AdvisorTurn } from "./thread";
+import { NO_USAGE, addUsage, costMicros, formatCost, usageFromGemini, type TokenUsage } from "@/lib/ai/cost";
 
 /**
  * One turn of the advisor: look things up, then answer.
@@ -46,6 +47,10 @@ export type RunResult = {
   text: string;
   advice: Advice | null;
   toolCalls: number;
+  /** Every call this answer made, summed. */
+  usage: TokenUsage;
+  /** Millionths of a dollar, or null when the model has no price on file. */
+  costMicros: number | null;
 };
 
 /**
@@ -99,10 +104,15 @@ export async function runAdvisor(args: {
   let advice: Advice | null = null;
   let toolCalls = 0;
   let wrappedUp = false;
+  let usage = NO_USAGE;
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     let stepText = "";
     const calls: { name: string; args: Record<string, unknown> }[] = [];
+    // Chunks carry the running total for their own request, so the last one
+    // seen is that call's figure. Assigned rather than added, or a long answer
+    // would count its own prompt once per chunk.
+    let stepUsage = NO_USAGE;
 
     let stream;
     try {
@@ -124,6 +134,7 @@ export async function runAdvisor(args: {
       });
 
       for await (const chunk of stream) {
+        if (chunk.usageMetadata) stepUsage = usageFromGemini(chunk.usageMetadata);
         const delta = chunk.text;
         if (delta) {
           stepText += delta;
@@ -141,6 +152,7 @@ export async function runAdvisor(args: {
       throw error;
     }
 
+    usage = addUsage(usage, stepUsage);
     text += stepText;
     if (calls.length === 0) break;
 
@@ -186,5 +198,14 @@ export async function runAdvisor(args: {
   }
 
   if (!text.trim() && !advice) throw new Error("No answer came back");
-  return { text: text.trim(), advice, toolCalls };
+
+  const cost = costMicros(ADVISE_MODEL, usage);
+  // `warn` rather than `log`, which the lint rules forbid outright. The line is
+  // informational, and one per answered question is a rate a person can read.
+  console.warn(
+    `[advisor] ${formatCost(cost)} · ${toolCalls} look-ups · ` +
+      `${usage.input}+${usage.cachedInput} in, ${usage.output} out`,
+  );
+
+  return { text: text.trim(), advice, toolCalls, usage, costMicros: cost };
 }

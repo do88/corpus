@@ -105,7 +105,9 @@ describe("estimateMeal", () => {
 
     expect(result.model).toBe(MEAL_MODEL);
     expect(result.estimate).toMatchObject({ kcal: 200, protein_g: 8, carbs_g: 36, fat_g: 2 });
-    expect(result.usage).toEqual({ input: 100, output: 50 });
+    // 40 visible + 10 thinking, and nothing cached. cachedInput is present
+    // and zero rather than absent: the pricing code needs all three buckets.
+    expect(result.usage).toEqual({ input: 100, cachedInput: 0, output: 50 });
     // A declined lookup leaves no trace on the result.
     expect(result.lookup).toBeNull();
   });

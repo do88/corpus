@@ -765,6 +765,44 @@ thinking tokens, which are reported separately from visible candidate tokens.
 And free-tier quota errors carry a retry delay; the bench respects it instead
 of immediately burning every remaining meal on the same 429.
 
+### What a call actually cost
+
+The table above was measured once, by a benchmark script that has since been
+deleted. Everything after it — the branded-product lookup, and then an advisor
+that can make eight model calls with a growing transcript behind each — was
+added without anyone knowing what it cost. The tokens were not even missing:
+`estimate.ts` had read Gemini's usage since the day it was written, and nothing
+consumed the figure.
+
+`lib/ai/cost.ts` attaches a price to the number already in hand. Both the
+advisor and the meal estimator log one line per call, so the running app states
+what the benchmark used to.
+
+Three things in it are there because of how a price table goes wrong quietly:
+
+- **Two rates, chosen by date.** Gemini 3.7 Flash is on introductory pricing
+  that **doubles on 1 January 2027**. A table holding only today's price would
+  silently halve every figure that morning, and the numbers would still look
+  plausible. Both rates are written down and the date picks.
+- **Unpriced is `null`, never `0`.** A model missing from the table is
+  reported as unpriced. Zero would be indistinguishable from a free call and
+  would understate the total in silence — the same shape of bug as the
+  analytics row cap.
+- **Cached prompt tokens are subtracted, not added.** Gemini's
+  `promptTokenCount` *includes* the cached ones, which is the opposite of
+  Anthropic's convention; adding them would bill the cached portion twice and
+  at ten times its rate. Thinking tokens are billed as output and reported
+  separately from the answer, which is the correction `estimate.ts` was already
+  making inline and now shares.
+
+Pricing uses the model **requested**, not the version Gemini reports back:
+that comes dated (`…-001`), which no table can hold, and prefix matching would
+cheerfully price `flash-lite` at `flash`'s rate.
+
+This logs; it does not persist. A monthly figure needs a table, and a table
+needs a migration and its grants — see the note above on Postgres gating access
+twice.
+
 ### Why the model isn't asked for totals
 
 It returns line items only; `totalsFor` sums them. Asking for both invites a
