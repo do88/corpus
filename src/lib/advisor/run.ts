@@ -1,6 +1,6 @@
 import { ApiError, GoogleGenAI, ThinkingLevel, type Content, type Part } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { looksLikeAnOption, type Advice } from "@/lib/meal/advise";
+import { claimedFood, looksLikeAnOption, type Advice } from "@/lib/meal/advise";
 import { buildAdvisorPrompt, type DayState } from "./prompt";
 import { buildAdvisorTools } from "./tools";
 import type { AdvisorEvent } from "./events";
@@ -207,7 +207,7 @@ export async function runAdvisor(args: {
       ...args.history.filter((turn) => turn.role === "user").map((turn) => turn.text),
       ...tools.seenFoods(),
     ].join(" ");
-    if (!looksLikeAnOption(advice.pick, offered)) {
+    if (!looksLikeAnOption(claimedFood(advice), offered)) {
       throw new Error("Could not choose from those options — try naming them more plainly");
     }
   }

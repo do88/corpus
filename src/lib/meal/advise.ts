@@ -31,9 +31,36 @@ export const adviceSchema = z.object({
     .describe(
       "What was passed over and why, in one short clause. Empty string if only one option was offered.",
     ),
+  /*
+    Only for something assembled. A single food is its own ingredient and
+    repeating it here would say nothing.
+  */
+  ingredients: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "When the pick is a dish made from several things, the foods it is made from, each in the person's own words. Omit for a single food.",
+    ),
 });
 
 export type Advice = z.infer<typeof adviceSchema>;
+
+/**
+ * What has to have come from the options: the ingredients, or the pick itself.
+ *
+ * A recipe names itself. "Chicken thigh and broccoli stir-fry" happens to
+ * share enough words with the ingredients to pass the test below, and
+ * "Thai-style traybake" made from exactly the same food does not — so
+ * checking the title is checking the wrong string. What must be theirs is what
+ * goes in it.
+ *
+ * Checked as one block rather than ingredient by ingredient, so a pinch of
+ * something unmentioned does not fail an otherwise honest dish, while a
+ * wholly invented one still has nowhere to hide.
+ */
+export function claimedFood(advice: Pick<Advice, "pick" | "ingredients">): string {
+  return advice.ingredients?.length ? advice.ingredients.join(" ") : advice.pick;
+}
 
 /**
  * Whether the pick actually came from the options.

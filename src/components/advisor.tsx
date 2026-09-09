@@ -42,6 +42,25 @@ function toEntries(turns: AdvisorTurn[]): Entry[] {
   });
 }
 
+/**
+ * What to ask, for a screen that has never been used.
+ *
+ * The advisor grew look-ups and its own front door still described the thing
+ * it used to be: a placeholder listing three foods, which sells it as the
+ * feature that picks between options you type out. It can now read the log,
+ * the watch and the targets, and nobody would guess that from a blank box.
+ *
+ * Four questions, each of which works with nothing else typed. Tapping one
+ * sends it, because a chip that only fills the box is a chip you have to
+ * press twice.
+ */
+const OPENERS = [
+  "What should I have?",
+  "How has this week gone?",
+  "What did I eat yesterday?",
+  "Why is my calorie target what it is?",
+];
+
 /** The turn being answered right now, built up as the stream arrives. */
 type Live = { asked: string; text: string; advice: Advice | null; doing: string | null };
 
@@ -53,8 +72,8 @@ export function Advisor({ initial }: { initial: AdvisorTurn[] }) {
   const [logging, setLogging] = useState(false);
   const busy = live !== null || logging;
 
-  async function ask() {
-    const asked = options.trim();
+  async function ask(question?: string) {
+    const asked = (question ?? options).trim();
     if (!asked || busy) return;
     setOptions("");
     setLive({ asked, text: "", advice: null, doing: null });
@@ -214,6 +233,23 @@ export function Advisor({ initial }: { initial: AdvisorTurn[] }) {
 
       <div ref={foot} />
 
+      {!started && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {OPENERS.map((question) => (
+            <button
+              key={question}
+              type="button"
+              onClick={() => void ask(question)}
+              disabled={busy}
+              className="surface tappable min-h-11 px-3.5 text-left text-[0.8125rem] font-medium disabled:opacity-60"
+              style={{ borderRadius: 999 }}
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* The composer, after the thread rather than floating over it — the
           page is short and the tab bar already owns the bottom edge. */}
       <div className={started ? "mt-6 space-y-3" : "space-y-3"}>
@@ -226,7 +262,7 @@ export function Advisor({ initial }: { initial: AdvisorTurn[] }) {
           placeholder={
             started
               ? "not the fish… or ask about last week"
-              : "a tin of mackerel, two bits of toast with peanut butter, or a protein yoghurt"
+              : "say what you have in, or ask about any day you have logged"
           }
           label="What do you have in?"
           rows={2}
@@ -235,7 +271,7 @@ export function Advisor({ initial }: { initial: AdvisorTurn[] }) {
           }
           onDictationError={(message) => toastFailed(new Error(message), "Dictation failed")}
         />
-        <Button onClick={ask} disabled={busy || !options.trim()} className="w-full">
+        <Button onClick={() => ask()} disabled={busy || !options.trim()} className="w-full">
           {live !== null ? "Thinking…" : started ? "Ask again" : "Ask"}
         </Button>
       </div>

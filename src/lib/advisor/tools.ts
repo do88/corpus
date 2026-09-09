@@ -174,6 +174,12 @@ export function buildAdvisorTools(supabase: SupabaseClient, today: string): Tool
             description:
               "Why this one, at most two sentences, leading with whatever decided it — what they asked for if they asked for something, the deciding number otherwise.",
           },
+          ingredients: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description:
+              "When the pick is a dish made from several things, the foods it is made from, in the person's own words. Omit for a single food.",
+          },
           instead: {
             type: Type.STRING,
             description: "What was passed over and why, one short clause. Empty if there was no alternative.",
@@ -343,6 +349,9 @@ export function buildAdvisorTools(supabase: SupabaseClient, today: string): Tool
           protein_g: args.protein_g,
           why: args.why,
           instead: typeof args.instead === "string" ? args.instead : "",
+          ingredients: Array.isArray(args.ingredients)
+            ? args.ingredients.filter((item): item is string => typeof item === "string")
+            : undefined,
         });
         if (!parsed.success) {
           // Handed back rather than thrown: a malformed call is something the
