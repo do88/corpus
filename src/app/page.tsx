@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
-import { clampDay, localDay } from "@/lib/time";
+import { format } from "date-fns";
+import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
@@ -59,13 +60,27 @@ export default async function Home({
             to be. This is what iOS puts in the same corner of Calendar.
           */
           day !== today ? (
-            <Link
-              href="/"
-              className="tappable flex h-9 shrink-0 items-center rounded-full px-2 text-[1rem] font-medium"
-              style={{ color: "var(--ink-protein)" }}
-            >
-              Today
-            </Link>
+            <>
+              {/*
+                Which day you are looking at, in full.
+
+                The strip can only give a letter and a number, so across a
+                month boundary "26" beside "1" says nothing about which month
+                either belongs to — and this row is the only place left that
+                can say. It appears solely on a past day: on today the strip's
+                lit disc and the absence of this whole row already answer it.
+              */}
+              <span className="truncate text-xs text-muted-foreground">
+                {format(parseDay(day), "EEEE d MMMM")}
+              </span>
+              <Link
+                href="/"
+                className="tappable flex h-9 shrink-0 items-center rounded-full px-2 text-[1rem] font-medium"
+                style={{ color: "var(--ink-protein)" }}
+              >
+                Today
+              </Link>
+            </>
           ) : undefined
         }
       />

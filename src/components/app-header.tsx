@@ -74,7 +74,9 @@ export function AppHeader({
         said in full. A subtitle that summarises the card underneath it is a
         row of the screen spent on nothing.
       */}
-      {action && <div className="mt-2 flex items-center justify-end">{action}</div>}
+      {action && (
+        <div className="mt-2 flex min-w-0 items-center justify-end gap-3">{action}</div>
+      )}
     </header>
   );
 }
