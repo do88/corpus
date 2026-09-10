@@ -18,14 +18,6 @@ import { listSavedFoods } from "@/lib/meals/saved";
  * every row does in one tap. The second is upkeep — rename, fix a number,
  * archive what you have gone off — and that sits behind the row.
  */
-/** The collection as one line: how much of it there is, and how used it is. */
-function collectionCaption(foods: { archived_at: string | null; times_used: number }[]): string {
-  const active = foods.filter((food) => !food.archived_at);
-  const uses = active.reduce((sum, food) => sum + food.times_used, 0);
-  const count = `${active.length} ${active.length === 1 ? "food" : "foods"}`;
-  return uses === 0 ? count : `${count} · logged ${uses} times between them`;
-}
-
 export default async function FoodsScreen() {
   const supabase = await createClient();
   const foods = await listSavedFoods(supabase, { includeArchived: true });
@@ -34,7 +26,6 @@ export default async function FoodsScreen() {
     <Screen>
       <AppHeader
         name="Your foods"
-        caption={collectionCaption(foods)}
       />
       <SavedFoods initial={foods} />
     </Screen>

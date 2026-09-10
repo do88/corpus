@@ -50,7 +50,6 @@ export default async function Progress({
     <Screen>
       <AppHeader
         name="Progress"
-        caption={`Averaged across the days you logged`}
       />
       <ProgressView
         summary={summary}

@@ -94,9 +94,19 @@ export function MealTimeField({
       {/* Taller than the room a phone leaves above or below the composer, so
           it scrolls inside the height the positioner says is available rather
           than losing its title off the top of the screen. */}
+      {/*
+        A stated width, not `w-auto`.
+
+        Auto sizes the popover to its widest child, and that was the footer —
+        a time field and two buttons — while the calendar underneath it was
+        seven forty-pixel cells. The result was a month grid sitting in the
+        left two thirds with ninety pixels of nothing beside it. Fixing the
+        width and letting the calendar fill it makes the two agree, and gives
+        the cells a few more pixels each on the way.
+      */}
       <PopoverContent
         align="start"
-        className="max-h-[calc(var(--available-height)-8px)] w-auto overflow-y-auto p-0"
+        className="max-h-[calc(var(--available-height)-8px)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-0"
       >
         {/* 40px cells: the stock 28 is a desktop size and this is tapped on a
             phone, while 44 with six weeks showing pushed the time row off the
@@ -109,7 +119,9 @@ export function MealTimeField({
           onSelect={pick}
           disabled={{ after: new Date() }}
           weekStartsOn={1}
-          className="[--cell-size:--spacing(10)]"
+          className="w-full"
+          // The root ships as `w-fit`, which is what left the gap.
+          classNames={{ root: "w-full" }}
         />
 
         <div className="flex items-end gap-2 border-t border-[var(--rule)]/60 px-4 pt-3 pb-2">
@@ -126,6 +138,7 @@ export function MealTimeField({
           {allowNow && (
             <Button
               type="button"
+              size="sm"
               variant="outline"
               onClick={() => {
                 onChange("");
@@ -135,7 +148,7 @@ export function MealTimeField({
               Use now
             </Button>
           )}
-          <Button type="button" onClick={() => setOpen(false)}>
+          <Button type="button" size="sm" onClick={() => setOpen(false)}>
             Done
           </Button>
         </div>

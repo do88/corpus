@@ -11,10 +11,10 @@ import { Wordmark } from "@/components/brand";
  * you could not be unsure about, and taking the top of every screen to do it.
  *
  * So the mark stands there instead — the same row on every screen, which is
- * what makes it read as one app rather than five pages. What the screen
- * actually has to say goes in the caption, where it is information rather than
- * a label: how much is left today, how many foods you have, how many sessions
- * in the last month.
+ * what makes it read as one app rather than five pages. There was a caption
+ * under it for a while, saying how much was left or how many foods there
+ * were, and it went the same way as the title: every one of those sentences
+ * restated the card immediately below it.
  *
  * The name does not disappear, it stops being *drawn*. It stays in the `h1` for
  * anyone navigating by headings or landing here from a screen reader's rotor,
@@ -23,7 +23,6 @@ import { Wordmark } from "@/components/brand";
  */
 export function AppHeader({
   name,
-  caption,
   action,
 }: {
   /**
@@ -32,7 +31,6 @@ export function AppHeader({
    * about where it is.
    */
   name: string;
-  caption?: string;
   /**
    * A screen-specific control, beside the persistent ones.
    *
@@ -68,34 +66,15 @@ export function AppHeader({
         here it sits at the end of "8 days ago", which is the sentence it
         answers, with the whole width to itself.
       */}
-      {(caption || action) && (
-        /*
-          A pill rather than a line of loose text.
+      {/*
+        The screen's own control, on its own row.
 
-          Set plainly it read as something that had come adrift: a grey
-          sentence with nothing holding it, sitting a few pixels under the mark
-          and close enough to the streak and the avatar to look like it had
-          slipped out of that row. Everything else on these screens is an
-          object on a ground, and the caption was the one thing that was not.
-
-          A soft fill and a full radius are enough to make it one — no shadow,
-          because a shadow would lift it to the same plane as the cards and
-          make a subtitle look tappable.
-        */
-        <div className="mt-2.5 flex items-center justify-between gap-3">
-          {caption ? (
-            <p
-              className="inline-flex min-w-0 items-center rounded-full px-3 py-1 text-xs text-muted-foreground"
-              style={{ background: "color-mix(in oklch, var(--muted) 65%, transparent)" }}
-            >
-              {caption}
-            </p>
-          ) : (
-            <span />
-          )}
-          {action && <div className="flex shrink-0 items-center">{action}</div>}
-        </div>
-      )}
+        There was a caption here too — how much was left, how many foods —
+        and it went because it was restating what the screen below already
+        said in full. A subtitle that summarises the card underneath it is a
+        row of the screen spent on nothing.
+      */}
+      {action && <div className="mt-2 flex items-center justify-end">{action}</div>}
     </header>
   );
 }

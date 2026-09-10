@@ -28,14 +28,19 @@ function Line({ w, h = "h-4" }: { w: string; h?: string }) {
   return <Skeleton className={`${h} ${w} rounded-md`} />;
 }
 
-/** The title block every screen opens with. */
-export function HeaderSkeleton({ wide = "w-40" }: { wide?: string }) {
+/**
+ * The mark every screen opens with.
+ *
+ * One shape for all of them, because the header is now the same on all of
+ * them: the title stopped being drawn when the mark took its place, and the
+ * caption under it went the same way. It used to take a width per screen and
+ * draw a second line for the caption, and both were placeholders for things
+ * that are no longer there.
+ */
+export function HeaderSkeleton() {
   return (
     <div className="pt-1">
-      <Line w={wide} h="h-9" />
-      <div className="mt-2">
-        <Line w="w-52" h="h-4" />
-      </div>
+      <Line w="w-28" h="h-8" />
     </div>
   );
 }
@@ -97,14 +102,14 @@ export function TodaySkeleton() {
 export function ProgressSkeleton() {
   return (
     <div aria-hidden>
-      <HeaderSkeleton wide="w-44" />
+      <HeaderSkeleton />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-12 w-full" />
         <div className="flex items-center justify-between px-1">
           <Line w="w-44" h="h-4" />
           <Line w="w-24" h="h-3" />
         </div>
-        <CardSkeleton className="h-[232px] w-full" />
+        <CardSkeleton className="h-[210px] w-full" />
         <CardSkeleton className="h-60 w-full" />
       </div>
     </div>
@@ -114,7 +119,7 @@ export function ProgressSkeleton() {
 export function BodySkeleton() {
   return (
     <div aria-hidden>
-      <HeaderSkeleton wide="w-28" />
+      <HeaderSkeleton />
       <div className="mt-6 space-y-6">
         <CardSkeleton className="h-36 w-full" />
         <CardSkeleton className="h-64 w-full" />
@@ -127,7 +132,7 @@ export function BodySkeleton() {
 export function AccountSkeleton() {
   return (
     <div aria-hidden>
-      <HeaderSkeleton wide="w-36" />
+      <HeaderSkeleton />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-28 w-full" />
         <CardSkeleton className="h-44 w-full" />
@@ -140,9 +145,15 @@ export function AccountSkeleton() {
 export function AdvisorSkeleton() {
   return (
     <div aria-hidden>
-      <HeaderSkeleton wide="w-40" />
+      <HeaderSkeleton />
       <CardSkeleton className="mt-5 h-[136px] w-full" />
-      <div className="mt-5 space-y-2">
+      {/* The questions offered to an empty thread. */}
+      <div className="mt-5 flex flex-wrap gap-2">
+        {["w-32", "w-40", "w-36", "w-52"].map((w) => (
+          <CardSkeleton key={w} className={`h-11 ${w}`} style={{ borderRadius: 999 }} />
+        ))}
+      </div>
+      <div className="mt-4 space-y-2">
         <CardSkeleton className="h-13 w-full" />
         <CardSkeleton className="h-11 w-full" />
       </div>
@@ -155,7 +166,7 @@ export function AdvisorSkeleton() {
 export function FoodsSkeleton() {
   return (
     <>
-      <HeaderSkeleton wide="w-36" />
+      <HeaderSkeleton />
       <div className="mt-5 space-y-3">
         <CardSkeleton className="h-11" style={{ borderRadius: 12 }} />
         <CardSkeleton className="h-80" />

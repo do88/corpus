@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { Screen } from "@/components/screen";
-import { format } from "date-fns";
-import { clampDay, localDay, parseDay } from "@/lib/time";
+import { clampDay, localDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
-import { earliestLoggedDay, kcalByDay, listMealsInRange, totalsForDay, weekOf } from "@/lib/meals/repository";
+import { earliestLoggedDay, kcalByDay, listMealsInRange, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
 import { dayEnergy, recentWatchDays } from "@/lib/garmin/repository";
-import type { DailyTargets } from "@/lib/meals/targets";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
 import { Today } from "@/components/today";
@@ -52,7 +50,6 @@ export default async function Home({
     <Screen>
       <AppHeader
         name="Today"
-        caption={caption(day, today, totalsForDay(onScreen), targets)}
         action={
           /*
             The way back, and only when there is somewhere to come back from.
@@ -101,30 +98,4 @@ export default async function Home({
  * what is left, and on any other day it says how long ago that was — because
  * "to go" is meaningless for a day that has already finished.
  */
-function caption(
-  day: string,
-  today: string,
-  totals: { kcal: number; protein_g: number },
-  targets: DailyTargets,
-): string {
-  /*
-    On a past day, the full date — the one thing the strip cannot say. Since
-    the title became the mark, "W" and "26" are all the screen states, and
-    across a month boundary "26" beside "1" is ambiguous. "8 days ago" was the
-    caption here, and it told you only that you had left today, which the
-    Today link at the end of this row and the strip's selected disc both say
-    already; it also made you do arithmetic to get back to a date.
-  */
-  if (day !== today) return format(parseDay(day), "EEEE d MMMM");
-
-  const kcal = Math.max(0, targets.kcal - totals.kcal);
-  const protein = Math.max(0, targets.protein_g - totals.protein_g);
-
-  // Protein is a floor and energy a ceiling, so "met" means different things
-  // and each is said in its own terms rather than both as "done".
-  if (kcal === 0 && protein === 0) return "Protein hit, and at your calorie ceiling";
-  if (protein === 0) return `${kcal.toLocaleString("en-GB")} kcal left · protein hit`;
-  if (kcal === 0) return `${protein}g protein short · at your calorie ceiling`;
-  return `${kcal.toLocaleString("en-GB")} kcal and ${protein}g protein to go`;
-}
 

@@ -23,13 +23,11 @@ import { BodySections } from "@/components/body-sections";
 
 export default async function Body() {
   const data = await getDashboardData();
-  const { headline } = data;
 
   return (
     <Screen>
       <AppHeader
         name="Body"
-        caption={`${data.watch.summary?.steps?.toLocaleString("en-GB") ?? "—"} steps a day · ${headline.last_28} sessions in 28 days`}
       />
       <BodySections data={data} />
     </Screen>

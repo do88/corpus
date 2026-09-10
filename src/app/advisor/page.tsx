@@ -35,7 +35,7 @@ export default async function AdvisorScreen() {
 
   return (
     <Screen>
-      <AppHeader name="Advisor" caption="Say what you have in — it picks one" />
+      <AppHeader name="Advisor" />
       {/*
         The same four lines as Today, in the compact voice: the advice is a
         function of the gap, so "1,083 left" is the form the question needs

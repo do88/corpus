@@ -6,7 +6,6 @@ import { isOwner } from "@/lib/auth/owner";
 import type { User } from "@supabase/supabase-js";
 import { avatarUrl, readProfile } from "@/lib/auth/profile";
 import { calculateStreaks, loadStreakMeals } from "@/lib/meals/streaks";
-import { loadTargets } from "@/lib/meals/load-targets";
 import { localDay } from "@/lib/time";
 import { TrackingStreaks, type StreakDisplay } from "@/components/tracking-streaks";
 
@@ -46,10 +45,9 @@ export async function HeaderControls() {
   } as User);
   const today = localDay();
   const [streak, avatar] = await Promise.all([
-    Promise.all([loadStreakMeals(supabase, today), loadTargets(supabase)])
-      .then(([meals, targets]): StreakDisplay => ({
-        ...calculateStreaks(meals, today, targets), kcal: targets.kcal, protein: targets.protein_g,
-      })).catch(() => null),
+    loadStreakMeals(supabase, today)
+      .then((meals): StreakDisplay => calculateStreaks(meals, today))
+      .catch(() => null),
     avatarUrl(supabase, profile),
   ]);
 

@@ -1,21 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Flame, Target } from "lucide-react";
+import { Flame } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateStreaks, loadStreakMeals } from "@/lib/meals/streaks";
-import { loadTargets } from "@/lib/meals/load-targets";
 import { localDay } from "@/lib/time";
 
 export type StreakDisplay = {
   /** Consecutive days with an entry, including today. */
   logged: number;
-  /** Consecutive completed days that hit both goals. Kept for the label. */
-  onTarget: number;
-  /** The current Monday-to-today week, which is what the pill shows. */
-  week: { logged: number; onTarget: number };
-  kcal: number;
-  protein: number;
 };
 
 export function TrackingStreaks({ initial }: { initial: StreakDisplay | null }) {
@@ -35,10 +28,10 @@ export function TrackingStreaks({ initial }: { initial: StreakDisplay | null }) 
       const currentRequest = ++request;
       try {
         const today = localDay();
-        const [meals, targets] = await Promise.all([loadStreakMeals(supabase, today), loadTargets(supabase)]);
+        const meals = await loadStreakMeals(supabase, today);
         if (!cancelled && currentRequest === request) {
           loadedDay = today;
-          setValue({ ...calculateStreaks(meals, today, targets), kcal: targets.kcal, protein: targets.protein_g });
+          setValue(calculateStreaks(meals, today));
         }
       } catch {
         if (!cancelled && currentRequest === request) setValue(null);
@@ -75,44 +68,28 @@ export function TrackingStreaks({ initial }: { initial: StreakDisplay | null }) 
   }, []);
 
   const explanation = value
-    ? `Flame: consecutive days with an entry, including today. Target: days this week, Monday to yesterday, that closed under ${value.kcal.toLocaleString("en-GB")} kcal and at or above ${value.protein}g protein. Days end at 04:00 London time.`
-    : "Streaks are temporarily unavailable.";
+    ? "Consecutive days with something logged, including today. Days end at 04:00 London time."
+    : "The streak is temporarily unavailable.";
 
   /*
-    A pill, the height of the controls beside it, carrying two numbers with
-    an icon each and no words.
+    One number, which is the one a person can actually keep up.
 
-    The flame is still a streak, because logging every day is a thing a
-    person can actually keep up. The target is a count out of seven rather
-    than a second streak: hitting a calorie ceiling *and* a protein floor
-    every single day is not, and a consecutive count of it spends its life at
-    zero, which reads as a reproach rather than a score. Out of seven, a hard
-    Tuesday costs one day instead of everything.
-
-    Both always show, zero included. The sentence behind the hover and the
-    label carries the definitions.
+    There were two: the flame, and a count of days this week that closed under
+    the calorie ceiling *and* over the protein floor. The second was honest and
+    nobody wanted to look at it — hitting both every day is hard enough that
+    the figure mostly reported a shortfall, in the corner of every screen, all
+    day. A streak is a thing you are pleased to see. That was not one.
   */
   if (!value) return null;
   return (
     <div
-      className="surface flex h-9 shrink-0 items-center gap-2.5 px-3 text-sm font-semibold tabular-nums"
+      className="surface flex h-9 shrink-0 items-center gap-1 px-3 text-sm font-semibold tabular-nums"
       style={{ borderRadius: 999 }}
       title={explanation}
-      aria-label={`${value.logged} days logged in a row. ${value.week.onTarget} of 7 days on target this week. ${explanation}`}
+      aria-label={`${value.logged} days logged in a row. ${explanation}`}
     >
-      <span className="flex items-center gap-1">
-        <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
-        {value.logged}
-      </span>
-      <span aria-hidden className="h-4 w-px bg-[var(--rule)]" />
-      <span
-        className="flex items-center gap-1"
-        style={{ color: value.week.onTarget > 0 ? "var(--ink-protein)" : "var(--muted-foreground)" }}
-      >
-        <Target className="size-4" aria-hidden />
-        {value.week.onTarget}
-        <span className="text-xs font-medium text-muted-foreground">/7</span>
-      </span>
+      <Flame className="size-4" style={{ color: "var(--ink-energy)" }} aria-hidden />
+      {value.logged}
     </div>
   );
 }
