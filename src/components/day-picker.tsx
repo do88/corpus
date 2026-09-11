@@ -228,13 +228,20 @@ function DayDisc({
   const lit = selected || pending;
 
   /*
-    Tints go *over* the card's own gradient rather than replacing it, so a
-    logged day is still a lit surface with colour in it rather than a flat
-    swatch; the ring for today goes over the card's shadow for the same
-    reason.
+    Outlined, not filled. A logged day used to be a tinted card, and a week of
+    them was a row of coloured blocks louder than the one thing the strip is
+    for — which day you are on. Now each past day is the plain card with a ring
+    in its colour, and the selected day is the only filled thing in the row.
+
+    The rings are the full colour, not the 20–24% the fills used. A fill that
+    faint still reads as a colour because it covers the card; a line a pixel
+    and a half wide at that strength disappears, and a status shown only by a
+    line needs 3:1 against the card to be seen at all. The shadow is restated
+    after the ring because an inline box-shadow replaces the card's own.
   */
-  const surface = "var(--surface-gradient)";
-  const tint = (colour: string) => `linear-gradient(${colour}, ${colour}), ${surface}`;
+  const ring = (colour: string): React.CSSProperties => ({
+    boxShadow: `inset 0 0 0 1.5px ${colour}, var(--shadow-card)`,
+  });
   const style: React.CSSProperties = lit
     ? {
         background: "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
@@ -244,17 +251,12 @@ function DayDisc({
       }
     : over
       ? // Past the goal: the same red the calorie line turns, so the strip and
-        // the card agree about what a bad day looks like. The tint carries the
-        // colour and the figure stays in the foreground ink, because red on a
-        // red tint measured 3.6:1 and the floor for type is 4.5.
-        { background: tint("color-mix(in oklch, var(--destructive) 20%, transparent)") }
+        // the card agree about what a bad day looks like.
+        ring("var(--destructive)")
       : hasLog
-        ? { background: tint("color-mix(in oklch, var(--accent-energy) 24%, transparent)") }
+        ? ring("var(--accent-energy)")
         : isToday
-          ? {
-              boxShadow:
-                "inset 0 0 0 1.5px color-mix(in oklch, var(--ink-protein) 55%, transparent), var(--shadow-card)",
-            }
+          ? ring("color-mix(in oklch, var(--ink-protein) 55%, transparent)")
           : {};
 
   /*
