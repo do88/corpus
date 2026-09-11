@@ -135,10 +135,13 @@ export function MealTimeField({
               className="h-11 tabular-nums"
             />
           </div>
+          {/* Default size, not `sm`: these sit on the same baseline as a 44px
+              time field, and at 36px they ended eight pixels short of it —
+              three controls in a row that did not agree on a height. 44 is
+              also this app's floor for anything tapped. */}
           {allowNow && (
             <Button
               type="button"
-              size="sm"
               variant="outline"
               onClick={() => {
                 onChange("");
@@ -148,7 +151,7 @@ export function MealTimeField({
               Use now
             </Button>
           )}
-          <Button type="button" size="sm" onClick={() => setOpen(false)}>
+          <Button type="button" onClick={() => setOpen(false)}>
             Done
           </Button>
         </div>
