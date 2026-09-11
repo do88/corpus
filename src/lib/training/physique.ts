@@ -24,9 +24,16 @@
  * absent; the cube root (sets as volume) flattened the differences until the
  * figure stopped saying anything.
  *
- * Bounded to 0.5–1.5 of each muscle's resting size. A muscle never trained is
+ * Bounded to 0.5–1.9 of each muscle's resting size. A muscle never trained is
  * still drawn, small, because a figure with a hole where the calves should be
  * says "missing data" when the true statement is "never trained".
+ *
+ * The top end is a homunculus on purpose. At 1.5 the figure was a plausible
+ * body with some muscles a little larger, and a plausible body is the thing
+ * you read as a person rather than as a chart — the eye forgives the
+ * differences. Pushed to nearly double, the most-trained muscles are
+ * grotesque in exactly the way the cortical homunculus is, and that is what
+ * makes the proportions impossible to miss.
  *
  * ## What is not on the figure
  *
@@ -67,11 +74,11 @@ export const BODY_MUSCLES = [
 export type BodyMuscle = (typeof BODY_MUSCLES)[number];
 
 export const MIN_SCALE = 0.5;
-export const MAX_SCALE = 1.5;
+export const MAX_SCALE = 1.9;
 
 /** Canvas height, here rather than in the model so the lazy placeholder can
  *  hold the same space without importing three.js to learn a number. */
-export const FIGURE_HEIGHT = 300;
+export const FIGURE_HEIGHT = 400;
 
 export type MuscleShape = {
   sets: number;

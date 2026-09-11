@@ -435,6 +435,14 @@ separately, which is one query over `workout_id = any(...)`. Parallelising them
 had not helped: on a pooled connection `prepare` is off, so every parameterised
 query holds its connection until it returns and the rest queue behind it.
 
+It is **eight** now. A second trim took out what another app already draws
+better — sleep, resting heart rate and weekly movement are Garmin Connect's
+own screens, recent sessions is Hevy's — and turned the quarterly strength
+chart into one number, and each section's query left the page with it. The
+watch series were deleted outright. `getStrengthByQuarter`,
+`getRecentSessions` and `getHeadline` stay in `queries.ts`, because db:gate
+diffs them against Alpha 1 and the advisor reads recent sessions.
+
 Collapsing the first one surfaced a tie nobody had noticed. A 140kg × 6 deadlift
 appears on 2026-07-13 and on 2022-12-17, identical e1RM, so "the best set" was
 decided by whichever row the plan reached first. Changing the query changed the
@@ -448,19 +456,48 @@ calls the *uncached* builder, because a smoke check answered from cache proves
 nothing about the database:
 
 ```
-sessions      468  (2021-10-05 → 2026-08-15)
+sessions      474  (2021-10-05 → 2026-09-07)
+cadence       Holding: 7 against 7, to 2026-09-07
 protein       175 g from 79.44 kg lean
-knee          median 39/wk, peak 114
-strength      Deadlift 168kg, Squat 96kg, Bench 113.3kg, OHP 72kg
+strength      455 kg, 96% of 474, 4× bodyweight
+watch         161 active min a week, 59 bpm, 6.6 h (30 days to 2026-09-01)
 ```
+
+### Windows end where the data does
+
+Hevy and the watch arrive once a week, when the sync runs on Monday
+mornings, so "the last 28 days" has three possible end points and two of them
+are wrong.
+
+- **Today** is wrong six days in seven. By Sunday the newest six days have
+  not arrived, so a window ending today holds three weeks of data and one of
+  nothing. An average survives that; a *total* over a fixed divisor does not.
+  The watch's active minutes were thirty days of minutes divided by thirty
+  days, and read up to a fifth low every week until Monday put them back.
+- **The last workout** is Alpha 1's anchor, and `since()` still uses it for
+  the training queries db:gate diffs. It cannot see a break: a month off
+  still reads "7 against 7", because the window simply ends at the last
+  session.
+- **The last synced day** is right. `getCadence` ends both windows on the
+  later of the last workout and the last day the watch sent — the watch
+  reports every day whether or not you lifted, and Hevy still covers a week
+  the watch failed. `getWatchSummary` ends on its own last day and divides by
+  the days actually present. The headline says the date in words, so the
+  comparison can be checked rather than trusted.
 
 ### The figure that turns
 
-"Where the sets go" draws a small figure with every muscle grown by how much
-it was trained, and turns it on a drag. It is a chart with one mark type — an
-ellipsoid per muscle on a neutral mannequin, sized by a number
-`lib/training/physique.ts` computed and tested — not an illustration someone
-has to trust. A sculpted anatomy mesh would look better and say less.
+"Where the sets go" draws a real body with every muscle grown and warmed by
+how much it was trained, and turns it on a drag. The body is one base mesh
+with the muscles painted onto it: each vertex is pushed out along its normal
+by its muscles' growth and tinted by their share of the sets. The sizes are
+still numbers `lib/training/physique.ts` computed and tested — the mesh
+changed what the figure looks like, not what it says.
+
+It began as ellipsoids on a mannequin of capsules. Same encoding, and it
+looked like a molecule model. The brief for the rebuild was the cortical
+homunculus: a recognisable person with the data's proportions, pushed far
+enough that nobody reads them as an accident.
 
 The decisions, in the order they matter:
 
@@ -470,8 +507,10 @@ The decisions, in the order they matter:
 - **Radius from the square root** of each muscle's share of the top muscle,
   treating sets as cross-sectional area. Linear left everything outside the
   top three looking absent; the cube root flattened the differences until the
-  figure said nothing. Bounded to half and one-and-a-half resting size, so a
-  never-trained muscle is drawn small rather than as a hole.
+  figure said nothing. Bounded to half and 1.9× resting size, so a
+  never-trained muscle is drawn small rather than as a hole — and the top
+  end is grotesque on purpose. At 1.5× the figure read as a plausible body,
+  and the eye forgives a plausible body its differences.
 - **Two windows, because the data demanded it.** Over twelve months biceps and
   triceps are ten sets and seven; over all time triceps is seven hundred. A
   twelve-month figure alone draws pencil arms on someone who knows they
@@ -482,10 +521,45 @@ The decisions, in the order they matter:
   and spreading them across every muscle would be inventing where the work
   went. They do not set the scale either, or a month of burpees would shrink
   every real muscle.
-- **No hue of its own.** Colour here belongs to metrics and this is not one,
-  so the figure is the page's own ink on its own card, read from the tokens at
-  runtime: trained muscles nearer full ink, the mannequin faint. Dark mode is
-  the same figure lit the other way round.
+- **Heat, not ink.** Skin stays grey and each muscle warms from a darker grey
+  through the energy amber to red by its share of the sets. It used to be the
+  page's own ink, on the rule that colour belongs to metrics; it was asked
+  for in colour, and the warm ramp is the heat map every gym app draws, so it
+  is the reading anyone reaches for. Every stop is a token read at runtime,
+  so dark mode is the same figure rather than a second palette.
+
+#### Painting muscles onto one skin
+
+`pnpm build:body-mesh <obj>` turns a base-mesh OBJ into
+`public/models/body.bin`, once. The output is committed and the OBJ is not.
+
+- **Regions are rules, not placed shapes.** `body-regions.ts` labels each
+  vertex from a band of the body plus the way its skin faces: the chest and
+  the upper back are the same height and the same distance from the midline,
+  and only the normal tells them apart. The arm is found by distance from its
+  centre line, which the script fits from the mesh — an A-pose arm hangs at an
+  angle no box follows, and typed coordinates fit one mesh and miss the next.
+- **The labels are blurred across the mesh.** A hard label per vertex paints
+  patches with cut edges, and a patch pushed outward lifts off the body in one
+  piece, like a plate. Fourteen passes of neighbour-averaging turn every seam
+  into a gradient, so a muscle swells from its middle and fades into the skin
+  around it — colour and shape at once. Eight was tried first and the quads
+  came out as padded shorts: the blur has to be wider than the bulge is tall.
+- **A bespoke binary rather than glTF.** Four arrays with one writer and one
+  reader, both in `body-mesh.ts`, positions at 16 bits. A glTF loader would be
+  a second three.js add-on to read the same four arrays out of a more general
+  container. The muscle numbers index `BODY_MUSCLES`, so the file stores the
+  count and refuses to load against a different list rather than painting
+  the wrong muscles in silence.
+
+The file passes through the proxy like a page does — only images are exempt —
+so it is served to a signed-in session and nobody else. It is also not in the
+service worker's precache, and that rests on a detail of Serwist worth
+knowing: `additionalPrecacheEntries` *replaces* its glob of `public/` rather
+than adding to it, so naming `/offline` there means nothing under `public/` is
+precached at all. Keep it that way. Precaching the mesh would put 573 KB on
+every install for one card, and a precache request made before sign-in would
+be redirected by the proxy and could store the login page under its name.
 
 It turns on the vertical axis only, with `touch-action: pan-y` so a vertical
 swipe still scrolls the page. It spins slowly when idle and not at all under
@@ -493,8 +567,7 @@ reduced motion, and renders only while something moves and it is on screen.
 three.js loads behind `next/dynamic`, so the other four screens never pay for
 it.
 
-Two windows means one more statement on a Body view — eighteen. It is a second
-call to `getMuscleBalance` rather than one wider query, because that function
+Two windows are two calls to `getMuscleBalance` rather than one wider query, because that function
 is one of those `db:gate` diffs against Alpha 1's own code, and changing its
 shape would take it out of the gate for a feature that does not need it.
 

@@ -1,10 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PhysiqueModel } from "./physique-lazy";
-import { describePhysique, muscleName, offFigure, physique, type MuscleSets } from "@/lib/training/physique";
+import {
+  describePhysique,
+  muscleName,
+  offFigure,
+  physique,
+  type MuscleSets,
+  type MuscleShape,
+} from "@/lib/training/physique";
+
+/** The figure's untrained grey, as CSS. */
+const COOL = "color-mix(in oklch, var(--card), var(--foreground) 34%)";
+
+/**
+ * The figure's heat ramp in CSS, so the list and the legend are drawn in the
+ * same colours as the muscles they name: grey, through amber at half the top
+ * muscle, to red. The figure mixes the same three tokens in three.js.
+ */
+function heat(share: number): string {
+  const pct = (n: number) => `${Math.round(Math.min(1, Math.max(0, n)) * 100)}%`;
+  return share <= 0.5
+    ? `color-mix(in oklch, var(--accent-energy) ${pct(share * 2)}, ${COOL})`
+    : `color-mix(in oklch, var(--destructive) ${pct((share - 0.5) * 2)}, var(--accent-energy))`;
+}
 
 type Span = "recent" | "all";
 
@@ -56,6 +77,16 @@ export function MusclesPanel({ recent, all }: { recent: MuscleSets[]; all: Muscl
 
       <PhysiqueModel shape={shape} label={label} />
 
+      {/* The key to the colour, now that the figure has one. */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-hidden>
+        <span>Fewer sets</span>
+        <span
+          className="h-2 flex-1 rounded-full"
+          style={{ background: `linear-gradient(to right, ${COOL}, var(--accent-energy), var(--destructive))` }}
+        />
+        <span>More</span>
+      </div>
+
       {/* It used to say these were "in the list", and the list stops at ten
           rows — cardio was eleventh, so the sentence was contradicted by the
           page it sat on. It now says only what is true everywhere. */}
@@ -67,17 +98,30 @@ export function MusclesPanel({ recent, all }: { recent: MuscleSets[]; all: Muscl
       )}
 
       <ul>
-        {rows.slice(0, 10).map((row) => (
-          <li key={row.muscle} className="border-b py-2 last:border-b-0">
-            <div className="flex items-baseline justify-between gap-4 text-sm">
-              <span className="capitalize">{muscleName(row.muscle)}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {row.sets} sets{row.pct !== undefined ? ` · ${row.pct}%` : ""}
-              </span>
-            </div>
-            <Progress value={(row.sets / max) * 100} className="mt-2 h-1.5" />
-          </li>
-        ))}
+        {rows.slice(0, 10).map((row) => {
+          // A body part takes its colour on the figure; a row that is not one
+          // (full body, cardio) has no colour there, so it gets none here.
+          const onFigure = (shape as Record<string, MuscleShape | undefined>)[row.muscle];
+          return (
+            <li key={row.muscle} className="border-b py-2 last:border-b-0">
+              <div className="flex items-baseline justify-between gap-4 text-sm">
+                <span className="capitalize">{muscleName(row.muscle)}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {row.sets} sets{row.pct !== undefined ? ` · ${row.pct}%` : ""}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(row.sets / max) * 100}%`,
+                    background: onFigure ? heat(onFigure.share) : "var(--muted-foreground)",
+                  }}
+                />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

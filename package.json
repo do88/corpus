@@ -18,6 +18,7 @@
     "sync:garmin": "bash scripts/sync-garmin.sh",
     "db:gate": "tsx --env-file=.env.local scripts/verify-port.mts",
     "design:contrast": "node scripts/contrast.mjs",
+    "build:body-mesh": "tsx scripts/build-body-mesh.mts",
     "test:recovery": "tsx --env-file=.env.local scripts/test-recovery.mts",
     "test": "vitest run",
     "check:dashboard": "tsx --env-file=.env.local scripts/check-dashboard.mts",

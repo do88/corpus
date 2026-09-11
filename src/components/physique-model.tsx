@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import {
+  BufferAttribute,
+  BufferGeometry,
   CanvasTexture,
-  CapsuleGeometry,
   Color,
   DirectionalLight,
   Group,
@@ -14,41 +15,39 @@ import {
   MeshStandardMaterial,
   PerspectiveCamera,
   PlaneGeometry,
-  Quaternion,
   SRGBColorSpace,
   Scene,
-  SphereGeometry,
-  Vector3,
   WebGLRenderer,
-  type BufferGeometry,
-  type Material,
 } from "three";
 import { BODY_MUSCLES, FIGURE_HEIGHT, type BodyMuscle, type Physique } from "@/lib/training/physique";
+import { BODY_MESH_URL, NO_MUSCLE, SLOTS, decodeBodyMesh, type BodyMesh } from "@/lib/training/body-mesh";
 
 /**
- * A figure that turns, with every muscle grown by how much it was trained.
+ * A figure that turns, with every muscle grown and warmed by how much it was
+ * trained.
  *
- * Built from primitives rather than loaded as a model: a neutral mannequin of
- * capsules, and on top of it one ellipsoid per muscle belly. Every muscle
- * obeys the same rule — an ellipsoid whose size is the number `physique.ts`
- * computed — so the figure is a chart with one mark type, not an illustration
- * someone has to trust. A sculpted anatomy mesh would look better and say
- * less: you cannot see a triceps shrink on a model whose triceps is a texture.
+ * A real body, not a mannequin of primitives. It is one continuous base mesh,
+ * and the muscles are painted onto it: `scripts/build-body-mesh.mts` decided
+ * once which muscles each vertex sits over and how much, and baked that into
+ * the file this loads. Here every vertex is pushed out along its own normal
+ * by its muscles' growth and tinted by their share of the sets — so a trained
+ * chest swells out of the torso rather than an ellipsoid being stuck on top of
+ * one, and the figure stays a chart with one encoding rather than becoming an
+ * illustration someone has to trust.
  *
- * Muscles thicken more than they lengthen. Each ellipsoid has a growth weight
- * per axis, so a trained biceps bulges forward instead of sliding down towards
- * the elbow, and trained lats widen the back into a V rather than stretching
- * the torso.
+ * It replaced ellipsoids on capsules, which said the same thing and looked
+ * like a molecule model. The cortical homunculus was the brief: a recognisable
+ * person with the proportions of the data, pushed far enough that nobody
+ * mistakes them for an accident.
  *
  * ## Colour
  *
- * No hue of its own. Every colour in this app belongs to a metric, and sets
- * per muscle is not one of them, so the figure is drawn in the page's own ink
- * and card: the mannequin faint, each muscle closer to full ink the more it was
- * trained. Contrast scales with training, which doubles the size encoding in a
- * way that also survives being read at 300 pixels on a phone. Both come from
- * the CSS tokens at runtime, so dark mode is the same figure lit the other way
- * round rather than a second palette to keep in step.
+ * Grey skin, and each muscle warmed from a darker grey through the energy
+ * amber to red by its share of the sets. The warm end is borrowed from the
+ * heat maps every gym app draws, which is the reading anyone will reach for,
+ * and the colour doubles the size encoding in a way that survives 300 pixels
+ * on a phone. Every stop is a CSS token read at runtime, so dark mode is the
+ * same figure rather than a second palette to keep in step.
  *
  * ## Movement
  *
@@ -62,66 +61,31 @@ import { BODY_MUSCLES, FIGURE_HEIGHT, type BodyMuscle, type Physique } from "@/l
  * figure below the fold on a tab in the background draws nothing.
  */
 
-type V3 = [number, number, number];
-
-type Part = {
-  muscle: BodyMuscle;
-  /** Right-hand side; `mirror` adds the left. z is towards the viewer. */
-  pos: V3;
-  /** Resting radii. */
-  radii: V3;
-  /** How much each axis grows with training, 0 to 1. */
-  grow: V3;
-  rot?: V3;
-  mirror?: boolean;
+/**
+ * How far each muscle pushes out at full growth, in the figure's units (1.8
+ * tall), per unit of scale above resting. Roughly its thickness in life: the
+ * big sheets of chest, quads and glutes can swell further than a forearm
+ * before they stop looking like the same body part.
+ */
+const BULGE: Record<BodyMuscle, number> = {
+  neck: 0.03,
+  traps: 0.045,
+  shoulders: 0.06,
+  chest: 0.06,
+  lats: 0.05,
+  upper_back: 0.04,
+  lower_back: 0.03,
+  abdominals: 0.035,
+  biceps: 0.045,
+  triceps: 0.045,
+  forearms: 0.03,
+  glutes: 0.055,
+  abductors: 0.035,
+  adductors: 0.04,
+  quadriceps: 0.06,
+  hamstrings: 0.05,
+  calves: 0.045,
 };
-
-const ARM = 0.142; // shoulder to elbow leans out this far from vertical
-const FOREARM = 0.077;
-
-// Placed by eye and then corrected by looking: the first pass put the pecs so
-// high and the deltoids so large that the two merged into one dark yoke across
-// the top of the figure, and untrained traps stood up beside the neck like
-// horns. A muscle has to read as itself at 300 pixels, or the size means
-// nothing.
-const PARTS: Part[] = [
-  { muscle: "neck", pos: [0, 0.665, 0.01], radii: [0.05, 0.045, 0.05], grow: [1, 0.3, 1] },
-  { muscle: "traps", pos: [0.095, 0.603, -0.025], radii: [0.068, 0.026, 0.045], grow: [0.6, 1, 0.8], rot: [0, 0, -0.32], mirror: true },
-  { muscle: "shoulders", pos: [0.222, 0.525, 0], radii: [0.055, 0.052, 0.055], grow: [1, 0.7, 1], mirror: true },
-  { muscle: "chest", pos: [0.068, 0.44, 0.088], radii: [0.068, 0.058, 0.045], grow: [0.6, 0.4, 1], mirror: true },
-  { muscle: "lats", pos: [0.13, 0.36, -0.05], radii: [0.05, 0.12, 0.06], grow: [1, 0.4, 0.8], rot: [0, 0, -0.2], mirror: true },
-  { muscle: "upper_back", pos: [0.07, 0.48, -0.085], radii: [0.07, 0.07, 0.04], grow: [0.6, 0.5, 1], mirror: true },
-  { muscle: "lower_back", pos: [0.04, 0.22, -0.08], radii: [0.035, 0.08, 0.035], grow: [0.7, 0.3, 1], mirror: true },
-  { muscle: "abdominals", pos: [0, 0.25, 0.085], radii: [0.07, 0.11, 0.035], grow: [0.5, 0.3, 1] },
-  { muscle: "biceps", pos: [0.24, 0.38, 0.035], radii: [0.038, 0.085, 0.038], grow: [1, 0.3, 1], rot: [0, 0, ARM], mirror: true },
-  { muscle: "triceps", pos: [0.245, 0.39, -0.035], radii: [0.04, 0.09, 0.04], grow: [1, 0.3, 1], rot: [0, 0, ARM], mirror: true },
-  { muscle: "forearms", pos: [0.27, 0.11, 0.012], radii: [0.036, 0.09, 0.036], grow: [1, 0.3, 1], rot: [0, 0, FOREARM], mirror: true },
-  { muscle: "glutes", pos: [0.075, 0.0, -0.075], radii: [0.075, 0.075, 0.06], grow: [0.8, 0.6, 1], mirror: true },
-  { muscle: "abductors", pos: [0.14, 0.0, 0], radii: [0.035, 0.06, 0.05], grow: [1, 0.4, 0.7], mirror: true },
-  { muscle: "adductors", pos: [0.045, -0.15, 0], radii: [0.035, 0.1, 0.045], grow: [1, 0.3, 0.8], mirror: true },
-  { muscle: "quadriceps", pos: [0.09, -0.21, 0.035], radii: [0.06, 0.15, 0.05], grow: [0.8, 0.25, 1], mirror: true },
-  { muscle: "hamstrings", pos: [0.09, -0.22, -0.035], radii: [0.055, 0.14, 0.048], grow: [0.8, 0.25, 1], mirror: true },
-  { muscle: "calves", pos: [0.098, -0.58, -0.03], radii: [0.042, 0.1, 0.045], grow: [1, 0.3, 1], mirror: true },
-];
-
-/** The mannequin: capsules between joints, right side, mirrored. */
-const BONES: { from: V3; to: V3; r: number; mirror?: boolean }[] = [
-  { from: [0, 0.62, 0], to: [0, 0.7, 0], r: 0.045 }, // neck
-  { from: [0.22, 0.52, 0], to: [0.26, 0.24, 0], r: 0.04, mirror: true }, // upper arm
-  { from: [0.26, 0.24, 0], to: [0.28, -0.02, 0], r: 0.034, mirror: true }, // forearm
-  { from: [0.085, -0.02, 0], to: [0.095, -0.44, 0], r: 0.06, mirror: true }, // thigh
-  { from: [0.095, -0.44, 0], to: [0.1, -0.84, 0], r: 0.045, mirror: true }, // shin
-];
-
-/** Round shapes in the mannequin: head, torso, pelvis, hands, feet. */
-const BLOBS: { pos: V3; radii: V3; mirror?: boolean }[] = [
-  { pos: [0, 0.8, 0], radii: [0.11, 0.12, 0.11] }, // head
-  { pos: [0, 0.42, 0], radii: [0.17, 0.2, 0.1] }, // ribcage
-  { pos: [0, 0.18, 0], radii: [0.14, 0.14, 0.09] }, // waist
-  { pos: [0, 0.02, 0], radii: [0.15, 0.09, 0.1] }, // pelvis
-  { pos: [0.285, -0.06, 0], radii: [0.035, 0.045, 0.03], mirror: true }, // hand
-  { pos: [0.1, -0.885, 0.03], radii: [0.037, 0.025, 0.075], mirror: true }, // foot
-];
 
 const AUTO_SPIN = 0.35; // rad/s
 const IDLE_BEFORE_SPIN = 2500; // ms after the last touch
@@ -178,12 +142,23 @@ type Api = {
   nudge: (radians: number) => void;
 };
 
+/** The loaded body, and the arrays rewritten each time its shape changes. */
+type Body = {
+  mesh: BodyMesh;
+  geometry: BufferGeometry;
+  position: Float32Array;
+  colour: Float32Array;
+  /** Normals of the mesh at rest: growth pushes along these, not the live ones. */
+  restNormal: Float32Array;
+};
+
 export function PhysiqueModel({ shape, label }: { shape: Physique; label: string }) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<Api | null>(null);
   const { resolvedTheme } = useTheme();
   // Decided once, on the client — this component never renders on a server.
   const [supported] = useState(hasWebGL);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const el = host.current;
@@ -207,70 +182,22 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
     camera.position.set(0, 0.05, 4.2);
     camera.lookAt(0, 0.01, 0);
 
-    scene.add(new HemisphereLight(0xffffff, 0x555555, 1.6));
-    const key = new DirectionalLight(0xffffff, 2.2);
+    scene.add(new HemisphereLight(0xffffff, 0x555555, 1.5));
+    const key = new DirectionalLight(0xffffff, 2.3);
     key.position.set(1.5, 2.5, 2.5);
     scene.add(key);
-    const rim = new DirectionalLight(0xffffff, 1.0);
+    const rim = new DirectionalLight(0xffffff, 1.1);
     rim.position.set(-2, 1.5, -2);
     scene.add(rim);
 
     const figure = new Group();
     scene.add(figure);
 
-    const geometries: BufferGeometry[] = [];
-    const materials: Material[] = [];
-    const sphere = new SphereGeometry(1, 28, 20);
-    geometries.push(sphere);
-
-    const skin = new MeshStandardMaterial({ roughness: 0.9, metalness: 0 });
-    materials.push(skin);
-
-    const sides = (mirror?: boolean) => (mirror ? [1, -1] : [1]);
-    const up = new Vector3(0, 1, 0);
-
-    for (const bone of BONES) {
-      for (const side of sides(bone.mirror)) {
-        const a = new Vector3(bone.from[0] * side, bone.from[1], bone.from[2]);
-        const b = new Vector3(bone.to[0] * side, bone.to[1], bone.to[2]);
-        const geometry = new CapsuleGeometry(bone.r, a.distanceTo(b), 6, 16);
-        geometries.push(geometry);
-        const mesh = new Mesh(geometry, skin);
-        mesh.position.copy(a).add(b).multiplyScalar(0.5);
-        mesh.quaternion.copy(new Quaternion().setFromUnitVectors(up, b.clone().sub(a).normalize()));
-        figure.add(mesh);
-      }
-    }
-    for (const blob of BLOBS) {
-      for (const side of sides(blob.mirror)) {
-        const mesh = new Mesh(sphere, skin);
-        mesh.position.set(blob.pos[0] * side, blob.pos[1], blob.pos[2]);
-        mesh.scale.set(...blob.radii);
-        figure.add(mesh);
-      }
-    }
-
-    const muscleMaterial = {} as Record<BodyMuscle, MeshStandardMaterial>;
-    for (const muscle of BODY_MUSCLES) {
-      muscleMaterial[muscle] = new MeshStandardMaterial({ roughness: 0.75, metalness: 0 });
-      materials.push(muscleMaterial[muscle]);
-    }
-    const muscleMeshes: { mesh: Mesh; part: Part }[] = [];
-    for (const part of PARTS) {
-      for (const side of sides(part.mirror)) {
-        const mesh = new Mesh(sphere, muscleMaterial[part.muscle]);
-        mesh.position.set(part.pos[0] * side, part.pos[1], part.pos[2]);
-        if (part.rot) mesh.rotation.set(part.rot[0], part.rot[1] * side, part.rot[2] * side);
-        figure.add(mesh);
-        muscleMeshes.push({ mesh, part });
-      }
-    }
+    const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 });
 
     const shadowTexture = contactShadow();
     const shadowMaterial = new MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, color: 0x000000 });
     const shadowGeometry = new PlaneGeometry(0.75, 0.32);
-    geometries.push(shadowGeometry);
-    materials.push(shadowMaterial);
     const shadow = new Mesh(shadowGeometry, shadowMaterial);
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = -0.91;
@@ -285,31 +212,77 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
       target[muscle] = { scale: 1, share: 0 };
     }
 
-    let palette = { card: tokenColour("--card"), ink: tokenColour("--foreground") };
+    const readPalette = () => ({
+      card: tokenColour("--card"),
+      ink: tokenColour("--foreground"),
+      warm: tokenColour("--accent-energy"),
+      hot: tokenColour("--destructive"),
+    });
+    let palette = readPalette();
 
-    const paint = () => {
-      skin.color.copy(palette.card).lerp(palette.ink, 0.2);
-      for (const muscle of BODY_MUSCLES) {
-        muscleMaterial[muscle].color.copy(palette.card).lerp(palette.ink, 0.38 + 0.52 * current[muscle].share);
+    // Per-muscle push and colour, worked out once per frame rather than once
+    // per vertex.
+    const M = BODY_MUSCLES.length;
+    const push = new Float32Array(M);
+    const tint = new Float32Array(M * 3);
+    const scratch = new Color();
+    const skin = new Color();
+
+    /** Darker grey at no sets, through amber at half the top muscle, to red. */
+    const heat = (share: number, out: Color) => {
+      if (share <= 0.5) return out.copy(palette.card).lerp(palette.ink, 0.34).lerp(palette.warm, share * 2);
+      return out.copy(palette.warm).lerp(palette.hot, (share - 0.5) * 2);
+    };
+
+    let body: Body | null = null;
+
+    const apply = () => {
+      if (!body) return;
+      const { mesh, geometry, position, colour, restNormal } = body;
+      for (let m = 0; m < M; m++) {
+        const muscle = BODY_MUSCLES[m];
+        push[m] = BULGE[muscle] * (current[muscle].scale - 1);
+        heat(current[muscle].share, scratch);
+        tint[m * 3] = scratch.r;
+        tint[m * 3 + 1] = scratch.g;
+        tint[m * 3 + 2] = scratch.b;
       }
+      skin.copy(palette.card).lerp(palette.ink, 0.16);
+
+      const rest = mesh.positions;
+      for (let v = 0; v < mesh.vertexCount; v++) {
+        let out = 0;
+        let covered = 0;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        for (let k = 0; k < SLOTS; k++) {
+          const m = mesh.muscles[v * SLOTS + k];
+          if (m === NO_MUSCLE) break;
+          const w = mesh.weights[v * SLOTS + k] / 255;
+          out += w * push[m];
+          covered += w;
+          r += w * tint[m * 3];
+          g += w * tint[m * 3 + 1];
+          b += w * tint[m * 3 + 2];
+        }
+        const bare = Math.max(0, 1 - covered);
+        const i = v * 3;
+        colour[i] = r + bare * skin.r;
+        colour[i + 1] = g + bare * skin.g;
+        colour[i + 2] = b + bare * skin.b;
+        position[i] = rest[i] + restNormal[i] * out;
+        position[i + 1] = rest[i + 1] + restNormal[i + 1] * out;
+        position[i + 2] = rest[i + 2] + restNormal[i + 2] * out;
+      }
+      geometry.getAttribute("position").needsUpdate = true;
+      geometry.getAttribute("color").needsUpdate = true;
+      geometry.computeVertexNormals();
+
       const hsl = { h: 0, s: 0, l: 0 };
       palette.card.getHSL(hsl);
       shadowMaterial.opacity = hsl.l < 0.5 ? 0.5 : 0.2;
     };
-
-    const size = () => {
-      for (const { mesh, part } of muscleMeshes) {
-        const s = current[part.muscle].scale;
-        mesh.scale.set(
-          part.radii[0] * (1 + (s - 1) * part.grow[0]),
-          part.radii[1] * (1 + (s - 1) * part.grow[1]),
-          part.radii[2] * (1 + (s - 1) * part.grow[2]),
-        );
-      }
-    };
-
-    size();
-    paint();
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let angle = 0.35; // a three-quarter view shows front and side at once
@@ -347,14 +320,15 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
         }
       }
 
-      if (!settled()) {
+      // Growth waits for the mesh: easing towards a shape nobody can see
+      // would have it arrive already grown.
+      if (body && !settled()) {
         const k = reducedMotion.matches ? 1 : 1 - Math.exp(-dt * 5);
         for (const m of BODY_MUSCLES) {
           current[m].scale += (target[m].scale - current[m].scale) * k;
           current[m].share += (target[m].share - current[m].share) * k;
         }
-        size();
-        paint();
+        apply();
         moving = true;
       }
 
@@ -370,6 +344,36 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
     const request = () => {
       if (!raf) raf = requestAnimationFrame(frame);
     };
+
+    // The mesh is fetched rather than bundled: 600 KB that only this card
+    // needs, cached by the browser like any other file after the first view.
+    let disposed = false;
+    fetch(BODY_MESH_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error(`${response.status} fetching the body mesh`);
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (disposed) return;
+        const mesh = decodeBodyMesh(buffer, BODY_MUSCLES.length);
+        const geometry = new BufferGeometry();
+        const position = new Float32Array(mesh.positions);
+        geometry.setAttribute("position", new BufferAttribute(position, 3));
+        geometry.setIndex(new BufferAttribute(mesh.indices, 1));
+        geometry.computeVertexNormals();
+        const restNormal = new Float32Array(geometry.getAttribute("normal").array);
+        const colour = new Float32Array(mesh.vertexCount * 3);
+        geometry.setAttribute("color", new BufferAttribute(colour, 3));
+        figure.add(new Mesh(geometry, material));
+        body = { mesh, geometry, position, colour, restNormal };
+        apply();
+        request();
+      })
+      .catch((error) => {
+        if (disposed) return;
+        console.warn("[physique] could not load the body mesh:", error);
+        setFailed(true);
+      });
 
     const resize = () => {
       const width = el.clientWidth || 1;
@@ -433,8 +437,8 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
         request();
       },
       recolour() {
-        palette = { card: tokenColour("--card"), ink: tokenColour("--foreground") };
-        paint();
+        palette = readPalette();
+        apply();
         request();
       },
       nudge(radians) {
@@ -446,6 +450,7 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
     };
 
     return () => {
+      disposed = true;
       api.current = null;
       cancelAnimationFrame(raf);
       resizer.disconnect();
@@ -456,8 +461,10 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
-      for (const geometry of geometries) geometry.dispose();
-      for (const material of materials) material.dispose();
+      body?.geometry.dispose();
+      material.dispose();
+      shadowGeometry.dispose();
+      shadowMaterial.dispose();
       shadowTexture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
@@ -472,10 +479,12 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
     api.current?.recolour();
   }, [resolvedTheme]);
 
-  if (!supported) {
+  if (!supported || failed) {
     return (
       <p className="rounded-2xl bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
-        This device cannot draw the 3D figure. The list below has the same numbers.
+        {failed
+          ? "The figure did not load. The list below has the same numbers."
+          : "This device cannot draw the 3D figure. The list below has the same numbers."}
       </p>
     );
   }
