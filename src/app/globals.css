@@ -669,3 +669,22 @@
   0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-3px); }
 }
+
+/* A saved food, just logged. The button takes a tinted ground that fades over
+   the time the confirmation is held, and the tick lands with a small overshoot
+   — enough for the eye to catch that this row, not another, is the one that
+   changed. No colour of its own: every hue here belongs to a metric, and a
+   green "done" would read as a figure. Reduced motion collapses both to their
+   end state and the label still holds, so the confirmation survives without
+   the movement. */
+@keyframes logged-ground {
+  0%   { background-color: color-mix(in oklab, var(--foreground) 12%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes logged-check {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.logged-confirm { animation: logged-ground 1.8s ease-out both; }
+.logged-check   { animation: logged-check 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, Bookmark, Pencil, Plus, Search } from "lucide-react";
+import { Archive, ArchiveRestore, Bookmark, Check, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,6 +114,25 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
     setFoods((current) => current.map((food) => (food.id === row.id ? row : food)));
   }
 
+  /*
+    The row that was just logged, held on screen for a moment.
+
+    "Logging…" only lasts as long as a write to the phone's own storage, which
+    is a few milliseconds, so a tap produced a flicker on the button and then
+    nothing — the meal was safely queued, but nothing on the row said so, and
+    the toast confirming it appears at the bottom of the screen, well away from
+    the thumb that asked. A confirmation has to outlast the glance that is
+    looking for it.
+
+    Not disabled while it shows: a second tap is a second shake, and that is a
+    real thing to log. The double-tap guard is the in-flight state above.
+  */
+  const [justLogged, setJustLogged] = useState<string | null>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+  }, []);
+
   async function log(food: SavedFoodRow) {
     setLogging(food.id);
     try {
@@ -135,6 +154,9 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
       // is not a lost meal and is not reported as one.
       void flushOutbox().catch(() => {});
       replace({ ...food, times_used: food.times_used + 1, last_used_at: loggedAt.toISOString() });
+      setJustLogged(food.id);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setJustLogged(null), 1800);
       toastDone(`Logged ${food.name} to today`, {
         label: "View today",
         onClick: () => router.push("/"),
@@ -268,8 +290,19 @@ export function SavedFoods({ initial }: { initial: SavedFoodRow[] }) {
                       onClick={() => log(food)}
                       disabled={logging !== null}
                       aria-label={`Log ${food.name}, ${food.kcal} kcal, to today`}
+                      // A width that holds "Logged", so the label changing
+                      // never reflows the figures beside it.
+                      className={`min-w-[5.75rem] ${justLogged === food.id ? "logged-confirm" : ""}`}
                     >
-                      <Plus className="size-4" /> {logging === food.id ? "Logging…" : "Log"}
+                      {justLogged === food.id ? (
+                        <>
+                          <Check className="logged-check size-4" /> Logged
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="size-4" /> {logging === food.id ? "Logging…" : "Log"}
+                        </>
+                      )}
                     </Button>
                   )}
                 </div>
