@@ -45,7 +45,7 @@ import { weekOf } from "@/lib/meals/repository";
  * `const` further down is still in its temporal dead zone, which is a runtime
  * ReferenceError in development and nowhere else.
  */
-const ARROW = "surface tappable grid h-14 w-10 shrink-0 place-items-center text-foreground";
+const ARROW = "surface tappable grid h-12 w-10 shrink-0 place-items-center text-foreground";
 
 export function DayPicker({
   day,
@@ -240,7 +240,7 @@ function DayDisc({
         background: "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
         color: "oklch(0.99 0 0)",
         boxShadow:
-          "0 4px 12px color-mix(in oklch, var(--ink-protein) 35%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
+          "0 4px 12px color-mix(in oklch, var(--ink-protein) 35%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.18)",
       }
     : over
       ? // Past the goal: the same red the calorie line turns, so the strip and
@@ -257,9 +257,15 @@ function DayDisc({
             }
           : {};
 
+  /*
+    `before:hidden` drops the card's specular edge. On a white card it reads
+    as light catching the top; over a tint or the selected blue it was a
+    near-opaque white stripe, which is a line, not a highlight. The selected
+    day keeps a faint inset edge of its own instead.
+  */
   return (
     <span
-      className="surface flex h-14 w-full flex-col items-center justify-center gap-0.5 transition-colors"
+      className="surface flex h-12 w-full flex-col items-center justify-center gap-0.5 transition-colors before:hidden"
       style={style}
     >
       {/* Two letters, not one: "T" and "S" each named two days of the week. */}
