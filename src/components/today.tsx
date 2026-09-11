@@ -5,9 +5,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CloudUpload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MacroLines } from "@/components/macro-lines";
-import { EnergyLedger } from "@/components/energy-ledger";
 import { WatchUpdate } from "@/components/watch-update";
-import type { DayEnergy, WatchDay } from "@/lib/garmin/repository";
+import type { WatchDay } from "@/lib/garmin/repository";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { localDay } from "@/lib/time";
@@ -43,7 +42,6 @@ export function Today({
   logged,
   earliest,
   targets,
-  energy,
   watch,
 }: {
   initialMeals: MealRow[];
@@ -54,8 +52,6 @@ export function Today({
   earliest: string | null;
   /** Computed server-side from the latest weigh-in — see lib/meals/targets.ts. */
   targets: DailyTargets;
-  /** What this day cost, against what a day usually costs. */
-  energy: DayEnergy;
   /** Recent days from the watch, for the while-you-were-away card. */
   watch: WatchDay[];
 }) {
@@ -362,9 +358,6 @@ export function Today({
         }}
       />
       <Totals totals={totals} queued={queued.length} targets={targets} />
-      {/* The same calories against a different denominator: the plan above,
-          what the body actually cost here. */}
-      <EnergyLedger energy={energy} eaten={totals.kcal} isToday={day === today} />
       <MealList
         meals={meals}
         queued={queued}

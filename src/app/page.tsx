@@ -5,7 +5,7 @@ import { clampDay, localDay, parseDay } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { earliestLoggedDay, kcalByDay, listMealsInRange, weekOf } from "@/lib/meals/repository";
 import { loadTargets } from "@/lib/meals/load-targets";
-import { dayEnergy, recentWatchDays } from "@/lib/garmin/repository";
+import { recentWatchDays } from "@/lib/garmin/repository";
 import { AppHeader } from "@/components/app-header";
 import { RestoreDestination } from "@/components/restore-destination";
 import { Today } from "@/components/today";
@@ -36,8 +36,8 @@ export default async function Home({
   const [meals, targets, watch] = await Promise.all([
     listMealsInRange(supabase, week[0], week[6]),
     loadTargets(supabase),
-    // The ledger and the watch card are both extras. A day with no watch
-    // behind it still logs meals, so a failure here must not take the page.
+    // The watch card is an extra. A day with no watch behind it still logs
+    // meals, so a failure here must not take the page.
     recentWatchDays(supabase).catch(() => []),
   ]);
 
@@ -92,7 +92,6 @@ export default async function Home({
         logged={kcalByDay(meals)}
         earliest={earliest}
         targets={targets}
-        energy={dayEnergy(day, today, watch)}
         watch={watch}
       />
     </Screen>
