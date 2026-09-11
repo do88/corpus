@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { longDate, longQuarter, shortDay, weekOf } from "./format";
+import { longDate } from "./format";
 import {
   REFERENCE,
   bmi,
@@ -12,19 +12,15 @@ import {
   judgeVisceralFat,
   weeksToTarget,
 } from "./metrics";
+import { strengthMeter } from "./strength";
+import { weightChange } from "./weight";
 import {
-  MAIN_LIFTS,
   getBodyReadings,
-  getHeadline,
+  getCadence,
   getLiftSummary,
   getMuscleBalance,
   getProfile,
-  getRecentSessions,
-  getRestingHrByMonth,
-  getStrengthByQuarter,
   getWatchSummary,
-  getWeeklyMovement,
-  getWeeklySleep,
   getWeightHistory,
 } from "../queries";
 
@@ -36,6 +32,12 @@ import {
  * Postgres is over a socket where SQLite was a file. The arithmetic below is
  * untouched, which is the point — `metrics.ts` and its 49 tests came across
  * unmodified, so the numbers on this dashboard are the same numbers.
+ *
+ * It asks only for what the page draws. The quarterly strength series, the
+ * recent-sessions list and the watch's weekly series all went with the
+ * sections that drew them, and so did the lifetime headline, which no
+ * section quoted any more. Their queries stay in `queries.ts`: several are
+ * in db:gate's diff against Alpha 1, and the advisor reads recent sessions.
  *
  * Exported uncached as well as wrapped, because `unstable_cache` throws
  * outside a Next request — it needs an incremental cache that only exists
@@ -52,36 +54,17 @@ const ALL_TIME_MONTHS = 1200;
 
 export async function buildDashboardData() {
   // Every query below is independent, so they all go at once. Awaited one at a
-  // time this took 1.9 s warm — fifteen sequential round trips to the database,
-  // which is a page that feels broken rather than slow. Nothing here reads
-  // another's result; the sequence was habit, not a dependency.
-  const [
-    profile,
-    readings,
-    headline,
-    lifts,
-    muscles,
-    musclesAll,
-    weightHistory,
-    strengthSeries,
-    recentSessions,
-    movement,
-    restingHr,
-    sleep,
-    watch,
-  ] = await Promise.all([
+  // time this took 1.9 s warm — sequential round trips to the database, which
+  // is a page that feels broken rather than slow. Nothing here reads another's
+  // result; the sequence was habit, not a dependency.
+  const [profile, readings, cadence, lifts, muscles, musclesAll, weightHistory, watch] = await Promise.all([
     getProfile(),
     getBodyReadings(),
-    getHeadline(),
+    getCadence(),
     getLiftSummary(),
     getMuscleBalance(12),
     getMuscleBalance(ALL_TIME_MONTHS),
     getWeightHistory(),
-    getStrengthByQuarter(),
-    getRecentSessions(6),
-    getWeeklyMovement(12),
-    getRestingHrByMonth(18),
-    getWeeklySleep(12),
     getWatchSummary(),
   ]);
 
@@ -94,15 +77,25 @@ export async function buildDashboardData() {
   const target = compositionTargets(latest.fat_free_mass_kg, latest.skeletal_muscle_kg);
   const round1 = (n: number) => Math.round(n * 10) / 10;
 
+  const weightSeries = weightHistory.map((w) => ({
+    date: w.date,
+    kg: w.weight_kg,
+    fullLabel: longDate(w.date),
+  }));
+
   return {
-    headline,
+    // Sessions against the four weeks before, both ending on the last synced
+    // day — see `getCadence` for why neither today nor the last workout.
+    cadence: {
+      ...cadence,
+      judged: judgeCadence(cadence.last_28, cadence.prev_28),
+    },
 
     body: {
       latest,
       leanIndex,
       bodyFat: judgeBodyFat(latest.body_fat_pct),
       visceralFat: judgeVisceralFat(latest.visceral_fat),
-      cadence: judgeCadence(headline.last_28, headline.prev_28),
       targets: {
         ...target,
         weeksToNear: weeksToTarget(latest.weight_kg, target.weightNear),
@@ -160,13 +153,10 @@ export async function buildDashboardData() {
       protein: proteinTarget(latest.fat_free_mass_kg),
     },
 
+    // The four lifts, and the one number they add up to.
     strength: {
       lifts,
-      series: strengthSeries.map((p) => ({
-        ...p,
-        fullLabel: longQuarter(String(p.period)),
-      })),
-      definitions: MAIN_LIFTS,
+      meter: strengthMeter(lifts, latest.weight_kg),
     },
 
     // Both windows, every row. The figure needs all of them — a muscle ranked
@@ -180,11 +170,8 @@ export async function buildDashboardData() {
     },
 
     weight: {
-      series: weightHistory.map((w) => ({
-        date: w.date,
-        kg: w.weight_kg,
-        fullLabel: longDate(w.date),
-      })),
+      series: weightSeries,
+      change: weightChange(weightSeries, 90),
       // Ideal weight falls out of holding lean mass — same arithmetic as the
       // composition targets, so the two panels can never disagree.
       targets: [
@@ -193,57 +180,29 @@ export async function buildDashboardData() {
       ],
     },
 
-    // Only `current` — the Body section quotes it in its note. The series,
+    // Only `current` — the Weight section quotes it in its note. The series,
     // thresholds and projected values fed a BMI chart that no section renders.
     bmi: { current: round1(bmi(latest.weight_kg, heightCm)) },
 
     /*
-      What the watch adds. Three series and a thirty-day summary, all
-      calendar-keyed rather than workout-keyed, because a week you did not
-      lift is still a week you moved, slept and had a pulse.
-
-      Sleep is hours and minutes awake, deliberately not Garmin's score. With
-      a baby in the house the score will read "poor" for the foreseeable, and
-      a red panel every morning about something outside your control is
-      noise; awake minutes coming back down over months is the number worth
-      watching.
+      What the watch adds: one thirty-day row, ending on the last day it
+      synced. Sleep is hours, deliberately not Garmin's score. With a baby in
+      the house the score will read "poor" for the foreseeable, and a red
+      number every morning about something outside your control is noise.
     */
     watch: {
       summary: watch,
-      movement: movement.map((w) => ({
-        week: shortDay(w.week_start),
-        minutes: w.who_minutes,
-        sessions: w.sessions,
-        fullLabel: weekOf(w.week_start),
-        detail: `${w.sessions} session${w.sessions === 1 ? "" : "s"} · ${w.moderate} moderate + ${w.vigorous} vigorous min · ${w.steps.toLocaleString("en-GB")} steps a day`,
-      })),
-      restingHr: restingHr.map((m) => ({
-        month: m.month,
-        bpm: m.rhr,
-        fullLabel: longQuarter(m.month).replace(/^Q\d /, "") || m.month,
-      })),
-      sleep: sleep.map((w) => ({
-        week: shortDay(w.week_start),
-        hours: w.hours,
-        awake: w.awake_min,
-        fullLabel: weekOf(w.week_start),
-        detail: `${w.awake_min} min awake · ${w.nights} nights`,
-      })),
     },
-
-    sessions: recentSessions,
   };
 }
 
 /**
  * Cached for an hour.
  *
- * The training tables are loaded by hand — `scripts/port-sqlite.mjs`, run once
- * against the hosted database — so these numbers change when someone
- * deliberately changes them, never while anyone is looking. Recomputing a
- * dozen multi-CTE queries per view to redraw figures that have not moved since
- * August is work for nothing, and on a pooled connection it is the slowest
- * thing either screen does.
+ * The training tables change once a week, when the Monday sync runs, never
+ * while anyone is looking. Recomputing a set of multi-CTE queries per view to
+ * redraw figures that have not moved since Monday is work for nothing, and on
+ * a pooled connection it is the slowest thing either screen does.
  *
  * Cached at the data layer rather than with route-segment `revalidate`, which
  * would prerender the page at build time — where there is no database to

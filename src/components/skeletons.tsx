@@ -80,10 +80,8 @@ export function TodaySkeleton() {
       <CardSkeleton className="mt-5 h-13 w-full" />
       <CardSkeleton className="mt-2 h-11 w-full" />
 
-      {/* The day's figures, then the ledger under them. The ledger was missing
-          here entirely, so the page grew a card's height as it loaded. */}
+      {/* The day's figures. */}
       <CardSkeleton className="mt-5 h-[210px] w-full" />
-      <CardSkeleton className="mt-5 h-[128px] w-full" />
 
       {/* A few meals on the spine. */}
       <div className="mt-3 space-y-3">
@@ -119,10 +117,12 @@ export function BodySkeleton() {
   return (
     <div aria-hidden>
       <HeaderSkeleton />
+      {/* The headline, the strength dial, weight, then the figure. */}
       <div className="mt-6 space-y-6">
-        <CardSkeleton className="h-36 w-full" />
         <CardSkeleton className="h-64 w-full" />
-        <CardSkeleton className="h-72 w-full" />
+        <CardSkeleton className="h-100 w-full" />
+        <CardSkeleton className="h-128 w-full" />
+        <CardSkeleton className="h-300 w-full" />
       </div>
     </div>
   );

@@ -8,21 +8,25 @@
  * the page sits behind auth.
  */
 import { buildDashboardData } from "@/lib/training/dashboard";
+import { getHeadline } from "@/lib/queries";
 
-const d = await buildDashboardData();
+// The lifetime totals are no longer on the page, but they are still the
+// quickest proof that the port landed, so the check asks for them itself.
+const [d, headline] = await Promise.all([buildDashboardData(), getHeadline()]);
+const w = d.watch.summary;
+const meter = d.strength.meter;
 
-console.log(`sessions      ${d.headline.total_workouts}  (${d.headline.first_date} → ${d.headline.last_date})`);
-console.log(`sets          ${d.headline.total_sets}`);
-console.log(`cadence       ${d.body.cadence.label}`);
+console.log(`sessions      ${headline.total_workouts}  (${headline.first_date} → ${headline.last_date})`);
+console.log(`sets          ${headline.total_sets}`);
+console.log(`cadence       ${d.cadence.judged.label}: ${d.cadence.last_28} against ${d.cadence.prev_28}, to ${d.cadence.through ?? "—"}`);
 console.log(`weight        ${d.body.latest.weight_kg} kg, ${d.body.latest.body_fat_pct}% bf, BMI ${d.bmi.current}`);
+console.log(`change        ${d.weight.change ? `${d.weight.change.kg} kg since ${d.weight.change.since}` : "—"}`);
 console.log(`protein       ${d.energy.protein.target} g from ${d.body.latest.fat_free_mass_kg} kg lean`);
-console.log(`strength      ${d.strength.lifts.map((l) => `${l.short} ${l.current ?? "—"}kg`).join(", ")}`);
+console.log(`strength      ${meter ? `${meter.total} kg, ${meter.pctOfBest}% of ${meter.best}, ${meter.timesBodyweight ?? "—"}× bodyweight` : "—"}`);
+console.log(`lifts         ${d.strength.lifts.map((l) => `${l.short} ${l.current ?? "—"}kg`).join(", ")}`);
 console.log(`muscles       ${d.muscles.recent.slice(0, 3).map((m) => `${m.muscle} ${m.pct}%`).join(", ")}`);
-console.log(`movement      ${d.watch.movement.length} weeks, latest ${d.watch.movement.at(-1)?.minutes ?? "—"} active min`);
-console.log(`sleep         ${d.watch.summary?.sleep_hours ?? "—"} h a night, ${d.watch.summary?.awake_min ?? "—"} min awake (30d)`);
-console.log(`resting hr    ${d.watch.summary?.rhr ?? "—"} bpm (30d), ${d.watch.restingHr.length} months`);
-console.log(`sessions list ${d.sessions.length} recent`);
+console.log(`watch         ${w?.who_minutes_week ?? "—"} active min a week, ${w?.rhr ?? "—"} bpm, ${w?.sleep_hours ?? "—"} h (${w?.days ?? 0} days to ${w?.through ?? "—"})`);
 
-const empty = d.headline.total_workouts === 0 || d.strength.series.length === 0;
+const empty = headline.total_workouts === 0 || d.strength.lifts.every((l) => l.peak === null);
 console.log(empty ? "\nEMPTY — is the data ported?" : "\ndashboard data looks real");
 process.exit(empty ? 1 : 0);

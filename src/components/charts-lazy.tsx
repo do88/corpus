@@ -38,6 +38,11 @@ export const TrendChart = dynamic(() => import("./charts").then((m) => m.TrendCh
   loading: () => <Placeholder height={180} />,
 });
 
+export const AreaTrend = dynamic(() => import("./charts").then((m) => m.AreaTrend), {
+  ssr: false,
+  loading: () => <Placeholder height={180} />,
+});
+
 export const BarsChart = dynamic(() => import("./charts").then((m) => m.BarsChart), {
   ssr: false,
   loading: () => <Placeholder height={160} />,

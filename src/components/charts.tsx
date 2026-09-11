@@ -1,6 +1,10 @@
 "use client";
 
+import { useId } from "react";
+import { format } from "date-fns";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -35,9 +39,10 @@ const AXIS = {
   tick: { fontSize: 10, fill: "currentColor", letterSpacing: "0.06em" },
 } as const;
 
-function ChartTooltip({ unit = "" }: { unit?: string }) {
+function ChartTooltip({ unit = "", label }: { unit?: string; label?: (value: unknown) => string }) {
   return (
     <Tooltip
+      labelFormatter={label ? (value) => label(value) : undefined}
       cursor={{ stroke: "currentColor", strokeOpacity: 0.25 }}
       contentStyle={{
         background: "var(--popover)",
@@ -108,6 +113,115 @@ export function TrendChart({
             />
           ))}
         </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/**
+ * One series as a filled area, in the metric's own hue.
+ *
+ * For the Weight section, where a bare grey line over five years read as a
+ * wire rather than a quantity. The fill fades out towards the axis so it adds
+ * weight without hiding the grid, and the newest point is drawn as a dot, so
+ * "where it is now" is a mark on the chart rather than wherever the line
+ * happens to stop.
+ *
+ * References take their own colour, because a target is not always the same
+ * kind of thing, and they stretch the range to include themselves. A target
+ * below every reading used to be discarded off the bottom of the chart, which
+ * is exactly the case where it is the most worth seeing.
+ */
+export function AreaTrend({
+  data,
+  x,
+  y,
+  label = "",
+  unit = "",
+  colour,
+  height = 180,
+  references = [],
+}: {
+  data: Record<string, unknown>[];
+  x: string;
+  y: string;
+  label?: string;
+  unit?: string;
+  colour: string;
+  height?: number;
+  references?: { value: number; label: string; colour?: string }[];
+}) {
+  // A gradient is referenced by id, and two charts on one page must not share
+  // one. `useId` output contains colons, which `url(#…)` does not accept.
+  const fill = `area-${useId().replaceAll(":", "")}`;
+  const last = data.length - 1;
+  // Dates go on a time axis, not a row of labels. As categories, two years
+  // between weigh-ins took the same width as a fortnight, so the slope of the
+  // line was a picture of how often you stood on the scale — and a month with
+  // several readings printed its name twice. Ticks say the month, "Jan 25";
+  // the tooltip says the day.
+  const TIME = "__time";
+  const timed = data.length > 0 && /^\d{4}-\d{2}-\d{2}/.test(String(data[0][x]));
+  const rows = timed ? data.map((row) => ({ ...row, [TIME]: Date.parse(String(row[x]).slice(0, 10)) })) : data;
+
+  return (
+    <div className="text-muted-foreground" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+          <defs>
+            <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" style={{ stopColor: colour, stopOpacity: 0.34 }} />
+              <stop offset="100%" style={{ stopColor: colour, stopOpacity: 0 }} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="var(--rule)" />
+          {timed ? (
+            <XAxis
+              dataKey={TIME}
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
+              {...AXIS}
+              minTickGap={24}
+              tickFormatter={(value: number) => format(value, "MMM yy")}
+            />
+          ) : (
+            <XAxis dataKey={x} {...AXIS} minTickGap={24} />
+          )}
+          <YAxis {...AXIS} width={44} domain={["auto", "auto"]} />
+          <ChartTooltip unit={unit} label={timed ? (value) => format(Number(value), "d MMM yyyy") : undefined} />
+          {references.map((r) => {
+            const stroke = r.colour ?? token("--ink-energy", "#a2670a");
+            return (
+              <ReferenceLine
+                key={r.label}
+                y={r.value}
+                ifOverflow="extendDomain"
+                stroke={stroke}
+                strokeDasharray="3 3"
+                label={{ value: r.label, position: "insideTopRight", fontSize: 10, fill: stroke }}
+              />
+            );
+          })}
+          <Area
+            type="monotone"
+            dataKey={y}
+            name={label}
+            stroke={colour}
+            strokeWidth={2.5}
+            fill={`url(#${fill})`}
+            connectNulls
+            isAnimationActive={false}
+            dot={(props: { cx?: number; cy?: number; index?: number }) =>
+              props.index === last && props.cx != null && props.cy != null ? (
+                <circle key="now" cx={props.cx} cy={props.cy} r={4.5} fill={colour} stroke="var(--card)" strokeWidth={2} />
+              ) : (
+                <g key={props.index} />
+              )
+            }
+            activeDot={{ r: 5, fill: colour, stroke: "var(--card)", strokeWidth: 2 }}
+          />
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
