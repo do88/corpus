@@ -43,6 +43,13 @@ import {
  * wants the real queries anyway: a smoke check answered from cache proves
  * nothing about the database.
  */
+/**
+ * "All time" for the muscle figure. A hundred years rather than a special
+ * case, so the query is the same query with a wider window — the log starts
+ * in 2021, and nothing about this app will outlive the constant.
+ */
+const ALL_TIME_MONTHS = 1200;
+
 export async function buildDashboardData() {
   // Every query below is independent, so they all go at once. Awaited one at a
   // time this took 1.9 s warm — fifteen sequential round trips to the database,
@@ -54,6 +61,7 @@ export async function buildDashboardData() {
     headline,
     lifts,
     muscles,
+    musclesAll,
     weightHistory,
     strengthSeries,
     recentSessions,
@@ -67,6 +75,7 @@ export async function buildDashboardData() {
     getHeadline(),
     getLiftSummary(),
     getMuscleBalance(12),
+    getMuscleBalance(ALL_TIME_MONTHS),
     getWeightHistory(),
     getStrengthByQuarter(),
     getRecentSessions(6),
@@ -160,9 +169,14 @@ export async function buildDashboardData() {
       definitions: MAIN_LIFTS,
     },
 
+    // Both windows, every row. The figure needs all of them — a muscle ranked
+    // eleventh still has a size — and the list does its own trimming. Two
+    // calls rather than one wider query because getMuscleBalance is one of
+    // the functions db:gate diffs against Alpha 1's own code, and changing its
+    // shape would take it out of the gate for a feature that does not need it.
     muscles: {
-      rows: muscles.slice(0, 10),
-      max: muscles[0]?.sets ?? 1,
+      recent: muscles,
+      all: musclesAll,
     },
 
     weight: {

@@ -17,7 +17,7 @@ console.log(`cadence       ${d.body.cadence.label}`);
 console.log(`weight        ${d.body.latest.weight_kg} kg, ${d.body.latest.body_fat_pct}% bf, BMI ${d.bmi.current}`);
 console.log(`protein       ${d.energy.protein.target} g from ${d.body.latest.fat_free_mass_kg} kg lean`);
 console.log(`strength      ${d.strength.lifts.map((l) => `${l.short} ${l.current ?? "—"}kg`).join(", ")}`);
-console.log(`muscles       ${d.muscles.rows.slice(0, 3).map((m) => `${m.muscle} ${m.pct}%`).join(", ")}`);
+console.log(`muscles       ${d.muscles.recent.slice(0, 3).map((m) => `${m.muscle} ${m.pct}%`).join(", ")}`);
 console.log(`movement      ${d.watch.movement.length} weeks, latest ${d.watch.movement.at(-1)?.minutes ?? "—"} active min`);
 console.log(`sleep         ${d.watch.summary?.sleep_hours ?? "—"} h a night, ${d.watch.summary?.awake_min ?? "—"} min awake (30d)`);
 console.log(`resting hr    ${d.watch.summary?.rhr ?? "—"} bpm (30d), ${d.watch.restingHr.length} months`);

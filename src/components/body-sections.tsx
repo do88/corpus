@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { BarsChart, TrendChart } from "./charts-lazy";
+import { MusclesPanel } from "./muscles-panel";
 import type { DashboardData } from "@/lib/training/dashboard";
 
 /**
@@ -196,20 +196,8 @@ function RestingHr({ data }: { data: DashboardData }) {
 function Muscles({ data }: { data: DashboardData }) {
   const { muscles } = data;
   return (
-    <Section title="Where the sets go" note="Last twelve months.">
-      <ul>
-        {muscles.rows.map((row) => (
-          <li key={row.muscle} className="border-b py-2 last:border-b-0">
-            <div className="flex items-baseline justify-between gap-4 text-sm">
-              <span className="capitalize">{row.muscle.replace("_", " ")}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {row.sets} sets · {row.pct}%
-              </span>
-            </div>
-            <Progress value={(row.sets / muscles.max) * 100} className="mt-2 h-1.5" />
-          </li>
-        ))}
-      </ul>
+    <Section title="Where the sets go" note="Each muscle drawn at the size of its sets.">
+      <MusclesPanel recent={muscles.recent} all={muscles.all} />
     </Section>
   );
 }

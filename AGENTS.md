@@ -454,6 +454,50 @@ knee          median 39/wk, peak 114
 strength      Deadlift 168kg, Squat 96kg, Bench 113.3kg, OHP 72kg
 ```
 
+### The figure that turns
+
+"Where the sets go" draws a small figure with every muscle grown by how much
+it was trained, and turns it on a drag. It is a chart with one mark type — an
+ellipsoid per muscle on a neutral mannequin, sized by a number
+`lib/training/physique.ts` computed and tested — not an illustration someone
+has to trust. A sculpted anatomy mesh would look better and say less.
+
+The decisions, in the order they matter:
+
+- **Sets, not tonnage.** A squat moves several times the weight of a curl, so
+  sizing by kilograms would draw a picture of which lifts are heavy rather than
+  where the work went.
+- **Radius from the square root** of each muscle's share of the top muscle,
+  treating sets as cross-sectional area. Linear left everything outside the
+  top three looking absent; the cube root flattened the differences until the
+  figure said nothing. Bounded to half and one-and-a-half resting size, so a
+  never-trained muscle is drawn small rather than as a hole.
+- **Two windows, because the data demanded it.** Over twelve months biceps and
+  triceps are ten sets and seven; over all time triceps is seven hundred. A
+  twelve-month figure alone draws pencil arms on someone who knows they
+  trained arms for years, and a picture that contradicts what you know reads as
+  broken. The switch is where the figure earns its place: it shows the
+  programme changing shape.
+- **`full_body`, `cardio` and `other` stay off it.** None is a place on a body,
+  and spreading them across every muscle would be inventing where the work
+  went. They do not set the scale either, or a month of burpees would shrink
+  every real muscle.
+- **No hue of its own.** Colour here belongs to metrics and this is not one,
+  so the figure is the page's own ink on its own card, read from the tokens at
+  runtime: trained muscles nearer full ink, the mannequin faint. Dark mode is
+  the same figure lit the other way round.
+
+It turns on the vertical axis only, with `touch-action: pan-y` so a vertical
+swipe still scrolls the page. It spins slowly when idle and not at all under
+reduced motion, and renders only while something moves and it is on screen.
+three.js loads behind `next/dynamic`, so the other four screens never pay for
+it.
+
+Two windows means one more statement on a Body view — eighteen. It is a second
+call to `getMuscleBalance` rather than one wider query, because that function
+is one of those `db:gate` diffs against Alpha 1's own code, and changing its
+shape would take it out of the gate for a feature that does not need it.
+
 **`DATABASE_URL` missing in production is React error #441.** The training page
 needs a direct Postgres connection, and `db.ts` used to fall back to the local
 Docker stack when the variable was unset — which on any deployed server means
