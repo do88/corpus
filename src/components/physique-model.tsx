@@ -351,6 +351,11 @@ export function PhysiqueModel({ shape, label }: { shape: Physique; label: string
     fetch(BODY_MESH_URL)
       .then((response) => {
         if (!response.ok) throw new Error(`${response.status} fetching the body mesh`);
+        // `ok` is not enough on its own. A redirect is followed silently and
+        // lands on whatever page answers 200 — the sign-in screen, when the
+        // proxy intercepted this file — and the decoder then fails with an
+        // error about vertex counts instead of the real cause.
+        if (response.redirected) throw new Error(`redirected to ${response.url} instead of the body mesh`);
         return response.arrayBuffer();
       })
       .then((buffer) => {

@@ -18,7 +18,14 @@
  * `BODY_MUSCLES` says so beside it.
  */
 
-export const BODY_MESH_URL = "/models/body.bin";
+// Versioned, and the version is not decoration. Until the proxy excluded
+// `.bin`, this file answered a request without a session by redirecting to
+// /login — and a service worker that precached it in that state would hold the
+// sign-in page under this name, keyed by a content hash that never changes
+// because the mesh itself never did. The query steps past any such copy; the
+// precache ignores only tracking parameters, so `?v=` is a different request.
+// Bump it whenever the mesh is rebuilt.
+export const BODY_MESH_URL = "/models/body.bin?v=2";
 
 /** Muscles recorded per vertex. A vertex on a seam can sit over three. */
 export const SLOTS = 3;

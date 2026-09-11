@@ -134,6 +134,12 @@ export const config = {
      * already public below, so it refreshes a session for a request whose whole
      * purpose is to create one.
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/meals/process|api/cron/|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // `bin` is the body mesh behind the Body page's figure. It was missing
+    // from this list, so the file went through the cookie check: signed out,
+    // it answered with a redirect to /login, and a fetch that follows a
+    // redirect lands on the sign-in page with a 200 — which the decoder then
+    // choked on as if it were geometry. It is public, generic geometry, and
+    // needs a session no more than a favicon does.
+    "/((?!_next/static|_next/image|favicon.ico|api/meals/process|api/cron/|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|bin)$).*)",
   ],
 };
