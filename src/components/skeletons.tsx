@@ -66,14 +66,13 @@ export function TodaySkeleton() {
     <div aria-hidden>
       <HeaderSkeleton />
 
-      {/* The week strip. */}
-      <div className="mt-6 flex items-end justify-between gap-2 px-1">
+      {/* The week strip: an arrow card, seven day cards, an arrow card. */}
+      <div className="mt-6 flex gap-1.5">
+        <CardSkeleton className="h-14 w-10 shrink-0" />
         {Array.from({ length: 7 }, (_, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-2">
-            <Line w="w-3" h="h-3" />
-            <Skeleton className="size-9 rounded-full" />
-          </div>
+          <CardSkeleton key={i} className="h-14 min-w-0 flex-1" />
         ))}
+        <CardSkeleton className="h-14 w-10 shrink-0" />
       </div>
 
       {/* The composer, first, as it is on the page: the field, the time, and

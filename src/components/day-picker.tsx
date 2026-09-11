@@ -24,10 +24,17 @@ import { weekOf } from "@/lib/meals/repository";
  * finished; backward stops at the first day ever logged, because behind that
  * there is nothing but empty weeks going back forever.
  *
- * A tint under a day means something is logged, and its colour says how the
+ * A tint on a day means something is logged, and its colour says how the
  * day went against the calorie goal: amber under it, red over it. Deliberately
  * not a number — the strip answers "which days went well", and the figure for
  * the selected day is right below it in full.
+ *
+ * Each day is a card, the same object as everything else on the screen, and
+ * the whole card is the button. It used to be a 32px disc with a letter
+ * floating above it: a small target in the middle of a larger, dead area,
+ * and a shape nothing else in the app used. The arrows are cards too, full
+ * height and in the foreground colour, because a grey chevron the size of a
+ * letter was easy to miss entirely.
  */
 /**
  * The chevrons either side of the strip.
@@ -38,7 +45,7 @@ import { weekOf } from "@/lib/meals/repository";
  * `const` further down is still in its temporal dead zone, which is a runtime
  * ReferenceError in development and nowhere else.
  */
-const ARROW = "tappable grid size-8 shrink-0 place-items-center rounded-full";
+const ARROW = "surface tappable grid h-14 w-10 shrink-0 place-items-center text-foreground";
 
 export function DayPicker({
   day,
@@ -86,34 +93,33 @@ export function DayPicker({
     // The chevrons flank the strip rather than sitting in a bar above it. The
     // separate nav row duplicated what the discs already say, and two rows of
     // date chrome above the day's actual figures is one row too many.
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-stretch gap-1.5">
       {/* Same rule as the forward arrow: a control with nowhere to go is not
           offered, rather than offered and refused. */}
       {atFloor ? (
         <span
           aria-disabled
           aria-label="Previous week"
-          className={`${ARROW} text-muted-foreground opacity-25`}
+          className={`${ARROW} opacity-35`}
         >
-          <ChevronLeft className="size-4" />
+          <ChevronLeft className="size-5" strokeWidth={2.25} />
         </span>
       ) : (
         <Link
           href={href(lastWeek, today)}
           aria-label="Previous week"
-          className={`${ARROW} text-muted-foreground`}
+          className={ARROW}
         >
           <ArrowIcon icon={ChevronLeft} onPending={onPending} />
         </Link>
       )}
 
       {/*
-        A day is a disc, not a cell — the shape iOS uses for dates, and it gives
-        the selected state somewhere solid to live. A logged day is filled in
-        its own tint; today is ringed rather than filled, so "where I am" and
-        "what I have done" never compete for the same visual.
+        Seven cards sharing the row equally. A logged day is filled in its own
+        tint; today is ringed rather than filled, so "where I am" and "what I
+        have done" never compete for the same visual.
       */}
-      <div className="grid min-w-0 flex-1 grid-cols-7 gap-1">
+      <div className="flex min-w-0 flex-1 gap-1.5">
         {week.map((date) => {
           const selected = date === day;
           const outOfRange = date > today || date < floor;
@@ -132,14 +138,16 @@ export function DayPicker({
             />
           );
 
-          const shared = "tappable flex flex-col items-center gap-1 py-0.5";
+          // The link is the card's full size, so the hit area is the whole
+          // card rather than a disc somewhere inside it.
+          const shared = "tappable flex min-w-0 flex-1";
 
           // A day you cannot go to is not a link. Rendering it as one and
           // refusing the click would still offer it to a keyboard and a
           // screen reader as somewhere to go.
           if (outOfRange) {
             return (
-              <span key={date} aria-disabled className={`${shared} opacity-25`} aria-label={longDate(date)}>
+              <span key={date} aria-disabled className={`${shared} opacity-35`} aria-label={longDate(date)}>
                 {label}
               </span>
             );
@@ -170,14 +178,14 @@ export function DayPicker({
         rule the future day discs follow.
       */}
       {week[6] >= today ? (
-        <span aria-disabled aria-label="Next week" className={`${ARROW} text-muted-foreground opacity-25`}>
-          <ChevronRight className="size-4" />
+        <span aria-disabled aria-label="Next week" className={`${ARROW} opacity-35`}>
+          <ChevronRight className="size-5" strokeWidth={2.25} />
         </span>
       ) : (
         <Link
           href={href(nextWeek, today)}
           aria-label="Next week"
-          className={`${ARROW} text-muted-foreground`}
+          className={ARROW}
         >
           <ArrowIcon icon={ChevronRight} onPending={onPending} />
         </Link>
@@ -187,7 +195,7 @@ export function DayPicker({
 }
 
 /**
- * One day of the strip: the weekday letter and the numbered disc.
+ * One day of the strip: a card holding the weekday and the date.
  *
  * Reads the link's own status, which is the only honest signal there is for
  * a search-param navigation. While the tap is in flight the disc takes the
@@ -218,56 +226,62 @@ function DayDisc({
   useReportPending(pending, onPending);
 
   const lit = selected || pending;
-  return (
-    <>
-      <span className="text-[0.8125rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        {format(parseDay(date), "EEEEE")}
-      </span>
 
+  /*
+    Tints go *over* the card's own gradient rather than replacing it, so a
+    logged day is still a lit surface with colour in it rather than a flat
+    swatch; the ring for today goes over the card's shadow for the same
+    reason.
+  */
+  const surface = "var(--surface-gradient)";
+  const tint = (colour: string) => `linear-gradient(${colour}, ${colour}), ${surface}`;
+  const style: React.CSSProperties = lit
+    ? {
+        background: "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
+        color: "oklch(0.99 0 0)",
+        boxShadow:
+          "0 4px 12px color-mix(in oklch, var(--ink-protein) 35%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
+      }
+    : over
+      ? // Past the goal: the same red the calorie line turns, so the strip and
+        // the card agree about what a bad day looks like. The tint carries the
+        // colour and the figure stays in the foreground ink, because red on a
+        // red tint measured 3.6:1 and the floor for type is 4.5.
+        { background: tint("color-mix(in oklch, var(--destructive) 20%, transparent)") }
+      : hasLog
+        ? { background: tint("color-mix(in oklch, var(--accent-energy) 24%, transparent)") }
+        : isToday
+          ? {
+              boxShadow:
+                "inset 0 0 0 1.5px color-mix(in oklch, var(--ink-protein) 55%, transparent), var(--shadow-card)",
+            }
+          : {};
+
+  return (
+    <span
+      className="surface flex h-14 w-full flex-col items-center justify-center gap-0.5 transition-colors"
+      style={style}
+    >
+      {/* Two letters, not one: "T" and "S" each named two days of the week. */}
       <span
-        className="grid size-8 place-items-center rounded-full text-[1rem] font-semibold tabular-nums transition-colors sm:size-9"
-        style={
-          lit
-            ? {
-                background:
-                  "linear-gradient(to bottom, var(--accent-protein), var(--ink-protein))",
-                color: "oklch(0.99 0 0)",
-                boxShadow:
-                  "0 2px 6px color-mix(in oklch, var(--ink-protein) 40%, transparent), inset 0 1px 0 oklch(1 0 0 / 0.28)",
-              }
-            : over
-              ? // Past the goal: the same red the calorie card turns, so the
-                // strip and the card agree about what a bad day looks like.
-                // The tint carries the colour; the figure stays in the
-                // foreground ink, because red-on-a-red-tint over the page
-                // ground measured 3.6:1 and the floor for type is 4.5.
-                { background: "color-mix(in oklch, var(--destructive) 22%, transparent)" }
-              : hasLog
-                ? // Under it: the calorie colour, since that is the number the
-                  // tint is reporting on. It used to be the protein blue, which
-                  // said only "something was logged". Same rule on the ink.
-                  { background: "color-mix(in oklch, var(--accent-energy) 26%, transparent)" }
-                : isToday
-                ? { boxShadow: "inset 0 0 0 1.5px var(--rule)" }
-                : undefined
-        }
+        className="text-[0.8125rem] font-medium leading-none tracking-[0.02em]"
+        style={{ color: lit ? "oklch(0.99 0 0 / 0.85)" : "var(--muted-foreground)" }}
       >
-        {/*
-          A spinner in the disc, not the tab's sweep. The sweep scales the
-          whole disc across its width, and on a circle that reads as a coin
-          flipping — a 3D trick nobody asked for on a date. The number gives
-          way to a ring, which is what "loading" looks like everywhere else in
-          the app. No hold-back: the disc already lights the moment it is
-          pressed, so a prefetched day that lands in a few frames shows a ring
-          for those frames on a disc that had changed anyway.
-        */}
+        {format(parseDay(date), "EEEEEE")}
+      </span>
+      {/*
+        A spinner where the number was while the day loads. The card already
+        lights the moment it is pressed, so the thing you tapped is the thing
+        that answers.
+      */}
+      <span className="text-[1.0625rem] font-semibold leading-none tabular-nums">
         {pending && !selected ? (
           <Loader2 className="size-4 animate-spin" aria-hidden />
         ) : (
           Number(date.slice(8))
         )}
       </span>
-    </>
+    </span>
   );
 }
 
@@ -281,7 +295,11 @@ function ArrowIcon({
 }) {
   const { pending } = useLinkStatus();
   useReportPending(pending, onPending);
-  return pending ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />;
+  return pending ? (
+    <Loader2 className="size-5 animate-spin" />
+  ) : (
+    <Icon className="size-5" strokeWidth={2.25} />
+  );
 }
 
 /**
