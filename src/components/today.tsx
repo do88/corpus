@@ -26,6 +26,7 @@ import { retryStalePending } from "@/lib/meals/retry";
 import { MealLogger } from "./meal-logger";
 import { MealEntry } from "./meal-entry";
 import { DayPicker } from "./day-picker";
+import { timelineOrder } from "@/lib/meal/timeline";
 
 /**
  * The day's log: what has been sent, and what is still queued on the phone.
@@ -465,7 +466,10 @@ function MealList({
     );
   }
 
-  const ordered = [...meals].reverse();
+  // Sorted by time, not reversed from arrival order: an edited time leaves the
+  // row where it was in the array, and reversing that is how a 07:30 shake
+  // stayed at the top of the day. See lib/meal/timeline.ts.
+  const ordered = timelineOrder(meals);
 
   /*
     The spine takes the colour of the day it spans: warm at the morning end,
